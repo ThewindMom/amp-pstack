@@ -7,11 +7,13 @@ const nodeModulesDirectory = join(scriptsDirectory, "node_modules");
 const commanderPackagePath = join(
   nodeModulesDirectory,
   "commander",
-  "package.json"
+  "package.json",
 );
+const bunTypesPath = join(nodeModulesDirectory, "bun-types", "package.json");
+const typescriptPath = join(nodeModulesDirectory, "typescript", "package.json");
 const installKeyPath = join(
   nodeModulesDirectory,
-  ".poteto-mode-tools-install-key"
+  ".poteto-mode-tools-install-key",
 );
 
 function currentInstallKey(): string {
@@ -22,34 +24,48 @@ function currentInstallKey(): string {
     .digest("hex");
 }
 
-export function ensureDependenciesInstalled(): void {
-  const installKey = currentInstallKey();
-  if (
+function toolsInstalled(installKey: string): boolean {
+  return (
     existsSync(commanderPackagePath) &&
+    existsSync(bunTypesPath) &&
+    existsSync(typescriptPath) &&
     existsSync(installKeyPath) &&
     readFileSync(installKeyPath, "utf8").trim() === installKey
-  ) {
-    return;
-  }
+  );
+}
+
+export function installToolsIfNeeded(): boolean {
+  const installKey = currentInstallKey();
+  if (toolsInstalled(installKey)) return false;
 
   const result = Bun.spawnSync(
     [process.execPath, "install", "--frozen-lockfile"],
-    { cwd: scriptsDirectory }
+    { cwd: scriptsDirectory },
   );
   if (result.exitCode !== 0) {
     process.stdout.write(result.stdout);
     process.stderr.write(result.stderr);
     throw new Error(
-      `bun install --frozen-lockfile exited with status ${result.exitCode}`
+      `bun install --frozen-lockfile exited with status ${result.exitCode}`,
     );
   }
   if (!existsSync(commanderPackagePath)) {
     throw new Error(
-      "bun install --frozen-lockfile completed without installing commander"
+      "bun install --frozen-lockfile completed without installing commander",
+    );
+  }
+  if (!existsSync(bunTypesPath) || !existsSync(typescriptPath)) {
+    throw new Error(
+      "bun install --frozen-lockfile completed without installing bun-types and typescript",
     );
   }
 
   writeFileSync(installKeyPath, `${installKey}\n`);
+  return true;
+}
+
+export function ensureDependenciesInstalled(): void {
+  if (!installToolsIfNeeded()) return;
 
   const restarted = Bun.spawnSync([process.execPath, ...process.argv.slice(1)], {
     cwd: process.cwd(),

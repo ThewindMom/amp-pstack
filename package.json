@@ -6,8 +6,9 @@
 	"repository": "github:ThewindMom/amp-pstack",
 	"type": "module",
 	"scripts": {
-		"test": "bun test",
-		"test:tools": "bun test skills/poteto-mode/scripts/orch skills/poteto-mode/scripts/watch-pr skills/poteto-mode/scripts/worktree-audit.test.ts",
-		"typecheck:tools": "bunx tsc --project skills/poteto-mode/scripts/watch-pr/tsconfig.json --noEmit --strict"
+		"postinstall": "bun install --frozen-lockfile --cwd skills/poteto-mode/scripts",
+		"test": "bun skills/poteto-mode/scripts/with-tools.ts test",
+		"test:tools": "bun skills/poteto-mode/scripts/with-tools.ts test skills/poteto-mode/scripts/orch skills/poteto-mode/scripts/watch-pr skills/poteto-mode/scripts/worktree-audit.test.ts",
+		"typecheck:tools": "bun skills/poteto-mode/scripts/typecheck.ts"
 	}
 }

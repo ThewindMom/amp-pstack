@@ -76,11 +76,15 @@ See the [Amp guide](./docs/guide/README.md) for the ten-chapter tutorial: setup,
 
 ```bash
 bun install
-bun test
+bun run test
 bun run test:tools
 bun run typecheck:tools
 amp plugins exec . session.start --data '{"thread":{"id":"T-00000000-0000-0000-0000-000000000000"}}'
 ```
+
+`bun install` also installs the Graphite and PR-watcher tools under `skills/poteto-mode/scripts`. `bun test`, `bun run test:tools`, and `bun run typecheck:tools` install that package if it is missing, so a fresh clone does not depend on a hidden `node_modules`. Tool typecheck uses that package's `typescript` and `bun-types`, not a global `tsc`.
+
+`amp plugins list` shows the `setup-models` command, the seven pstack tools, and the `poteto` mode. It does not print the plugin description string. Model setup from a thread uses `pstack:setup-pstack` or `pstack_configure_models`; the palette command is not a CLI subcommand.
 
 ## Attribution
 

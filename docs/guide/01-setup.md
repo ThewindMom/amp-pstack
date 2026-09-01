@@ -19,7 +19,7 @@ mkdir -p .amp/plugins
 git clone https://github.com/ThewindMom/amp-pstack.git .amp/plugins/pstack
 ```
 
-Confirm it loaded with `amp plugins list`. Update with `git -C ~/.config/amp/plugins/pstack pull --ff-only`, or the workspace equivalent.
+Confirm it loaded with `amp plugins list`. That listing shows the `setup-models` command, the pstack tools, and the `poteto` mode. It does not print the plugin description. Update with `git -C ~/.config/amp/plugins/pstack pull --ff-only`, or the workspace equivalent.
 
 ## Pick your models
 
