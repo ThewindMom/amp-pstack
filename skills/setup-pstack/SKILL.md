@@ -7,7 +7,7 @@ builtin-tools:
 
 # Setup pstack
 
-Read and update pstack's global Amp plugin configuration through `pstack_configure_models`. Skills name roles and panels; the plugin resolves their configured models at each invocation, so changes apply immediately.
+Read and update pstack's role map through `pstack_configure_models`, plus optional JSON files. Skills name roles and panels. The plugin process resolves models at each invocation, so changes apply to the next spawn.
 
 ## Steps
 
@@ -29,7 +29,16 @@ Every provider/model ID must be in the detected set. Built-in aliases always pas
 
 ### 5. Update Amp configuration
 
-Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. The tool stores those overrides only and fills unspecified roles from plugin defaults. For a named profile without the command palette, call `action: "profile"` with `balanced`, `builtin`, or `reset`. Unknown actions fail instead of showing the map. The supported defaults are:
+Resolution order, later wins:
+
+1. Plugin defaults (`balanced`: Fable and Opus on judgment and panels).
+2. User file `~/.config/amp/pstack.models.json`.
+3. Amp user config from `pstack_configure_models` `set` or `profile`.
+4. Workspace file `.amp/pstack.models.json`.
+
+Copy `.amp/pstack.models.example.json` to `.amp/pstack.models.json` in a repo, or to the user path, to avoid Fable and Opus. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. The plugin process reads those files from the Amp workspace root and the user path, then creates delegates with the resolved map. Orb children do not need a copy of the JSON.
+
+Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
 ```json
 {

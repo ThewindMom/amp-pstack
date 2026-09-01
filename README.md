@@ -52,6 +52,8 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`.
 
+To skip Fable and Opus, copy [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) to `.amp/pstack.models.json` in the repo, or to `~/.config/amp/pstack.models.json`. Later wins: plugin defaults, user JSON, Amp user config from `set`/`profile`, then the workspace file. A committed workspace file is the project policy and beats leftover palette config. Reset clears only Amp user config. Repo and user JSON stay. The plugin process reads the files and creates delegates with the resolved map, so orb children inherit it.
+
 ## Orbs, modes, and sizes
 
 The plugin agent API can choose local or orb execution and a model or built-in Amp mode. It cannot set an orb size. `pstack:poteto-mode` maps work to `a1.tiny` through `a1.xxlarge` and tells the parent to use native `create_thread` when that size differs from the project default. A user-named size always wins.

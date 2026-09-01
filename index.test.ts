@@ -1,7 +1,12 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, expect, test } from 'bun:test'
 
 import pstack, {
 	AGENT_INSTRUCTIONS,
+	CHEAP_MODELS,
 	COMMENT_REVIEWER_EXCLUDED_TOOLS,
 	CONFIG_KEY,
 	DEFAULT_MODELS,
@@ -13,14 +18,20 @@ import pstack, {
 	claimWebhookEvent,
 	description,
 	executorFrom,
+	fileModelMap,
 	formatMessage,
+	loadFileLayers,
 	mergeModels,
 	planWebhookDelivery,
+	profileModels,
+	readJsonFile,
+	resolveModels,
 	resolveRole,
 	storedModelMap,
 	validateModel,
 	validateOverrides,
 	webhookEventMarker,
+	workspaceRootPath,
 } from './index'
 
 describe('amp-pstack plugin', () => {
@@ -175,6 +186,99 @@ describe('model configuration', () => {
 		expect(executorFrom('orb')).toBe('orb')
 		expect(() => executorFrom('cloud')).toThrow('executor must be local or orb')
 	})
+
+	test('cheap profile has no Fable or Opus', () => {
+		const cheap = profileModels('cheap')
+		expect(cheap.judgment).toBe('xai/grok-4.6')
+		expect(JSON.stringify(cheap)).not.toContain('claude-fable')
+		expect(JSON.stringify(cheap)).not.toContain('claude-opus')
+		expect(profileModels('balanced').judgment).toBe(DEFAULT_MODELS.judgment)
+		expect(() => profileModels('deluxe')).toThrow('profile must be balanced, cheap, builtin, or reset')
+	})
+
+	test('workspace json accepts a models wrapper or a bare role map', () => {
+		expect(fileModelMap({ models: { 'bug-fix': 'xai/grok-4.6' } })).toEqual({
+			'bug-fix': 'xai/grok-4.6',
+		})
+		expect(fileModelMap({ 'bug-fix': 'xai/grok-4.6' })).toEqual({ 'bug-fix': 'xai/grok-4.6' })
+		expect(fileModelMap({ models: { mystery: 'xai/grok-4.6' } })).toEqual({})
+	})
+
+	test('workspace json profile expands then overlays models', () => {
+		expect(fileModelMap({ profile: 'cheap' }).judgment).toBe('xai/grok-4.6')
+		expect(
+			fileModelMap({
+				profile: 'cheap',
+				models: { judgment: 'openai/gpt-5.6-sol' },
+			}).judgment,
+		).toBe('openai/gpt-5.6-sol')
+		expect(Object.keys(CHEAP_MODELS).sort()).toEqual(Object.keys(DEFAULT_MODELS).sort())
+	})
+
+	test('resolveModels applies defaults, user file, stored overrides, then workspace file', () => {
+		expect(
+			resolveModels({
+				userFile: { profile: 'cheap' },
+				stored: { hillclimb: 'builtin:high', judgment: 'anthropic/claude-fable-5' },
+				workspaceFile: { 'bug-fix': 'xai/grok-4.6' },
+			}),
+		).toMatchObject({
+			judgment: 'anthropic/claude-fable-5',
+			'bug-fix': 'xai/grok-4.6',
+			hillclimb: 'builtin:high',
+			'feature-refactoring': 'xai/grok-4.6',
+		})
+		expect(
+			resolveModels({
+				stored: { judgment: 'anthropic/claude-fable-5' },
+				workspaceFile: { profile: 'cheap' },
+			}).judgment,
+		).toBe('xai/grok-4.6')
+	})
+
+	test('example json is a cheap profile without Fable or Opus', async () => {
+		const example = JSON.parse(await Bun.file('.amp/pstack.models.example.json').text())
+		const mapped = fileModelMap(example)
+		expect(mapped.judgment).toBe('xai/grok-4.6')
+		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
+		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
+	})
+
+	test('readJsonFile returns undefined for missing or invalid files', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-json-'))
+		try {
+			expect(await readJsonFile(join(root, 'missing.json'))).toBeUndefined()
+			await writeFile(join(root, 'bad.json'), '{')
+			expect(await readJsonFile(join(root, 'bad.json'))).toBeUndefined()
+			await writeFile(join(root, 'ok.json'), '{"bug-fix":"xai/grok-4.6"}')
+			expect(await readJsonFile(join(root, 'ok.json'))).toEqual({ 'bug-fix': 'xai/grok-4.6' })
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('loadFileLayers reads workspace json from the Amp workspace root', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-workspace-'))
+		try {
+			await mkdir(join(root, '.amp'))
+			await writeFile(
+				join(root, '.amp', 'pstack.models.json'),
+				JSON.stringify({ profile: 'cheap' }),
+			)
+			const layers = await loadFileLayers(root, join(root, 'user.json'))
+			expect(fileModelMap(layers.workspaceFile).judgment).toBe('xai/grok-4.6')
+			expect((await loadFileLayers(null, join(root, 'user.json'))).workspaceFile).toBeUndefined()
+			expect(workspaceRootPath({ system: { workspaceRoot: null } } as never)).toBeNull()
+			expect(
+				workspaceRootPath({
+					system: { workspaceRoot: 'file:///tmp/project' },
+					helpers: { filePathFromURI: (uri: string) => uri.replace('file://', '') },
+				} as never),
+			).toBe('/tmp/project')
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
 })
 
 describe('webhook event claiming', () => {
@@ -271,11 +375,15 @@ describe('runtime tool behavior', () => {
 				return { url: 'https://example.test/hook' }
 			},
 			logger: { log() {} },
+			system: { workspaceRoot: null },
+			helpers: { filePathFromURI: (uri: string) => uri },
 		} as never & {
 			tools: Map<string, { execute: Function }>
 			created: Array<Record<string, unknown>>
 			config: Record<string, unknown>
 			webhookHandler?: (event: unknown, ctx: unknown) => Promise<void>
+			system: { workspaceRoot: string | null }
+			helpers: { filePathFromURI: (uri: string) => string }
 		}
 		await pstack(amp)
 		return amp
@@ -334,10 +442,32 @@ describe('runtime tool behavior', () => {
 		)
 		const profiled = await tool(amp, 'pstack_configure_models').execute({
 			action: 'profile',
-			profile: 'builtin',
+			profile: 'cheap',
 		})
-		expect(JSON.parse(profiled)['bug-fix']).toBe('builtin:medium')
+		expect(JSON.parse(profiled).judgment).toBe('xai/grok-4.6')
+		expect(JSON.parse(profiled)['arena-cross-judge']).toEqual(['openai/gpt-5.6-sol'])
 		await tool(amp, 'pstack_configure_models').execute({ action: 'reset' })
+	})
+
+	test('configure show lets workspace json beat stored Amp config', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-show-'))
+		try {
+			await mkdir(join(root, '.amp'))
+			await writeFile(
+				join(root, '.amp', 'pstack.models.json'),
+				JSON.stringify({ profile: 'cheap', models: { hillclimb: 'builtin:low' } }),
+			)
+			const amp = await loadPlugin()
+			amp.config[CONFIG_KEY] = { judgment: 'anthropic/claude-fable-5' }
+			amp.system.workspaceRoot = root
+			amp.helpers.filePathFromURI = () => root
+			const shown = JSON.parse(await tool(amp, 'pstack_configure_models').execute({ action: 'show' }))
+			expect(shown.judgment).toBe('xai/grok-4.6')
+			expect(shown.hillclimb).toBe('builtin:low')
+			expect(JSON.stringify(shown)).not.toContain('claude-fable')
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
 	})
 
 	test('webhook handler appends first, then records the event id', async () => {

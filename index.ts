@@ -1,5 +1,8 @@
 // @amp-agent-mode {"key":"poteto","label":"poteto"}
 
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+
 import type {
 	Agent,
 	BuiltinAgentMode,
@@ -106,6 +109,34 @@ export const ROLE_ALIASES = {
 	feature: 'feature-refactoring',
 	refactoring: 'feature-refactoring',
 } as const
+
+export const CHEAP_MODELS = {
+	'feature-refactoring': 'xai/grok-4.6',
+	'bug-fix': 'openai/gpt-5.6-sol',
+	'perf-issue': 'openai/gpt-5.6-sol',
+	hillclimb: 'openai/gpt-5.6-sol',
+	judgment: 'xai/grok-4.6',
+	'hardest-tasks': 'openai/gpt-5.6-sol',
+	'how-explorer': 'xai/grok-4.6',
+	'how-explainer': 'xai/grok-4.6',
+	'why-investigator': 'xai/grok-4.6',
+	'why-synthesizer': 'xai/grok-4.6',
+	'reflect-tooling': 'openai/gpt-5.6-sol',
+	'reflect-judgment': 'xai/grok-4.6',
+	'swarm-worker': 'xai/grok-4.6',
+	'comment-reviewer': 'xai/grok-4.6',
+	'how-critics': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
+	'arena-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
+	'arena-cross-judge': ['openai/gpt-5.6-sol'],
+	'architect-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
+	'interrogate-reviewers': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
+} as const
+
+export const MODEL_PROFILES = ['balanced', 'cheap', 'builtin', 'reset'] as const
+export type ModelProfileName = (typeof MODEL_PROFILES)[number]
+
+export const WORKSPACE_MODEL_FILE = '.amp/pstack.models.json'
+export const USER_MODEL_FILE = join(homedir(), '.config', 'amp', 'pstack.models.json')
 
 export const CONFIG_KEY = 'pstack.models'
 export const WEBHOOK_EVENT_IDS_KEY = 'pstack.webhookEventIds'
@@ -221,6 +252,83 @@ export function mergeModels(stored: unknown): ModelMap {
 	return { ...DEFAULT_MODELS, ...storedModelMap(stored) }
 }
 
+export function builtinProfile(): ModelMap {
+	return Object.fromEntries(
+		Object.keys(DEFAULT_MODELS).map((role) => [
+			role,
+			Array.isArray(DEFAULT_MODELS[role as keyof typeof DEFAULT_MODELS])
+				? ['builtin:high', 'builtin:medium', 'builtin:low']
+				: 'builtin:medium',
+		]),
+	)
+}
+
+export function namedProfile(profile: string): ModelMap | undefined {
+	if (profile === 'cheap') return { ...CHEAP_MODELS }
+	if (profile === 'builtin') return builtinProfile()
+	if (profile === 'balanced' || profile === 'reset') return { ...DEFAULT_MODELS }
+	return undefined
+}
+
+export function profileModels(profile: string): ModelMap {
+	const named = namedProfile(profile)
+	if (!named) throw new Error('profile must be balanced, cheap, builtin, or reset.')
+	return named
+}
+
+export async function readJsonFile(path: string): Promise<unknown> {
+	try {
+		const file = Bun.file(path)
+		if (!(await file.exists())) return undefined
+		return JSON.parse(await file.text())
+	} catch {
+		return undefined
+	}
+}
+
+export function fileModelMap(value: unknown): ModelMap {
+	if (!isRecord(value)) return {}
+	const fromProfile = typeof value.profile === 'string' ? (namedProfile(value.profile) ?? {}) : {}
+	const extras = isRecord(value.models)
+		? value.models
+		: Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'profile' && key !== 'models'))
+	return { ...fromProfile, ...storedModelMap(extras) }
+}
+
+export function resolveModels(input: {
+	userFile?: unknown
+	workspaceFile?: unknown
+	stored?: unknown
+}): ModelMap {
+	return {
+		...DEFAULT_MODELS,
+		...fileModelMap(input.userFile),
+		...storedModelMap(input.stored),
+		...fileModelMap(input.workspaceFile),
+	}
+}
+
+export function workspaceRootPath(amp: PluginAPI): string | null {
+	const root = amp.system?.workspaceRoot
+	if (!root) return null
+	return amp.helpers.filePathFromURI(root)
+}
+
+export async function loadFileLayers(
+	workspaceRoot: string | null,
+	userFile = USER_MODEL_FILE,
+): Promise<{
+	userFile: unknown
+	workspaceFile: unknown
+}> {
+	return {
+		userFile: await readJsonFile(userFile),
+		workspaceFile: workspaceRoot
+			? await readJsonFile(join(workspaceRoot, WORKSPACE_MODEL_FILE))
+			: undefined,
+	}
+}
+
 export function text(value: unknown, name: string): string {
 	if (typeof value !== 'string' || !value.trim()) throw new Error(`Missing ${name}.`)
 	return value.trim()
@@ -320,7 +428,11 @@ export default async function pstack(amp: PluginAPI) {
 
 	const configuredModels = async (): Promise<ModelMap> => {
 		const configuration = await amp.configuration.get()
-		return mergeModels(configuration[CONFIG_KEY])
+		const files = await loadFileLayers(workspaceRootPath(amp))
+		return resolveModels({
+			...files,
+			stored: configuration[CONFIG_KEY],
+		})
 	}
 
 	const storedOverrides = async (): Promise<ModelMap> => {
@@ -541,7 +653,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Configure pstack models',
 		transcriptGroup: { active: 'Configuring pstack', complete: 'Configured pstack' },
 		description:
-			'Show, update, reset, or apply a named profile to the global pstack role map. set stores only the supplied role overrides. profile applies balanced, builtin, or reset without the command palette. Unknown actions fail.',
+			'Show, update, reset, or apply a named profile to the pstack role map. Later wins: plugin defaults, user ~/.config/amp/pstack.models.json, Amp user config from set/profile, then workspace .amp/pstack.models.json. cheap avoids Fable and Opus. Unknown actions fail.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -549,7 +661,7 @@ export default async function pstack(amp: PluginAPI) {
 				overrides: { type: 'object' },
 				profile: {
 					type: 'string',
-					enum: ['balanced', 'builtin', 'reset'],
+					enum: ['balanced', 'cheap', 'builtin', 'reset'],
 					description: 'Named profile for action profile.',
 				},
 			},
@@ -559,32 +671,21 @@ export default async function pstack(amp: PluginAPI) {
 			const action = text(input.action, 'action')
 			if (action === 'reset') {
 				await amp.configuration.delete(CONFIG_KEY, 'global')
-				return JSON.stringify(DEFAULT_MODELS, null, 2)
+				return JSON.stringify(await configuredModels(), null, 2)
 			}
 			if (action === 'profile') {
 				const profile = text(input.profile, 'profile')
-				if (profile === 'reset' || profile === 'balanced') {
+				if (profile === 'reset') {
 					await amp.configuration.delete(CONFIG_KEY, 'global')
-					return JSON.stringify(DEFAULT_MODELS, null, 2)
+				} else {
+					await amp.configuration.update({ [CONFIG_KEY]: profileModels(profile) }, 'global')
 				}
-				if (profile === 'builtin') {
-					const builtins = Object.fromEntries(
-						Object.keys(DEFAULT_MODELS).map((role) => [
-							role,
-							Array.isArray(DEFAULT_MODELS[role as keyof typeof DEFAULT_MODELS])
-								? ['builtin:high', 'builtin:medium', 'builtin:low']
-								: 'builtin:medium',
-						]),
-					)
-					await amp.configuration.update({ [CONFIG_KEY]: builtins }, 'global')
-					return JSON.stringify(mergeModels(builtins), null, 2)
-				}
-				throw new Error('profile must be balanced, builtin, or reset.')
+				return JSON.stringify(await configuredModels(), null, 2)
 			}
 			if (action === 'set') {
 				const next = { ...(await storedOverrides()), ...validateOverrides(input.overrides) }
 				await amp.configuration.update({ [CONFIG_KEY]: next }, 'global')
-				return JSON.stringify(mergeModels(next), null, 2)
+				return JSON.stringify(await configuredModels(), null, 2)
 			}
 			if (action === 'show') {
 				return JSON.stringify(await configuredModels(), null, 2)
@@ -660,23 +761,22 @@ export default async function pstack(amp: PluginAPI) {
 		async (ctx) => {
 			const profile = await ctx.ui.select({
 				title: 'Choose a pstack model profile',
-				options: ['Balanced multi-model defaults', 'Built-in Amp modes', 'Reset overrides'],
+				options: [
+					'Balanced multi-model defaults',
+					'Cheap, no Fable or Opus',
+					'Built-in Amp modes',
+					'Reset overrides',
+				],
 			})
 			if (!profile) return
 			if (profile === 'Reset overrides') {
 				await amp.configuration.delete(CONFIG_KEY, 'global')
 			} else if (profile === 'Built-in Amp modes') {
-				const builtins = Object.fromEntries(
-					Object.keys(DEFAULT_MODELS).map((role) => [
-						role,
-						Array.isArray(DEFAULT_MODELS[role as keyof typeof DEFAULT_MODELS])
-							? ['builtin:high', 'builtin:medium', 'builtin:low']
-							: 'builtin:medium',
-					]),
-				)
-				await amp.configuration.update({ [CONFIG_KEY]: builtins }, 'global')
+				await amp.configuration.update({ [CONFIG_KEY]: builtinProfile() }, 'global')
+			} else if (profile === 'Cheap, no Fable or Opus') {
+				await amp.configuration.update({ [CONFIG_KEY]: { ...CHEAP_MODELS } }, 'global')
 			} else {
-				await amp.configuration.delete(CONFIG_KEY, 'global')
+				await amp.configuration.update({ [CONFIG_KEY]: { ...DEFAULT_MODELS } }, 'global')
 			}
 			await ctx.ui.notify(`pstack profile set to ${profile}.`)
 		},
