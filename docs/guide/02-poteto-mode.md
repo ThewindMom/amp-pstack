@@ -52,7 +52,7 @@ The plugin exposes three levels:
 2. `pstack_run_panel` runs the same brief across a configured model panel.
 3. `pstack_start_agent` creates a durable child thread that reports to its parent.
 
-Use local execution for the current checkout. Use an orb for isolated work from the project's remote base. If the job needs a specific orb size or a plugin/custom agent mode, ask the parent Amp agent to use native `create_thread`; the plugin API cannot set `orb_size`.
+Use local execution for the current checkout. Use an orb for isolated work from the project's remote base. Orb size comes from the table in `pstack:poteto-mode`: tiny or small for read-only fan-out, the project default for ordinary features, large for browsers and heavy tests. The plugin API cannot set `orb_size`, so those rows spawn with native `create_thread`.
 
 Never let two writing agents share a worktree. Give each one a branch or worktree. An orb cannot see uncommitted local files.
 

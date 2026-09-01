@@ -54,7 +54,7 @@ Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`,
 
 ## Orbs, modes, and sizes
 
-The plugin agent API can choose local or orb execution and a model or built-in Amp mode. It cannot set an orb size. When size matters, the parent Amp agent should use its native `create_thread` tool with `orb_size` and the requested `agent_mode`, then give the child the same pstack brief. This is the one orchestration setting that cannot be hidden behind a deterministic plugin tool today.
+The plugin agent API can choose local or orb execution and a model or built-in Amp mode. It cannot set an orb size. `pstack:poteto-mode` maps work to `a1.tiny` through `a1.xxlarge` and tells the parent to use native `create_thread` when that size differs from the project default. A user-named size always wins.
 
 Orb children start from the project's remote base and do not see local uncommitted changes. Use local execution when the current checkout matters. Do not push work only to make it visible to an orb unless the user authorized that push.
 

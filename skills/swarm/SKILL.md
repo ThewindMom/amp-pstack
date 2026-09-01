@@ -32,6 +32,8 @@ Open an explicit checklist with one entry per phase before launching anything.
 
 Launch all workers concurrently with `pstack_run_agent`, role `swarm-worker`. Use local execution when they need the current checkout or uncommitted state. Use orb execution only for independent work from the project's remote base. For long-running work that should report later, use `pstack_start_agent` and provide the parent thread ID.
 
+Orb size follows the **poteto-mode** Agents and threads table. Coverage slices that only read and report use `create_thread` with `a1.tiny` or `a1.small`. Live visual lanes, browsers, or CPU-heavy tests use `a1.large`. Plugin `executor: "orb"` is enough when the project default already matches. A user-named size always wins.
+
 Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence.
 
 If a worker drops out, proceed with N-1 and note it. If an orb needs a non-default branch, include that branch in the brief and ensure it exists remotely before spawning; do not push merely to enable delegation without user authorization.

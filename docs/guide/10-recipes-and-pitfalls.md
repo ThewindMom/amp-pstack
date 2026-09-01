@@ -61,6 +61,6 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 
 ## What did not port exactly
 
-- A plugin-created orb cannot select `orb_size`; native Amp thread creation can.
+- A plugin-created orb cannot select `orb_size`. Native `create_thread` can. Follow the size table in `pstack:poteto-mode`.
 - Editor-specific UI and proprietary automation editors have no direct Amp equivalent. Skills, Amp modes, threads, schedules, and webhooks replace them.
 - Prompt resources in `agents/` are documentation. Runtime delegates are created by [`index.ts`](../../index.ts). Comment Sicko runs as role `comment-reviewer` with write tools excluded.

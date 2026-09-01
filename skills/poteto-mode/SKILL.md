@@ -91,6 +91,22 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 Use `pstack_run_agent` for a focused one-shot delegate, `pstack_run_panel` for the same brief across a configured multi-model panel, and `pstack_start_agent` for durable background work. Use local execution when the delegate needs this checkout. Use orb execution for independent remote work from the project base. Orb delegates do not inherit uncommitted local files, so push or transfer required context only when authorized and necessary.
 
+Plugin agent tools take `executor: local | orb` only. They cannot set orb size. When size or a plugin/custom `agent_mode` matters, spawn with Amp's native `create_thread` (`executor: "orb"`, `orb_size`, optional `agent_mode` and `project`) and give the child the same pstack brief. Do not invent a size on `pstack_run_agent`.
+
+Pick size from this table unless the user named one. The user-named size always wins. Changing a project default does not resize a running orb.
+
+| Work | Size | How to spawn |
+|---|---|---|
+| Read-only fan-out: how explorers, how-critics, why investigators, interrogate reviewers, comment-reviewer | `a1.tiny` | `create_thread` |
+| Small scripts, focused edits, light checks, recall/reflect miners | `a1.small` | `create_thread`, or plugin orb if the project default is already small |
+| Ordinary feature, bug, refactor, or hillclimb on a single-package repo | project default (`a1.small` or `a1.medium`) | `pstack_run_agent` / `pstack_start_agent` with `executor: "orb"` |
+| Moderate builds, local services, test suites | `a1.medium` | `create_thread` when the default is smaller |
+| Monorepos, several services, browsers, CPU-heavy tests, live visual lanes | `a1.large` | `create_thread` |
+| Unusually large builds and wide parallel workloads | `a1.xxlarge` | `create_thread` |
+| User named a size or mode | that size or mode | `create_thread` only |
+
+Start small when unsure. A later thread can be larger. Never resize in place.
+
 Model selection is role-based and configurable through the **setup-pstack** skill. Precisely specified code defaults to `openai/gpt-5.6-sol`, mechanical work to `xai/grok-4.6`, and prose or judgment to `anthropic/claude-fable-5`. Panels add `anthropic/claude-opus-5` for model-family diversity. Feature and refactoring share role `feature-refactoring`; the aliases `feature` and `refactoring` resolve to it. A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate: the plugin extends that Amp mode and keeps the pstack instructions.
 
 For background work, include the parent thread ID and require the child to call `pstack_send_to_thread` with a compact report. For work that must wake later, explicitly use an Amp schedule. For an outside system that must wake an orb thread, use `pstack_create_wake_webhook` and treat its URL as a credential.

@@ -34,6 +34,8 @@ The N candidates will receive the same prompt, so the prompt is the contract. Ge
 
 Call `pstack_run_panel` once with panel `arena-runners` and a complete shared brief. Each agent receives a unique role label. Tell candidates to return the artifact in their response or write only to a path derived from that unique label. For custom runners, launch `pstack_run_agent` calls concurrently.
 
+When candidates must run in orbs, size them from the **poteto-mode** Agents and threads table. Design sketches and cross-judges are `a1.tiny` or `a1.small` via `create_thread` unless the project default is already that small. Implementation bakeoffs that build or drive the app follow the feature/bug row. Plugin panels cannot set `orb_size`.
+
 The rationale is mandatory. Without it, the parent cannot tell whether a candidate's structure is principled or accidental, which makes Phase E grafting unreliable. Each rationale names the alternatives the candidate considered and what it rejected.
 
 If a candidate fails to produce output, proceed with N-1 and note the dropout in the synthesis record.
