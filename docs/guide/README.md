@@ -5,11 +5,11 @@
 Install the plugin and restart Amp:
 
 ```bash
-amp plugins add https://github.com/ThewindMom/amp-pstack --auto-update
+git clone https://github.com/ThewindMom/amp-pstack.git ~/.config/amp/plugins/pstack
 amp plugins list
 ```
 
-Use `--target workspace` for a project-only install. Select the `poteto` mode or load `pstack:poteto-mode`. Run `pstack:setup-pstack` when you want to change model roles.
+For a project-only install, clone the repository to `.amp/plugins/pstack` instead. Amp's URL installer does not install directory plugins. Select the `poteto` mode or load `pstack:poteto-mode`. Run `pstack:setup-pstack` when you want to change model roles.
 
 ## Prompting
 

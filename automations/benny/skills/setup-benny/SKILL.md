@@ -16,7 +16,8 @@ Confirm the target Amp project, repository, default branch, and source Slack cha
 Install amp-pstack in the target workspace if it is not already available:
 
 ```bash
-amp plugins add https://github.com/ThewindMom/amp-pstack --target workspace
+mkdir -p .amp/plugins
+git clone https://github.com/ThewindMom/amp-pstack.git .amp/plugins/pstack
 ```
 
 Verify `pstack:how`, `pstack:why`, `pstack:tdd`, `pstack:unslop`, and the referenced principle skills load in a fresh target-project thread.

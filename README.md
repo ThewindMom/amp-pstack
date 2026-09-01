@@ -7,16 +7,17 @@ An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tr
 Install from GitHub for your Amp user:
 
 ```bash
-amp plugins add https://github.com/ThewindMom/amp-pstack --auto-update
+git clone https://github.com/ThewindMom/amp-pstack.git ~/.config/amp/plugins/pstack
 ```
 
 Install only in the current workspace:
 
 ```bash
-amp plugins add https://github.com/ThewindMom/amp-pstack --target workspace
+mkdir -p .amp/plugins
+git clone https://github.com/ThewindMom/amp-pstack.git .amp/plugins/pstack
 ```
 
-Restart the Amp client after installation. Confirm the plugin loaded with `amp plugins list`.
+Amp's URL installer is for single-file plugins; pstack is a directory plugin because it bundles skills and resources. Restart Amp after cloning, then confirm it loaded with `amp plugins list`. Update it with `git -C ~/.config/amp/plugins/pstack pull --ff-only`, or use the equivalent workspace path.
 
 ## Start
 
