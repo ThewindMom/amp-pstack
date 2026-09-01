@@ -36,7 +36,7 @@ Resolution order, later wins:
 3. Amp user config from `pstack_configure_models` `set` or `profile`.
 4. Workspace file `.amp/pstack.models.json`.
 
-Copy `.amp/pstack.models.example.json` to `.amp/pstack.models.json` in a repo, or to the user path, to avoid Fable and Opus. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. The plugin process reads those files from the Amp workspace root and the user path, then creates delegates with the resolved map. Orb children do not need a copy of the JSON.
+Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json`, or to `.amp/pstack.models.json` in a repo. The example is cheap plus `builtin:high` on the old Fable roles. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. The plugin process reads those files from the Amp workspace root and the user path, then creates delegates with the resolved map. Orb children do not need a copy of the JSON.
 
 Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 

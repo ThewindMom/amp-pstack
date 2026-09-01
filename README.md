@@ -50,9 +50,31 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | Judgment and synthesis | `anthropic/claude-fable-5` |
 | Panels | Fable 5, GPT-5.6 Sol, Grok 4.6, Opus 5 |
 
-Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`.
+Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. `builtin:high` is GPT-5.6 Sol at x-high. `builtin:ultra` is Fable. Grok 4.6 has no Amp thinking dial; xAI defaults it to high.
 
-To skip Fable and Opus, copy [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) to `.amp/pstack.models.json` in the repo, or to `~/.config/amp/pstack.models.json`. Later wins: plugin defaults, user JSON, Amp user config from `set`/`profile`, then the workspace file. A committed workspace file is the project policy and beats leftover palette config. Reset clears only Amp user config. Repo and user JSON stay. The plugin process reads the files and creates delegates with the resolved map, so orb children inherit it.
+To skip Fable and Opus, copy [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) to `~/.config/amp/pstack.models.json` for yourself, or to `.amp/pstack.models.json` in a repo. `.amp/pstack.models.json` is gitignored. The example is the file you copy, not a file you commit as the live map.
+
+The example is cheap plus Amp high on the old Fable roles:
+
+```json
+{
+  "profile": "cheap",
+  "models": {
+    "judgment": "builtin:high",
+    "hardest-tasks": "builtin:high",
+    "how-explainer": "builtin:high",
+    "why-synthesizer": "builtin:high",
+    "reflect-judgment": "builtin:high",
+    "comment-reviewer": "builtin:high"
+  }
+}
+```
+
+Cheap puts Grok on mechanical work and Sol on specified code. Panels become two models, Grok then Sol. The overlays move judgment onto Sol at x-high. `{ "profile": "cheap" }` alone is valid and cheaper, but parks prose on Grok.
+
+Later wins: plugin defaults, user JSON, Amp user config from `set`/`profile`, then the workspace file. A committed workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. Repo and user JSON stay. The plugin process reads the files and creates delegates with the resolved map, so orb children inherit it.
+
+A panel value is a JSON array. List length is how many agents `pstack_run_panel` runs. Cheap already uses two. Add a third ID only if you want a third seat.
 
 ## Orbs, modes, and sizes
 

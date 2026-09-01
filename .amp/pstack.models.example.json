@@ -1,3 +1,11 @@
 {
-	"profile": "cheap"
+	"profile": "cheap",
+	"models": {
+		"judgment": "builtin:high",
+		"hardest-tasks": "builtin:high",
+		"how-explainer": "builtin:high",
+		"why-synthesizer": "builtin:high",
+		"reflect-judgment": "builtin:high",
+		"comment-reviewer": "builtin:high"
+	}
 }

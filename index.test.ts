@@ -239,7 +239,9 @@ describe('model configuration', () => {
 	test('example json is a cheap profile without Fable or Opus', async () => {
 		const example = JSON.parse(await Bun.file('.amp/pstack.models.example.json').text())
 		const mapped = fileModelMap(example)
-		expect(mapped.judgment).toBe('xai/grok-4.6')
+		expect(mapped.judgment).toBe('builtin:high')
+		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
+		expect(mapped['how-critics']).toEqual(['xai/grok-4.6', 'openai/gpt-5.6-sol'])
 		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
 		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
 	})
