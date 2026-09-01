@@ -21,7 +21,7 @@ Scan for:
 Findings must point to skills, tools, or MCPs invoked in this transcript. Speculative routings to skills the parent never opened do not count. To check whether a skill was used, scan the transcript for:
 
 - reads of any `SKILL.md` file under project `.agents/skills/`, personal skills, or registered plugin skill paths
-- `Task` prompts that name a skill path
+- `pstack_run_agent`, `pstack_run_panel`, or Amp `Task` prompts that name a skill path
 - Tool calls (Shell, Grep, MCP, etc.) that match a skill's documented commands
 
 Two valid finding shapes:

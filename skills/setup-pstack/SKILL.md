@@ -29,7 +29,7 @@ Every provider/model ID must be in the detected set. Built-in aliases always pas
 
 ### 5. Update Amp configuration
 
-Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. The supported defaults are:
+Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. The tool stores those overrides only and fills unspecified roles from plugin defaults. Unknown actions fail instead of showing the map. The supported defaults are:
 
 ```json
 {

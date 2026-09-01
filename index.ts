@@ -2,6 +2,7 @@
 
 import type {
 	Agent,
+	BuiltinAgentMode,
 	PluginAgentModel,
 	PluginAPI,
 	ThreadID,
@@ -101,15 +102,31 @@ export const DEFAULT_MODELS = {
 	],
 } as const
 
+export const ROLE_ALIASES = {
+	feature: 'feature-refactoring',
+	refactoring: 'feature-refactoring',
+} as const
+
+export const CONFIG_KEY = 'pstack.models'
+export const WEBHOOK_EVENT_IDS_KEY = 'pstack.webhookEventIds'
+export const MAX_WEBHOOK_EVENT_IDS = 500
+export const WRITE_TOOLS = ['apply_patch', 'create_file', 'edit_file'] as const
+export const COMMENT_REVIEWER_EXCLUDED_TOOLS = [
+	...WRITE_TOOLS,
+	'shell_command',
+	'shell_command_kill',
+	'Task',
+] as const
+
 type ModelValue = string | string[]
-type ModelMap = Record<string, ModelValue>
+export type ModelMap = Record<string, ModelValue>
 type Executor = 'local' | 'orb'
 
-const CONFIG_KEY = 'pstack.models'
 const BUILTIN_MODE = /^builtin:(low|medium|high|ultra)$/
-const MODEL_ID = /^[a-z0-9-]+\/.+$/i
+const MODEL_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9._-]+)*$/i
+const KNOWN_ROLES = new Set(Object.keys(DEFAULT_MODELS))
 
-const AGENT_INSTRUCTIONS = [
+export const AGENT_INSTRUCTIONS = [
 	'You are a pstack delegate running in Amp.',
 	'Follow the caller’s exact scope and return compact, evidenced results.',
 	'Use available tools directly rather than guessing.',
@@ -124,11 +141,18 @@ const POTETO_INSTRUCTIONS = [
 	'Use Amp child threads and orbs for durable background work, and schedules for work that must wake later.',
 ].join(' ')
 
+const COMMENT_REVIEWER_INSTRUCTIONS = [
+	AGENT_INSTRUCTIONS,
+	'Assigned role: comment-reviewer.',
+	'You are report-only. Do not edit files, run mutating shell, or spawn writers.',
+	'Return findings and MUST KILL symbols. Never apply a patch.',
+].join(' ')
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function modelMapFrom(value: unknown): ModelMap {
+export function modelMapFrom(value: unknown): ModelMap {
 	if (!isRecord(value)) return {}
 	const result: ModelMap = {}
 	for (const [role, candidate] of Object.entries(value)) {
@@ -144,50 +168,151 @@ function modelMapFrom(value: unknown): ModelMap {
 	return result
 }
 
-function validateModel(value: string): boolean {
+export function validateModel(value: string): boolean {
 	return BUILTIN_MODE.test(value) || MODEL_ID.test(value)
 }
 
-function validateOverrides(value: unknown): ModelMap {
+export function isKnownRole(role: string): boolean {
+	return KNOWN_ROLES.has(role)
+}
+
+export function resolveRole(role: string): string {
+	return ROLE_ALIASES[role as keyof typeof ROLE_ALIASES] ?? role
+}
+
+export function storedModelMap(value: unknown): ModelMap {
+	const raw = modelMapFrom(value)
+	const result: ModelMap = {}
+	for (const [role, model] of Object.entries(raw)) {
+		if (!isKnownRole(role)) continue
+		const values = Array.isArray(model) ? model : [model]
+		if (values.every(validateModel)) result[role] = model
+	}
+	return result
+}
+
+export function validateOverrides(value: unknown): ModelMap {
+	if (value === undefined || value === null) {
+		throw new Error('Missing overrides. Pass an object of known pstack roles.')
+	}
+	if (!isRecord(value)) {
+		throw new Error('overrides must be an object of known pstack roles.')
+	}
 	const overrides = modelMapFrom(value)
+	if (Object.keys(overrides).length === 0) {
+		throw new Error('overrides must include at least one known pstack role.')
+	}
 	for (const [role, model] of Object.entries(overrides)) {
+		if (!isKnownRole(role)) {
+			throw new Error(`Unknown pstack role: ${role}.`)
+		}
 		const values = Array.isArray(model) ? model : [model]
 		if (!values.every(validateModel)) {
 			throw new Error(`Invalid model for ${role}. Use provider/model or builtin:<mode>.`)
 		}
 	}
+	for (const key of Object.keys(value)) {
+		if (!isKnownRole(key)) throw new Error(`Unknown pstack role: ${key}.`)
+	}
 	return overrides
 }
 
-function text(value: unknown, name: string): string {
+export function mergeModels(stored: unknown): ModelMap {
+	return { ...DEFAULT_MODELS, ...storedModelMap(stored) }
+}
+
+export function text(value: unknown, name: string): string {
 	if (typeof value !== 'string' || !value.trim()) throw new Error(`Missing ${name}.`)
 	return value.trim()
 }
 
-function executorFrom(value: unknown): Executor {
-	return value === 'orb' ? 'orb' : 'local'
+export function executorFrom(value: unknown): Executor {
+	if (value === undefined || value === null || value === '') return 'local'
+	if (value === 'orb' || value === 'local') return value
+	throw new Error('executor must be local or orb.')
 }
 
-function timeoutFrom(value: unknown): number {
+export function timeoutFrom(value: unknown): number {
 	if (typeof value !== 'number' || !Number.isFinite(value)) return 10 * 60 * 1000
 	return Math.max(30_000, Math.min(value, 60 * 60 * 1000))
 }
 
-function formatMessage(message: ThreadMessage): Record<string, unknown> {
+export function formatMessage(message: ThreadMessage): Record<string, unknown> {
+	const content = 'content' in message && Array.isArray(message.content) ? message.content : []
 	return {
 		id: message.id,
 		role: message.role,
-		content: message.content.flatMap((block) => {
+		content: content.flatMap((block) => {
 			if (block.type === 'text') return [{ type: 'text', text: block.text }]
 			if (block.type === 'tool_use') {
 				return [{ type: 'tool_use', name: block.name, input: block.input }]
 			}
 			if (block.type === 'tool_result') {
-				return [{ type: 'tool_result', status: block.status }]
+				return [
+					{
+						type: 'tool_result',
+						toolUseID: block.toolUseID,
+						status: block.status,
+						output: block.output,
+					},
+				]
 			}
 			return []
 		}),
 	}
+}
+
+export function claimedWebhookIds(value: unknown): string[] {
+	if (!Array.isArray(value)) return []
+	return value.filter((item): item is string => typeof item === 'string' && item.length > 0)
+}
+
+export function claimWebhookEvent(
+	seen: unknown,
+	eventId: string,
+): { duplicate: boolean; next: string[] } {
+	const ids = claimedWebhookIds(seen)
+	if (ids.includes(eventId)) return { duplicate: true, next: ids }
+	const next = [...ids, eventId]
+	if (next.length > MAX_WEBHOOK_EVENT_IDS) {
+		next.splice(0, next.length - MAX_WEBHOOK_EVENT_IDS)
+	}
+	return { duplicate: false, next }
+}
+
+export function webhookEventMarker(eventId: string): string {
+	return `Webhook event ID: ${eventId}`
+}
+
+export function messageMentionsWebhookEvent(message: ThreadMessage, eventId: string): boolean {
+	const marker = webhookEventMarker(eventId)
+	const content = 'content' in message && Array.isArray(message.content) ? message.content : []
+	return content.some((block) => block.type === 'text' && block.text.includes(marker))
+}
+
+export type WebhookDeliveryPlan =
+	| { action: 'skip'; reason: 'recorded' | 'already-appended'; next: string[] }
+	| { action: 'append'; next: string[] }
+
+export function planWebhookDelivery(
+	seen: unknown,
+	eventId: string,
+	threadHasEvent: boolean,
+): WebhookDeliveryPlan {
+	const recorded = claimWebhookEvent(seen, eventId)
+	if (recorded.duplicate) return { action: 'skip', reason: 'recorded', next: recorded.next }
+	if (threadHasEvent) return { action: 'skip', reason: 'already-appended', next: recorded.next }
+	return { action: 'append', next: recorded.next }
+}
+
+function toolsFor(role: string): 'all' | { exclude: readonly string[] } {
+	if (role === 'comment-reviewer') return { exclude: COMMENT_REVIEWER_EXCLUDED_TOOLS }
+	return 'all'
+}
+
+function instructionsFor(role: string): string {
+	if (role === 'comment-reviewer') return COMMENT_REVIEWER_INSTRUCTIONS
+	return `${AGENT_INSTRUCTIONS} Assigned role: ${role}.`
 }
 
 export default async function pstack(amp: PluginAPI) {
@@ -195,14 +320,17 @@ export default async function pstack(amp: PluginAPI) {
 
 	const configuredModels = async (): Promise<ModelMap> => {
 		const configuration = await amp.configuration.get()
-		return {
-			...DEFAULT_MODELS,
-			...modelMapFrom(configuration[CONFIG_KEY]),
-		}
+		return mergeModels(configuration[CONFIG_KEY])
+	}
+
+	const storedOverrides = async (): Promise<ModelMap> => {
+		const configuration = await amp.configuration.get()
+		return storedModelMap(configuration[CONFIG_KEY])
 	}
 
 	const modelFor = async (role: string): Promise<string> => {
-		const value = (await configuredModels())[role]
+		const resolved = resolveRole(role)
+		const value = (await configuredModels())[resolved]
 		if (typeof value === 'string') return value
 		if (Array.isArray(value) && value.length > 0) return value[0]
 		throw new Error(`Unknown pstack role: ${role}`)
@@ -217,13 +345,21 @@ export default async function pstack(amp: PluginAPI) {
 
 	const agentFor = (model: string, role: string): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
-		if (builtin) return amp.getBuiltinAgent(builtin[1] as 'low' | 'medium' | 'high' | 'ultra')
+		const resolved = resolveRole(role)
+		if (builtin) {
+			return amp.createAgent({
+				extends: builtin[1] as BuiltinAgentMode,
+				instructions: instructionsFor(resolved),
+				tools: toolsFor(resolved),
+				display: { label: resolved.slice(0, 24) },
+			})
+		}
 		return amp.createAgent({
 			extends: 'medium',
 			model: model as PluginAgentModel,
-			instructions: `${AGENT_INSTRUCTIONS} Assigned role: ${role}.`,
-			tools: 'all',
-			display: { label: role.slice(0, 24) },
+			instructions: instructionsFor(resolved),
+			tools: toolsFor(resolved),
+			display: { label: resolved.slice(0, 24) },
 		})
 	}
 
@@ -248,7 +384,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack delegate',
 		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
 		description:
-			'Run one configured pstack role in an isolated agent thread and return its final report. Use local execution for the current checkout and orb execution for independent remote work.',
+			'Run one configured pstack role in an isolated agent thread and return its final report. Use local execution for the current checkout and orb execution for independent remote work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -260,7 +396,7 @@ export default async function pstack(amp: PluginAPI) {
 			required: ['role', 'prompt'],
 		},
 		async execute(input, ctx) {
-			const role = text(input.role, 'role')
+			const role = resolveRole(text(input.role, 'role'))
 			const prompt = text(input.prompt, 'prompt')
 			const model = await modelFor(role)
 			const result = await agentFor(model, role).run(prompt, {
@@ -328,7 +464,7 @@ export default async function pstack(amp: PluginAPI) {
 			required: ['role', 'prompt'],
 		},
 		async execute(input, ctx) {
-			const role = text(input.role, 'role')
+			const role = resolveRole(text(input.role, 'role'))
 			const model = await modelFor(role)
 			const thread = await agentFor(model, role).createThread({
 				parentThreadID: ctx.thread.id,
@@ -372,7 +508,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Read current pstack transcript',
 		transcriptGroup: { active: 'Reading thread transcript', complete: 'Read thread transcript' },
 		description:
-			'Read the current Amp thread transcript, including compacted history, for reflection and session handoff workflows.',
+			'Read the current Amp thread transcript, including compacted history, for reflection and session handoff workflows. Tool results include toolUseID, status, and output.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -405,7 +541,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Configure pstack models',
 		transcriptGroup: { active: 'Configuring pstack', complete: 'Configured pstack' },
 		description:
-			'Show, update, or reset the global pstack role and panel model map. Values are provider/model, builtin:<mode>, or arrays for panels.',
+			'Show, update, or reset the global pstack role and panel model map. set stores only the supplied role overrides. Unknown actions fail. Values are provider/model, builtin:<mode>, or arrays for panels.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -421,12 +557,14 @@ export default async function pstack(amp: PluginAPI) {
 				return JSON.stringify(DEFAULT_MODELS, null, 2)
 			}
 			if (action === 'set') {
-				const current = await configuredModels()
-				const next = { ...current, ...validateOverrides(input.overrides) }
+				const next = { ...(await storedOverrides()), ...validateOverrides(input.overrides) }
 				await amp.configuration.update({ [CONFIG_KEY]: next }, 'global')
-				return JSON.stringify(next, null, 2)
+				return JSON.stringify(mergeModels(next), null, 2)
 			}
-			return JSON.stringify(await configuredModels(), null, 2)
+			if (action === 'show') {
+				return JSON.stringify(await configuredModels(), null, 2)
+			}
+			throw new Error('action must be show, set, or reset.')
 		},
 	})
 
@@ -435,7 +573,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Create pstack wake webhook',
 		transcriptGroup: { active: 'Creating wake webhook', complete: 'Created wake webhook' },
 		description:
-			'Create a durable capability webhook for the owning orb thread. Each delivery appends an idempotency-keyed user message that wakes the thread.',
+			'Create a durable capability webhook for the owning orb thread. Each event ID is claimed in plugin configuration before a wake message is appended, so retries do not duplicate work.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -450,11 +588,36 @@ export default async function pstack(amp: PluginAPI) {
 			const registration = await amp.createWebhook({
 				key,
 				handler: async (event, ctx) => {
+					const configuration = await amp.configuration.get()
+					const seen = configuration[WEBHOOK_EVENT_IDS_KEY]
+					let threadHasEvent = false
+					if (!claimWebhookEvent(seen, event.id).duplicate) {
+						const page = await ctx.thread.messages({
+							full: true,
+							from: 'end',
+							limit: 50,
+						})
+						threadHasEvent = page.some((message) =>
+							messageMentionsWebhookEvent(message, event.id),
+						)
+					}
+					const plan = planWebhookDelivery(seen, event.id, threadHasEvent)
+					if (plan.action === 'skip') {
+						if (plan.reason === 'already-appended') {
+							await amp.configuration.update(
+								{ [WEBHOOK_EVENT_IDS_KEY]: plan.next },
+								'global',
+							)
+						}
+						ctx.logger.log(`Skipping duplicate webhook event ${event.id}`)
+						return
+					}
 					const body = new TextDecoder().decode(event.body)
 					await ctx.thread.appendUserMessage({
 						type: 'user-message',
-						content: `${instruction}\n\nWebhook event ID: ${event.id}. Deliveries are at least once; ignore this event if its ID was already handled.\nReceived: ${event.receivedAt}\nPayload:\n${body}`,
+						content: `${instruction}\n\n${webhookEventMarker(event.id)}. Duplicate deliveries are dropped after this append is visible in the thread.\nReceived: ${event.receivedAt}\nPayload:\n${body}`,
 					})
+					await amp.configuration.update({ [WEBHOOK_EVENT_IDS_KEY]: plan.next }, 'global')
 				},
 			})
 			return `Webhook created. Treat this URL as a credential: ${registration.url}`
@@ -487,7 +650,7 @@ export default async function pstack(amp: PluginAPI) {
 				)
 				await amp.configuration.update({ [CONFIG_KEY]: builtins }, 'global')
 			} else {
-				await amp.configuration.update({ [CONFIG_KEY]: DEFAULT_MODELS }, 'global')
+				await amp.configuration.delete(CONFIG_KEY, 'global')
 			}
 			await ctx.ui.notify(`pstack profile set to ${profile}.`)
 		},
