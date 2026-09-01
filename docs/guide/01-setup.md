@@ -25,7 +25,7 @@ Confirm it loaded with `amp plugins list`. That listing shows the `setup-models`
 
 Select the `poteto` agent mode, or load `pstack:setup-pstack`. Setup reads `amp plugins show-agent-options --json`, shows each role, and writes only the roles you change through `pstack_configure_models`. Unspecified roles keep the plugin defaults.
 
-You can also run the `pstack: setup model profile` command for a balanced multi-model map, built-in Amp modes, or a reset.
+You can also call `pstack_configure_models` with `action: "profile"` and `balanced`, `builtin`, or `reset`. The command-palette `setup-models` action is the same profiles behind a UI prompt.
 
 A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate. The plugin extends that Amp mode and keeps the pstack instructions. Feature and refactoring share the `feature-refactoring` role; the playbooks accept the aliases `feature` and `refactoring`.
 

@@ -56,8 +56,8 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 - Opening a PR is not a babysit. Shipping is not a babysit. Merge is explicit.
 - A webhook retry is at-least-once. `pstack_create_wake_webhook` appends first, then records the Amp event ID. A crash between those steps is healed by scanning the thread. Treat Slack event IDs the same way in Benny.
 - Benny is dormant until you copy `.amp/benny/` and authorize the webhook.
-- `amp plugins list` is not a description dump. It shows the command, tools, and `poteto` mode. There is no `--json` flag on this CLI.
-- `setup-models` is a command-palette action. Thread setup uses `pstack_configure_models` or `pstack:setup-pstack`.
+- `amp plugins list` is not a description dump. It shows the command, tools, and `poteto` mode. There is no `--json` flag. The plugin description lives in `index.ts` and `package.json`.
+- `setup-models` is a command-palette action. From a thread, use `pstack_configure_models` with `action: "profile"`.
 
 ## What did not port exactly
 

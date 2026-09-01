@@ -11,6 +11,7 @@ if (args.length === 0) {
 
 const result = Bun.spawnSync([process.execPath, ...args], {
 	cwd: join(import.meta.dir, "../../.."),
+	env: { ...process.env, PSTACK_TOOLS_READY: "1" },
 	stdin: "inherit",
 	stdout: "inherit",
 	stderr: "inherit",

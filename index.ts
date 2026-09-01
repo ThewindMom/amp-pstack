@@ -541,12 +541,17 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Configure pstack models',
 		transcriptGroup: { active: 'Configuring pstack', complete: 'Configured pstack' },
 		description:
-			'Show, update, or reset the global pstack role and panel model map. set stores only the supplied role overrides. Unknown actions fail. Values are provider/model, builtin:<mode>, or arrays for panels.',
+			'Show, update, reset, or apply a named profile to the global pstack role map. set stores only the supplied role overrides. profile applies balanced, builtin, or reset without the command palette. Unknown actions fail.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				action: { type: 'string', enum: ['show', 'set', 'reset'] },
+				action: { type: 'string', enum: ['show', 'set', 'reset', 'profile'] },
 				overrides: { type: 'object' },
+				profile: {
+					type: 'string',
+					enum: ['balanced', 'builtin', 'reset'],
+					description: 'Named profile for action profile.',
+				},
 			},
 			required: ['action'],
 		},
@@ -556,6 +561,26 @@ export default async function pstack(amp: PluginAPI) {
 				await amp.configuration.delete(CONFIG_KEY, 'global')
 				return JSON.stringify(DEFAULT_MODELS, null, 2)
 			}
+			if (action === 'profile') {
+				const profile = text(input.profile, 'profile')
+				if (profile === 'reset' || profile === 'balanced') {
+					await amp.configuration.delete(CONFIG_KEY, 'global')
+					return JSON.stringify(DEFAULT_MODELS, null, 2)
+				}
+				if (profile === 'builtin') {
+					const builtins = Object.fromEntries(
+						Object.keys(DEFAULT_MODELS).map((role) => [
+							role,
+							Array.isArray(DEFAULT_MODELS[role as keyof typeof DEFAULT_MODELS])
+								? ['builtin:high', 'builtin:medium', 'builtin:low']
+								: 'builtin:medium',
+						]),
+					)
+					await amp.configuration.update({ [CONFIG_KEY]: builtins }, 'global')
+					return JSON.stringify(mergeModels(builtins), null, 2)
+				}
+				throw new Error('profile must be balanced, builtin, or reset.')
+			}
 			if (action === 'set') {
 				const next = { ...(await storedOverrides()), ...validateOverrides(input.overrides) }
 				await amp.configuration.update({ [CONFIG_KEY]: next }, 'global')
@@ -564,7 +589,7 @@ export default async function pstack(amp: PluginAPI) {
 			if (action === 'show') {
 				return JSON.stringify(await configuredModels(), null, 2)
 			}
-			throw new Error('action must be show, set, or reset.')
+			throw new Error('action must be show, set, reset, or profile.')
 		},
 	})
 
@@ -629,7 +654,8 @@ export default async function pstack(amp: PluginAPI) {
 		{
 			title: 'Configure model profile',
 			category: 'pstack',
-			description: 'Choose a pstack model profile. Fine-grained overrides use pstack:setup-pstack.',
+			description:
+			'Choose a pstack model profile from the command palette. Threads should use pstack_configure_models with action profile instead.',
 		},
 		async (ctx) => {
 			const profile = await ctx.ui.select({

@@ -28,6 +28,8 @@ describe('amp-pstack plugin', () => {
 		expect(SKILL_PATHS).toHaveLength(45)
 		expect(new Set(SKILL_PATHS).size).toBe(SKILL_PATHS.length)
 		expect(SKILL_PATHS).toContain('skills/poteto-mode')
+		expect(description).toContain('Ports pstack to Amp')
+		expect(description.length).toBeLessThanOrEqual(300)
 	})
 
 	test('bundled skills have Amp-compatible frontmatter', async () => {
@@ -328,8 +330,14 @@ describe('runtime tool behavior', () => {
 		expect(JSON.parse(updated).hillclimb).toBe(DEFAULT_MODELS.hillclimb)
 		expect(amp.config[CONFIG_KEY]).toEqual({ 'bug-fix': 'anthropic/claude-fable-5' })
 		await expect(tool(amp, 'pstack_configure_models').execute({ action: 'delete' })).rejects.toThrow(
-			'action must be show, set, or reset',
+			'action must be show, set, reset, or profile',
 		)
+		const profiled = await tool(amp, 'pstack_configure_models').execute({
+			action: 'profile',
+			profile: 'builtin',
+		})
+		expect(JSON.parse(profiled)['bug-fix']).toBe('builtin:medium')
+		await tool(amp, 'pstack_configure_models').execute({ action: 'reset' })
 	})
 
 	test('webhook handler appends first, then records the event id', async () => {
