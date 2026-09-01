@@ -1,6 +1,8 @@
 ---
 name: why
 description: "Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Discovers available MCPs and queries each evidence category (source control, issue tracker, long-form docs, real-time chat, infrastructure observability, error tracking, product analytics warehouse) in parallel, then returns a cited read on decisions and tradeoffs. Use how for runtime behavior."
+builtin-tools:
+  - pstack_run_agent
 ---
 
 # Why
@@ -56,7 +58,7 @@ Parse what the user is asking. The **target** is usually a chunk of code, a patt
 - "Why does this code still exist?" Dead-code territory.
 - "What's the history of X?" Broad archaeological sweep.
 
-If the target is vague ("why do we do it this way?" with no clear referent), make your best guess from conversation context (open files, recent edits, cursor location, what was just discussed). State your interpretation briefly so the user can redirect if you're off, then proceed.
+If the target is vague ("why do we do it this way?" with no clear referent), make your best guess from conversation context (open files, recent edits, active selection, what was just discussed). State your interpretation briefly so the user can redirect if you're off, then proceed.
 
 ## Step 2. Establish the Code Anchor
 
@@ -97,7 +99,7 @@ Capture this as seed context (file paths, symbols, commits, PR numbers, linked t
 
 ### Discovery
 
-Before spawning investigators, list the available MCPs from the Cursor environment. Use the available-tools map when present. Otherwise inspect the `mcps/` directory Cursor exposes for enabled MCP servers.
+Before spawning investigators, inspect the tools available in the Amp thread. Use `amp tools list` when direct inspection is needed. Custom pstack agents created with `tools: "all"` receive the plugin, MCP, and remote tools available to their runtime.
 
 Map each available MCP to one evidence category:
 
@@ -113,12 +115,7 @@ Source control is always available through git and `gh`. For the other six, clas
 
 Aim for a complete **coverage map**, not a minimal one. A null result from an issue tracker is evidence the decision was not ticketed, a useful fact in itself. Document the null, don't skip the search.
 
-Launch all matching investigators in a single message so they run concurrently. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs.
-
-Subagent config (each):
-- `subagent_type`: `generalPurpose`
-- `model`: your configured why-investigators model (default `grok-4.6-fast-xhigh`)
-- `readonly`: `false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, which disables MCP-backed investigators entirely. The source control investigator would be safe in readonly, but keep modes uniform. Investigators still shouldn't write anything. That's a posture, not a sandbox.
+Launch one `pstack_run_agent` call per matching category concurrently, using role `why-investigator` and the local executor. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs. The brief forbids writes even though the agent has tools, because MCP access is required.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -160,11 +157,7 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 
 ## Step 4. Synthesize
 
-Spawn one synthesizer subagent:
-
-- `subagent_type`: `generalPurpose`
-- `model`: your configured why-synthesizer model (default `claude-fable-5-thinking-max`)
-- `readonly`: `false` (agent mode). The synthesizer's quality check spot-verifies citations, which can require MCP access. Readonly/Ask mode strips MCPs and defeats that.
+Run one `pstack_run_agent` call with role `why-synthesizer`, local executor, and the full synthesis brief. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification

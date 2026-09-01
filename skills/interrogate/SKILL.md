@@ -1,7 +1,8 @@
 ---
 name: interrogate
 description: "Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Multiple LLM reviewers challenge changes from independent angles."
-disable-model-invocation: true
+builtin-tools:
+  - pstack_run_panel
 ---
 
 # Interrogate
@@ -33,21 +34,16 @@ Write one clear paragraph. Reviewers challenge whether the work achieves the int
 
 ## Step 3, Spawn Reviewers
 
-Launch all reviewers in a single message using the Task tool. Use the `interrogate reviewers` list from `~/.cursor/rules/pstack-models.mdc` when present, one reviewer per entry, extending or shrinking the Reviewer A/B/C/D labels below to the configured entry count; otherwise use the table defaults.
+Call `pstack_run_panel` once with panel `interrogate-reviewers`, local executor, and the completed reviewer prompt. The plugin runs one reviewer per configured model and labels each result.
 
-| Subagent | Default model |
+| Reviewer | Default model |
 |----------|---------------|
-| Reviewer A | `claude-fable-5-thinking-max` |
-| Reviewer B | `gpt-5.6-sol-max` |
-| Reviewer C | `grok-4.6-fast-xhigh` |
-| Reviewer D | `claude-opus-5-thinking-xhigh` |
+| Reviewer A | `anthropic/claude-fable-5` |
+| Reviewer B | `openai/gpt-5.6-sol` |
+| Reviewer C | `xai/grok-4.6` |
+| Reviewer D | `anthropic/claude-opus-5` |
 
-For each reviewer:
-- `subagent_type`: `generalPurpose`
-- `model`: the configured `interrogate reviewers` entry, or the table default with no configured line
-- `readonly`: `true`
-
-If a model slug is rejected as unresolvable when you try to spawn the subagent, check the valid slugs in the Task tool's error message, pick the closest equivalent (prefer the highest-reasoning tier of the same family), spawn with the valid slug, and open a separate PR to update the configured value or default table. Do not block the review on the slug issue. If the configured value is `inherit-parent` or `auto`, omit `model` instead; never treat those aliases as broken slugs or enter this fallback for them.
+If a configured model is rejected, run `amp plugins show-agent-options --json`, choose the closest available model in the same family, complete the review, and report the stale configuration. Do not alter shared configuration without the user's request.
 
 Read `references/reviewer-prompt.md` and fill in the template with:
 1. The stated intent

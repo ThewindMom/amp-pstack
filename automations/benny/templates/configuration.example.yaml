@@ -12,7 +12,7 @@ slack:
   thread_post_action: "configured-slack-thread-post-action"
   file_download_action: "configured-slack-file-download-action"
   operations_edit_action: "configured-slack-edit-action"
-  prefer_cursor_actions: true
+  prefer_amp_tools: true
   optional_bot_token_env: "BENNY_SLACK_BOT_TOKEN"
   allow_source_root_posts: false
   allow_worker_slack_writes: false
@@ -39,14 +39,14 @@ tracker:
   require_compensation_action: true
 
 routing:
-  map_path: ".cursor/benny/routing.md"
+  map_path: ".amp/benny/routing.md"
   owner_pings_default: false
   allow_feature_owner_ping: false
   allow_confirmed_regression_author_ping: false
 
 control:
   skill_name: "control-target-app"
-  feature_map_path: ".cursor/benny/feature-map.md"
+  feature_map_path: ".amp/benny/feature-map.md"
   environment: "safe-test-environment-placeholder"
   artifact_directory: "/tmp/benny-artifacts"
   artifact_retention_hours: 24

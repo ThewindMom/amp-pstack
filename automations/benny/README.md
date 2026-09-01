@@ -1,23 +1,14 @@
-# benny
+# Benny for Amp
 
-benny gives you two cursor automations for slack issue reports. one triages each report. the other reproduces confirmed bugs and may prepare a small draft fix.
+Benny is a dormant reference workflow for Slack issue intake. It triages one report, then reproduces confirmed bugs and may open a bounded draft fix. Installing amp-pstack does not enable Benny.
 
-the files in this directory are dormant setup and automation sources. they do not appear as slash skills.
+Amp replaces the original automation runtime with an orb thread and a capability webhook:
 
-## set it up
+1. Start an orb thread in the target project with the `poteto` mode.
+2. In that thread, read [`FOR_AGENTS.md`](./FOR_AGENTS.md) and the setup skill.
+3. Create a `benny-report` webhook with `pstack_create_wake_webhook`.
+4. Configure the Slack event bridge to POST new top-level reports to that credential URL.
+5. Connect Slack thread read/reply, tracker, GitHub, and app-control tools to Amp.
+6. Send a harmless test report and verify that every source-channel post remains in the original thread.
 
-1. point cursor at [`FOR_AGENTS.md`](./FOR_AGENTS.md) and name the target repository.
-2. let setup merge this whole directory into the target at `.cursor/automations/benny/`. it must preserve destination-only files and review conflicts instead of overwriting local edits.
-3. let setup enable pstack in the target repository's `.cursor/settings.json` for shared dependencies:
-
-```json
-{
-	"plugins": {
-		"pstack": { "enabled": true }
-	}
-}
-```
-
-4. keep user-owned configuration outside the copied pack, for example in `.cursor/benny/`. adapt [`configuration.example.yaml`](./templates/configuration.example.yaml) and [`feature-map.example.md`](./skills/reproduce-and-fix-issues/references/feature-map.example.md).
-5. commit `.cursor/settings.json`, `.cursor/automations/benny/`, and any secret-free configuration before enabling either automation.
-6. review each new automation draft or update existing automations in their editors. then send a harmless test report and verify every source-channel post stays in the original thread.
+Keep the webhook URL and integration tokens in a secret manager. The webhook is at-least-once, so event IDs must be deduplicated.

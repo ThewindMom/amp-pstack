@@ -10,13 +10,13 @@ Three rules carry the rest.
 - Every spawn and every resume carries the standing orders verbatim.
 - The brief is the product. A vague brief fails quietly, because a worker cannot ask you a question.
 
-Open a todolist with the steps below copied in verbatim. A step you skip stays listed with `skip: <reason>`.
+Open an explicit checklist with the steps below copied verbatim. A step you skip stays listed with `skip: <reason>`.
 
 #### Roles and placement
 
-- **Coordinator (this chat).** Local. Frames, authors briefs, drains the inbox, owns the human report, makes judgment calls. It never authors or edits code: conflicted merges, restacks, and code changes are always tasks. Mechanically landing a verified unit (fast-forward or clean cherry-pick of a worker's commit, then push) is bookkeeping the coordinator may do itself on repos where local git is cheap; queueing finished work behind an idle stacker is how a deadline harvests nothing. The loop is agentic end to end. Agents are spawned, resumed, and drained only through the Task tool. State reads and writes go through `scripts/orch/orch.ts` at drain points, one command in and one line out, to conserve context. The CLI never spawns, waits, or wakes anything.
-- **Sub-coordinator.** Always local, durable, one per track, and only when the program exceeds what one coordinator's drains can manage. A track the coordinator can drain itself needs no middle layer: each nested layer re-pays a full orientation preamble, and a blocking sub-coordinator hides its children while the parent idles. Owns its track's units and boards, authors its workers' briefs, spawns its own workers and verifiers (nesting works to depth 3, and a nested spawn has the full Task schema including `environment`). Rolls up aggregates at wave boundaries; never forwards raw child reports. Cap in-flight children at what one drain can process, roughly ten, as a rolling window; never as blocking batches, which cost the slowest child of every batch.
-- **Worker / verifier.** Always `environment: "cloud"` unless the task needs this machine: `control-ui` or `control-cli` runtime verification (from `cursor-team-kit`); reading local transcripts under `agent-transcripts/`; simulators and local IDE state; auth that exists only here. Cloud agents cannot read the local store, so their briefs inline what they need or point at repo paths. Prefer fewer, broader workers; one writer per worktree or branch (principle-separate-before-serializing-shared-state). Run a unit's verifier on a different model family from its worker.
+- **Coordinator (this thread).** Local. Frames, authors briefs, drains the inbox, owns the human report, and makes judgment calls. It never authors code. Conflicted merges, restacks, and code changes are agent units. Agents are spawned through `pstack_start_agent` or Amp's native `create_thread` when a specific orb size or mode matters. State reads and writes go through `scripts/orch/orch.ts` at drain points. The CLI never spawns, waits, or wakes anything.
+- **Sub-coordinator.** A durable Amp child thread, one per track, only when the program exceeds what one coordinator can drain. It owns its track's units and boards, authors worker briefs, spawns workers and verifiers, and sends compact rollups to the parent with `pstack_send_to_thread`. Cap in-flight children at what one drain can process, roughly ten.
+- **Worker / verifier.** Use an orb for independent work from the remote project base. Use local execution for uncommitted checkout state, local app control, simulators, or machine-only auth. Orb agents cannot read the coordinator's local store, so briefs inline what they need or point at committed repo paths. Prefer fewer, broader workers and one writer per worktree or branch. Run a unit's verifier on a different model family from its worker.
 
 Depth stays at coordinator, track, worker. Author the track decomposition per project (build, landing, and verification are common cuts, not a required shape); hard-coded swarm trees were tried and parked as too rigid.
 
@@ -70,7 +70,7 @@ A dependency is a context relay, not just ordering: undeclared upstream context 
 #### Queue and drain
 
 - On a completion notification, run `orch inbox push <agent> <unit> <status> [--report PATH]` and return to what you were doing. Never deep-review inline; a completion that needs review becomes a verifier unit. Never review a diff inside a drain.
-- Drain in batches at four points: the end of a critical section, a track rollup, a frontier watcher wake (arm it via the loop skill, with a long heartbeat fallback), and before a human report. Begin each batch with `orch inbox drain`. Arrivals during a drain wait for the next one.
+- Drain in batches at four points: the end of a critical section, a track rollup, a frontier watcher wake from an Amp child thread or schedule, and before a human report. Begin each batch with `orch inbox drain`. Arrivals during a drain wait for the next one.
 - Critical sections you finish first: authoring a brief, a stack operation, a conflict decision, writing a gate, updating ledger or frontier.
 - Each drain classifies every pointer (landed, needs-verify, failed, zombie, noise), writes the resulting rows through `orch unit add`, `orch unit set`, and `orch ledger record`, runs `orch status`, then spawns the next wave in one message.
 - Account for every spawned child at its track's rollup: arrived, respawned, or its scope explicitly absorbed. Silently redoing a missing child's work hides both the wasted spend and the coverage gap its result existed to close.
@@ -94,13 +94,13 @@ A unit is not done until its output is externalized the moment it lands, never b
 
 #### Liveness and failure
 
-- Never resume an agent to check on it; a resume restarts an idle agent. Probe read-only: the ledger, `units.tsv`, `gh`, pushed branches, the cloud agent's status in the Cursor dashboard. Transcript mtime is not liveness.
+- Never message an agent merely to check on it. Probe read-only with Amp thread status, the ledger, `units.tsv`, `gh`, and pushed branches. A thread's update time alone is not proof of progress.
 - A silent death gets a synthetic postmortem row in the inbox (unit, failure mode, last evidence, options). Replan on evidence as it arrives; never wait for full quiescence.
 - Retry by mode: cap-hit or oom, respawn with smaller scope; network-drop, retry as-is; tool-error, retry on a different model; unknown, retry once. Two retries, then abandon the unit and replan around it.
 - A zombie that returns hours late reconciles against the current frontier and ledger before anything is accepted; the world moved while it slept. Salvage unique findings through a fresh unit, never a blind merge.
 - When continued spawning would produce garbage tree-wide (bad upstream output, broken acceptance, dead infra), write a stop line at the top of the standing orders, let in-flight work finish, fix the cause, clear it.
 - Bound your own infra retries the same way you bound a child's. After a few consecutive tool aborts, stop retrying: write a terminal handoff to durable state (what is done, where it lives, the exact command to resume) and end the run. Hours of retry loops against a dead executor produce nothing a handoff would not.
-- After a Cursor restart: local agents are dead, cloud work is not. Re-read the standing orders and `units.tsv`, recompute the frontier, reattach cloud work by PR and branch rather than agent id, respawn one sub-coordinator per track from its stored brief plus current state, drain, resume. The dead session's store lock clears itself on the next write; `orch` replaces a lock whose holder pid is gone.
+- After an Amp client restart, re-read the standing orders and `units.tsv`, inspect child thread status, recompute the frontier, reattach work by thread, PR, and branch, respawn only missing track coordinators, then drain and resume. The dead local session's store lock clears on the next write; `orch` replaces a lock whose holder PID is gone.
 
 #### Escalation
 

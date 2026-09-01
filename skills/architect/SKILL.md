@@ -1,7 +1,6 @@
 ---
 name: architect
 description: "Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. Use for /architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape."
-disable-model-invocation: true
 ---
 
 # Architect
@@ -10,7 +9,7 @@ Design before implementing. Sketch types, function signatures, class shapes, and
 
 ## Start
 
-Open a todolist with one entry per phase before starting. Autonomous mode without checkpoints needs the list to show phase position and keep phases from silently disappearing.
+Open an explicit checklist with one entry per phase before starting. Autonomous mode without checkpoints needs the list to show phase position and keep phases from silently disappearing.
 
 1. Ground
 2. Sketch

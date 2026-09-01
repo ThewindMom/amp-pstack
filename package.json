@@ -1,0 +1,13 @@
+{
+	"name": "amp-pstack",
+	"version": "0.1.0",
+	"description": "Amp-native pstack skills, mode, multi-model agents, threads, orbs, schedules, and webhooks",
+	"license": "MIT",
+	"repository": "github:ThewindMom/amp-pstack",
+	"type": "module",
+	"scripts": {
+		"test": "bun test",
+		"test:tools": "bun test skills/poteto-mode/scripts/orch skills/poteto-mode/scripts/watch-pr",
+		"typecheck:tools": "bunx tsc --project skills/poteto-mode/scripts/watch-pr/tsconfig.json --noEmit --strict"
+	}
+}
