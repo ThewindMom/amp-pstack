@@ -5,6 +5,7 @@ import { join } from 'node:path'
 
 import type {
 	Agent,
+	AgentReasoningEffort,
 	BuiltinAgentMode,
 	PluginAgentModel,
 	PluginAPI,
@@ -493,6 +494,11 @@ export default async function pstack(amp: PluginAPI) {
 		throw new Error(`Unknown pstack panel: ${panel}`)
 	}
 
+	const reasoningFor = (model: string): AgentReasoningEffort | undefined => {
+		if (model.startsWith('xai/grok-4.6')) return 'high'
+		return undefined
+	}
+
 	const agentFor = (model: string, role: string): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
 		const resolved = resolveRole(role)
@@ -509,14 +515,17 @@ export default async function pstack(amp: PluginAPI) {
 			model: model as PluginAgentModel,
 			instructions: instructionsFor(resolved),
 			tools: toolsFor(resolved),
+			reasoningEffort: reasoningFor(model),
 			display: { label: resolved.slice(0, 24) },
 		})
 	}
 
 	const poteto = amp.createAgent({
 		extends: 'medium',
+		model: 'xai/grok-4.6',
 		instructions: POTETO_INSTRUCTIONS,
 		tools: 'all',
+		reasoningEffort: 'high',
 		display: { label: 'poteto', color: '#eab308' },
 	})
 

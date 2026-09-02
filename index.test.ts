@@ -446,6 +446,12 @@ describe('runtime tool behavior', () => {
 
 	test('builtin roles extend the mode with pstack instructions', async () => {
 		const amp = await loadPlugin()
+		expect(amp.created[0]).toMatchObject({
+			extends: 'medium',
+			model: 'xai/grok-4.6',
+			reasoningEffort: 'high',
+			tools: 'all',
+		})
 		amp.config[CONFIG_KEY] = { 'bug-fix': 'builtin:high' }
 		await tool(amp, 'pstack_run_agent').execute(
 			{ role: 'bug-fix', prompt: 'fix it' },
@@ -456,6 +462,7 @@ describe('runtime tool behavior', () => {
 			instructions: `${AGENT_INSTRUCTIONS} Assigned role: bug-fix.`,
 			tools: 'all',
 		})
+		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
 	})
 
 	test('feature alias uses the shared role and comment-reviewer cannot write', async () => {
@@ -467,6 +474,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).toMatchObject({
 			model: DEFAULT_MODELS['feature-refactoring'],
 			instructions: `${AGENT_INSTRUCTIONS} Assigned role: feature-refactoring.`,
+			reasoningEffort: 'high',
 		})
 		await tool(amp, 'pstack_run_agent').execute(
 			{ role: 'comment-reviewer', prompt: 'review comments', timeoutMs: 120_000 },
