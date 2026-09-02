@@ -1,5 +1,3 @@
-// @amp-agent-mode {"key":"poteto","label":"poteto"}
-
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -188,13 +186,6 @@ export const AGENT_INSTRUCTIONS = [
 	'Use available tools directly rather than guessing.',
 	'Do not push, merge, deploy, publish, delete shared data, or perform other external writes unless the user explicitly authorized that action.',
 	'When editing, verify the result and report files changed, checks run, blockers, and the next action.',
-].join(' ')
-
-const POTETO_INSTRUCTIONS = [
-	'For every nontrivial task, load the pstack:poteto-mode skill before acting and follow its matched playbook.',
-	'Load referenced pstack skills when their trigger applies.',
-	'Use pstack agent and panel tools when model diversity or isolated context materially improves the result.',
-	'Use Amp child threads and orbs for durable background work, and schedules for work that must wake later.',
 ].join(' ')
 
 const COMMENT_REVIEWER_INSTRUCTIONS = [
@@ -519,24 +510,6 @@ export default async function pstack(amp: PluginAPI) {
 			display: { label: resolved.slice(0, 24) },
 		})
 	}
-
-	const poteto = amp.createAgent({
-		extends: 'medium',
-		model: 'xai/grok-4.6',
-		instructions: POTETO_INSTRUCTIONS,
-		tools: 'all',
-		reasoningEffort: 'high',
-		display: { label: 'poteto', color: '#eab308' },
-	})
-
-	amp.registerAgentMode({
-		key: 'poteto',
-		label: 'poteto',
-		description:
-			'Routes rigorous engineering work through pstack playbooks, multi-model delegates, evidence-first verification, and Amp threads or orbs.',
-		color: '#eab308',
-		agent: poteto.definition,
-	})
 
 	amp.registerTool({
 		name: 'pstack_run_agent',

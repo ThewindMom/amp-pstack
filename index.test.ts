@@ -115,7 +115,7 @@ describe('amp-pstack plugin', () => {
 		await pstack(amp)
 
 		expect(skills).toEqual([...SKILL_PATHS])
-		expect(modes).toEqual(['poteto'])
+		expect(modes).toEqual([])
 		expect(tools).toEqual([
 			'pstack_run_agent',
 			'pstack_run_panel',
@@ -446,12 +446,6 @@ describe('runtime tool behavior', () => {
 
 	test('builtin roles extend the mode with pstack instructions', async () => {
 		const amp = await loadPlugin()
-		expect(amp.created[0]).toMatchObject({
-			extends: 'medium',
-			model: 'xai/grok-4.6',
-			reasoningEffort: 'high',
-			tools: 'all',
-		})
 		amp.config[CONFIG_KEY] = { 'bug-fix': 'builtin:high' }
 		await tool(amp, 'pstack_run_agent').execute(
 			{ role: 'bug-fix', prompt: 'fix it' },
@@ -463,6 +457,30 @@ describe('runtime tool behavior', () => {
 			tools: 'all',
 		})
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
+	})
+
+	test('poteto-mode.ts registers a Grok parent on the medium harness', async () => {
+		const created: Array<Record<string, unknown>> = []
+		const modes: string[] = []
+		const amp = {
+			createAgent: (definition: Record<string, unknown>) => {
+				created.push(definition)
+				return { definition }
+			},
+			registerAgentMode: ({ key }: { key: string }) => {
+				modes.push(key)
+				return { unsubscribe() {} }
+			},
+		} as never
+		const { default: potetoMode } = await import('./poteto-mode')
+		potetoMode(amp)
+		expect(modes).toEqual(['poteto'])
+		expect(created[0]).toMatchObject({
+			extends: 'medium',
+			model: 'xai/grok-4.6',
+			reasoningEffort: 'high',
+			tools: 'all',
+		})
 	})
 
 	test('feature alias uses the shared role and comment-reviewer cannot write', async () => {

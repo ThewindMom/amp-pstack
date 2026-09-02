@@ -6,14 +6,15 @@ An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tr
 
 pstack is a directory plugin. Amp's URL installer (`amp plugins add`) only accepts a single `.ts` file, so do not use it here.
 
-**Personal plugins (recommended).** This loads on every machine and in orbs. Clone your Amp user-plugins repo, copy this tree in as `pstack/`, commit, and push:
+**Personal plugins (recommended).** This loads on every machine and in orbs. Clone your Amp user-plugins repo, copy this tree in as `pstack/`, and copy [`poteto-mode.ts`](./poteto-mode.ts) to the **root** of that repo (next to `pstack/`, not inside it). Amp's Mode Dial catalog only lists root-level `.ts` plugins, which is why `Grok 4.6` appears and `poteto` did not.
 
 ```bash
 amp clone user-plugins
 rsync -a --delete --exclude .git ./ /path/to/user-plugins/pstack/
+cp poteto-mode.ts /path/to/user-plugins/poteto-mode.ts
 ```
 
-Then reload plugins. A system clone at `~/.config/amp/plugins/pstack` beats a personal copy, so do not keep both.
+Then reload plugins. Open Settings → Mode Dial → Build Dial and drag **poteto** into a bay. A system clone at `~/.config/amp/plugins/pstack` beats a personal copy, so do not keep both.
 
 **This machine only:**
 
@@ -32,7 +33,13 @@ Confirm with `amp plugins list`. A personal copy shows as `amp-global-plugin:pst
 
 ## Start
 
-Select the `poteto` agent mode, or load `pstack:poteto-mode` in an existing thread. Then state the goal and the evidence that proves it:
+Select `poteto` from the mode picker after it is on your Dial. If the picker still only shows builtins and official-modes, start in `medium` and load the skill:
+
+```text
+Load pstack:poteto-mode. Then <task>.
+```
+
+Then state the goal and the evidence that proves it:
 
 ```text
 Use pstack:poteto-mode. The export writes duplicate rows after a retry. Reproduce it, fix the root cause, and verify the real export.
@@ -42,7 +49,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** `poteto` keeps Amp's medium harness (prompt, tools, routing) and pins the parent to `xai/grok-4.6` at high effort, the Cursor-on-Grok shape. Code delegates are also Grok. Specified-code and judgment delegates stay on Sol builtins.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it next to Grok 4.6. It keeps Amp's medium harness and pins the parent to `xai/grok-4.6` at high effort. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** `pstack_run_agent` maps feature, bug, performance, investigation, and judgment roles to configurable models. `comment-reviewer` is terminal and report-only. It can run read-only git. It cannot load skills or spawn agents. Callers should omit `timeoutMs`; the plugin floors that role at ten minutes.
 - **Multi-model panels.** `pstack_run_panel` runs arena, architect, critique, and interrogate briefs concurrently across model families.
