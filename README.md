@@ -49,7 +49,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it next to Grok 4.6. It uses Amp's Grok harness (`extends: 'ultra'`, the same prompt family official `grok46` copies), `xai/grok-4.6` at high effort, and pstack routing on top. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it next to Grok 4.6. It copies official `grok46`: explicit `xai/grok-4.6`, ultra prompt, ultra tools, high effort, no `extends`. pstack routing is appended to that prompt. `extends: 'ultra'` was tried and a live poteto thread still ran GPT-5.6 Sol. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** `pstack_run_agent` maps feature, bug, performance, investigation, and judgment roles to configurable models. `comment-reviewer` is terminal and report-only. It can run read-only git. It cannot load skills or spawn agents. Callers should omit `timeoutMs`; the plugin floors that role at ten minutes.
 - **Multi-model panels.** `pstack_run_panel` runs arena, architect, critique, and interrogate briefs concurrently across model families.
@@ -61,7 +61,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` is official `grok46` plus pstack. Amp's Grok parent uses the ultra prompt and ultra tools with `xai/grok-4.6` at high effort. `poteto` extends that harness and appends playbook routing. It does not use medium's Sol prompt. Official `grok46` still does not load poteto-mode by itself.
+`poteto` is official `grok46` plus pstack. Same explicit Grok model, ultra prompt, and ultra tools. Playbook routing is in the prompt. It does not use medium's Sol prompt and does not `extends: 'ultra'`, which kept Sol in a live thread. Official `grok46` still does not load poteto-mode by itself.
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
@@ -69,7 +69,7 @@ The bundled file is cheap plus Sol builtins. No Fable. No Opus.
 
 | Seat | Bundled map |
 |---|---|
-| Parent `poteto` | Grok/ultra harness, `xai/grok-4.6` high |
+| Parent `poteto` | explicit `xai/grok-4.6` high, ultra prompt/tools |
 | Feature, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
 | Bugs, performance, hillclimb, reflect-tooling | `builtin:medium` (Sol, med) |
 | Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer | `builtin:high` (Sol, x-high) |

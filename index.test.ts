@@ -459,28 +459,31 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
 	})
 
-	test('poteto-mode.ts registers a Grok parent on the Grok/ultra harness', async () => {
+	test('poteto-mode.ts registers an explicit Grok parent without extends', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
-			createAgent: (definition: Record<string, unknown>) => {
-				created.push(definition)
-				return { definition }
-			},
-			registerAgentMode: ({ key }: { key: string }) => {
-				modes.push(key)
-				return { unsubscribe() {} }
+			experimental: {
+				createAgent: (definition: Record<string, unknown>) => {
+					created.push(definition)
+					return { definition }
+				},
+				registerAgentMode: ({ key }: { key: string }) => {
+					modes.push(key)
+					return { unsubscribe() {} }
+				},
 			},
 		} as never
 		const { default: potetoMode } = await import('./poteto-mode')
 		potetoMode(amp)
 		expect(modes).toEqual(['poteto'])
 		expect(created[0]).toMatchObject({
-			extends: 'ultra',
+			name: 'poteto',
 			model: 'xai/grok-4.6',
 			reasoningEffort: 'high',
 		})
-		expect(created[0]).not.toHaveProperty('tools')
+		expect(created[0]).not.toHaveProperty('extends')
+		expect(String(created[0]?.instructions)).toContain('pstack:poteto-mode')
 	})
 
 	test('feature alias uses the shared role and comment-reviewer cannot write', async () => {
