@@ -36,7 +36,7 @@ Resolution order, later wins:
 3. Amp user config from `pstack_configure_models` `set` or `profile`.
 4. Workspace file `.amp/pstack.models.json`.
 
-Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json`, or to `.amp/pstack.models.json` in a repo. The example is cheap plus `builtin:high` on the old Fable roles. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. The plugin process reads those files from the Amp workspace root and the user path, then creates delegates with the resolved map. Orb children do not need a copy of the JSON.
+Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json`, or to `.amp/pstack.models.json` in a repo. The example is cheap plus Amp modes on judgment seats. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. The plugin process reads those files from the Amp workspace root and the user path, then creates delegates with the resolved map. Orb children do not need a copy of the JSON. Cursor `inherit-parent` is invalid here. Raw Grok and raw Sol do not carry Cursor thinking slugs.
 
 Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
@@ -47,7 +47,6 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
   "perf-issue": "openai/gpt-5.6-sol",
   "hillclimb": "openai/gpt-5.6-sol",
   "judgment": "anthropic/claude-fable-5",
-  "hardest-tasks": "anthropic/claude-fable-5",
   "how-explorer": "xai/grok-4.6",
   "how-explainer": "anthropic/claude-fable-5",
   "why-investigator": "xai/grok-4.6",

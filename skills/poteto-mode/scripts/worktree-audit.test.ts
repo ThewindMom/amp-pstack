@@ -47,4 +47,11 @@ describe('worktree-audit', () => {
 			'SIZE\tAGE\tMERGED\tDIRTY\tREMOTE\tPR\tLAST_THREAD\tBUCKET\tWORKTREE',
 		)
 	})
+
+	test('prints usage for --help without treating it as a repo path', () => {
+		const result = Bun.spawnSync(['bash', script, '--help'])
+		expect(result.exitCode).toBe(0)
+		expect(result.stdout.toString()).toContain('Usage: worktree-audit.sh [repo-path]')
+		expect(result.stdout.toString()).toContain('Never deletes anything')
+	})
 })

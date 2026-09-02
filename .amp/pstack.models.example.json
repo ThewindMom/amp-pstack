@@ -1,11 +1,11 @@
 {
 	"profile": "cheap",
 	"models": {
+		"arena-cross-judge": ["builtin:high"],
 		"judgment": "builtin:high",
-		"hardest-tasks": "builtin:high",
-		"how-explainer": "builtin:high",
+		"how-explainer": "builtin:medium",
 		"why-synthesizer": "builtin:high",
 		"reflect-judgment": "builtin:high",
-		"comment-reviewer": "builtin:high"
+		"comment-reviewer": "builtin:medium"
 	}
 }

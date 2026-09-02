@@ -62,5 +62,7 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 ## What did not port exactly
 
 - A plugin-created orb cannot select `orb_size`. Native `create_thread` can. Follow the size table in `pstack:poteto-mode`.
+- Amp has no Cursor `inherit-parent` or `auto`. A missing role uses the plugin default, not the parent chat model.
+- Amp has no Cursor thinking slugs. Grok thinking is xAI high unless you use the official `grok46` mode. Sol thinking is only `builtin:medium` or `builtin:high`. Fable is only `builtin:ultra`.
 - Editor-specific UI and proprietary automation editors have no direct Amp equivalent. Skills, Amp modes, threads, schedules, and webhooks replace them.
 - Prompt resources in `agents/` are documentation. Runtime delegates are created by [`index.ts`](../../index.ts). Comment Sicko runs as role `comment-reviewer` with write tools excluded.

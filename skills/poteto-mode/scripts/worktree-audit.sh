@@ -10,6 +10,18 @@
 # `amp threads search --json`. Tests inject a stub here.
 set -u
 
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+	cat <<'EOF'
+Usage: worktree-audit.sh [repo-path]
+
+Read-only worktree prune audit. Classifies extra git worktrees and prints a
+table. Never deletes anything.
+
+AMP_THREADS_SEARCH, if set, replaces `amp threads search --json`.
+EOF
+	exit 0
+fi
+
 repo="${1:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 [ -z "$repo" ] && { echo "not in a git repo; pass a repo path" >&2; exit 1; }
 cd "$repo" || exit 1

@@ -69,7 +69,6 @@ export const DEFAULT_MODELS = {
 	'perf-issue': 'openai/gpt-5.6-sol',
 	hillclimb: 'openai/gpt-5.6-sol',
 	judgment: 'anthropic/claude-fable-5',
-	'hardest-tasks': 'anthropic/claude-fable-5',
 	'how-explorer': 'xai/grok-4.6',
 	'how-explainer': 'anthropic/claude-fable-5',
 	'why-investigator': 'xai/grok-4.6',
@@ -116,7 +115,6 @@ export const CHEAP_MODELS = {
 	'perf-issue': 'openai/gpt-5.6-sol',
 	hillclimb: 'openai/gpt-5.6-sol',
 	judgment: 'xai/grok-4.6',
-	'hardest-tasks': 'openai/gpt-5.6-sol',
 	'how-explorer': 'xai/grok-4.6',
 	'how-explainer': 'xai/grok-4.6',
 	'why-investigator': 'xai/grok-4.6',
@@ -137,6 +135,10 @@ export type ModelProfileName = (typeof MODEL_PROFILES)[number]
 
 export const WORKSPACE_MODEL_FILE = '.amp/pstack.models.json'
 export const USER_MODEL_FILE = join(homedir(), '.config', 'amp', 'pstack.models.json')
+
+export function userModelPath(): string {
+	return process.env.PSTACK_USER_MODEL_FILE ?? USER_MODEL_FILE
+}
 
 export const CONFIG_KEY = 'pstack.models'
 export const WEBHOOK_EVENT_IDS_KEY = 'pstack.webhookEventIds'
@@ -316,7 +318,7 @@ export function workspaceRootPath(amp: PluginAPI): string | null {
 
 export async function loadFileLayers(
 	workspaceRoot: string | null,
-	userFile = USER_MODEL_FILE,
+	userFile = userModelPath(),
 ): Promise<{
 	userFile: unknown
 	workspaceFile: unknown
@@ -426,13 +428,15 @@ function instructionsFor(role: string): string {
 export default async function pstack(amp: PluginAPI) {
 	await Promise.all(SKILL_PATHS.map((path) => amp.registerSkill({ path })))
 
+	const fileLayers = () => loadFileLayers(workspaceRootPath(amp), userModelPath())
+
+	const resolvedFrom = async (stored: unknown): Promise<ModelMap> => {
+		return resolveModels({ ...(await fileLayers()), stored })
+	}
+
 	const configuredModels = async (): Promise<ModelMap> => {
 		const configuration = await amp.configuration.get()
-		const files = await loadFileLayers(workspaceRootPath(amp))
-		return resolveModels({
-			...files,
-			stored: configuration[CONFIG_KEY],
-		})
+		return resolvedFrom(configuration[CONFIG_KEY])
 	}
 
 	const storedOverrides = async (): Promise<ModelMap> => {
@@ -671,21 +675,22 @@ export default async function pstack(amp: PluginAPI) {
 			const action = text(input.action, 'action')
 			if (action === 'reset') {
 				await amp.configuration.delete(CONFIG_KEY, 'global')
-				return JSON.stringify(await configuredModels(), null, 2)
+				return JSON.stringify(await resolvedFrom(undefined), null, 2)
 			}
 			if (action === 'profile') {
 				const profile = text(input.profile, 'profile')
 				if (profile === 'reset') {
 					await amp.configuration.delete(CONFIG_KEY, 'global')
-				} else {
-					await amp.configuration.update({ [CONFIG_KEY]: profileModels(profile) }, 'global')
+					return JSON.stringify(await resolvedFrom(undefined), null, 2)
 				}
-				return JSON.stringify(await configuredModels(), null, 2)
+				const next = profileModels(profile)
+				await amp.configuration.update({ [CONFIG_KEY]: next }, 'global')
+				return JSON.stringify(await resolvedFrom(next), null, 2)
 			}
 			if (action === 'set') {
 				const next = { ...(await storedOverrides()), ...validateOverrides(input.overrides) }
 				await amp.configuration.update({ [CONFIG_KEY]: next }, 'global')
-				return JSON.stringify(await configuredModels(), null, 2)
+				return JSON.stringify(await resolvedFrom(next), null, 2)
 			}
 			if (action === 'show') {
 				return JSON.stringify(await configuredModels(), null, 2)

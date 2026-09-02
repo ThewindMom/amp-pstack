@@ -50,7 +50,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | Judgment and synthesis | `anthropic/claude-fable-5` |
 | Panels | Fable 5, GPT-5.6 Sol, Grok 4.6, Opus 5 |
 
-Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. `builtin:high` is GPT-5.6 Sol at x-high. `builtin:ultra` is Fable. Grok 4.6 has no Amp thinking dial; xAI defaults it to high.
+Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. `builtin:medium` is Sol at med. `builtin:high` is Sol at x-high. `builtin:ultra` is Fable 5.1. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` does not pass `reasoningEffort`; Amp lists Grok with an empty efforts array, and xAI then defaults to high. Raw `openai/gpt-5.6-sol` also has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
 
 To skip Fable and Opus, copy [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) to `~/.config/amp/pstack.models.json` for yourself, or to `.amp/pstack.models.json` in a repo. `.amp/pstack.models.json` is gitignored. The example is the file you copy, not a file you commit as the live map.
 
@@ -60,12 +60,12 @@ The example is cheap plus Amp high on the old Fable roles:
 {
   "profile": "cheap",
   "models": {
+    "arena-cross-judge": ["builtin:high"],
     "judgment": "builtin:high",
-    "hardest-tasks": "builtin:high",
-    "how-explainer": "builtin:high",
+    "how-explainer": "builtin:medium",
     "why-synthesizer": "builtin:high",
     "reflect-judgment": "builtin:high",
-    "comment-reviewer": "builtin:high"
+    "comment-reviewer": "builtin:medium"
   }
 }
 ```

@@ -2,7 +2,19 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+
+const isolatedUserFile = join(tmpdir(), `pstack-user-models-${process.pid}.json`)
+const previousUserFile = process.env.PSTACK_USER_MODEL_FILE
+
+beforeAll(() => {
+	process.env.PSTACK_USER_MODEL_FILE = isolatedUserFile
+})
+
+afterAll(() => {
+	if (previousUserFile === undefined) delete process.env.PSTACK_USER_MODEL_FILE
+	else process.env.PSTACK_USER_MODEL_FILE = previousUserFile
+})
 
 import pstack, {
 	AGENT_INSTRUCTIONS,
@@ -449,6 +461,19 @@ describe('runtime tool behavior', () => {
 		expect(JSON.parse(profiled).judgment).toBe('xai/grok-4.6')
 		expect(JSON.parse(profiled)['arena-cross-judge']).toEqual(['openai/gpt-5.6-sol'])
 		await tool(amp, 'pstack_configure_models').execute({ action: 'reset' })
+	})
+
+	test('configure set returns the written overlay without rereading Amp config', async () => {
+		const amp = await loadPlugin()
+		amp.configuration.get = async () => ({})
+		const updated = JSON.parse(
+			await tool(amp, 'pstack_configure_models').execute({
+				action: 'set',
+				overrides: { 'feature-refactoring': 'builtin:low' },
+			}),
+		)
+		expect(updated['feature-refactoring']).toBe('builtin:low')
+		expect(amp.config[CONFIG_KEY]).toEqual({ 'feature-refactoring': 'builtin:low' })
 	})
 
 	test('configure show lets workspace json beat stored Amp config', async () => {
