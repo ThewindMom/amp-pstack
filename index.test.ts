@@ -67,7 +67,7 @@ describe('amp-pstack plugin', () => {
 	})
 
 	test('has multi-model role and panel defaults', () => {
-		expect(DEFAULT_MODELS['bug-fix']).toBe('openai/gpt-5.6-sol')
+		expect(DEFAULT_MODELS['bug-fix']).toBe('anthropic/claude-fable-5-1')
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(4)
 		expect(description.length).toBeLessThanOrEqual(300)
 		expect(ROLE_ALIASES.feature).toBe('feature-refactoring')

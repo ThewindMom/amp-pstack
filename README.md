@@ -46,9 +46,9 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | Purpose | Default |
 |---|---|
 | Feature and refactoring | `xai/grok-4.6` |
-| Bugs, performance, hillclimbing | `openai/gpt-5.6-sol` |
-| Judgment and synthesis | `anthropic/claude-fable-5` |
-| Panels | Fable 5, GPT-5.6 Sol, Grok 4.6, Opus 5 |
+| Bugs, performance, hillclimbing | `anthropic/claude-fable-5-1` |
+| Judgment and synthesis | `anthropic/claude-fable-5-1` |
+| Panels | Fable 5.1, GPT-5.6 Sol, Grok 4.6, Opus 5 |
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. `builtin:medium` is Sol at med. `builtin:high` is Sol at x-high. `builtin:ultra` is Fable 5.1. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` does not pass `reasoningEffort`; Amp lists Grok with an empty efforts array, and xAI then defaults to high. Raw `openai/gpt-5.6-sol` also has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
 

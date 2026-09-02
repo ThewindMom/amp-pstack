@@ -38,7 +38,7 @@ Call `pstack_run_panel` once with panel `interrogate-reviewers`, local executor,
 
 | Reviewer | Default model |
 |----------|---------------|
-| Reviewer A | `anthropic/claude-fable-5` |
+| Reviewer A | `anthropic/claude-fable-5-1` |
 | Reviewer B | `openai/gpt-5.6-sol` |
 | Reviewer C | `xai/grok-4.6` |
 | Reviewer D | `anthropic/claude-opus-5` |
