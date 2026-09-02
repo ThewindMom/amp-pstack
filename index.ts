@@ -135,9 +135,14 @@ export type ModelProfileName = (typeof MODEL_PROFILES)[number]
 
 export const WORKSPACE_MODEL_FILE = '.amp/pstack.models.json'
 export const USER_MODEL_FILE = join(homedir(), '.config', 'amp', 'pstack.models.json')
+export const PLUGIN_MODEL_FILE = join(import.meta.dir, 'pstack.models.json')
 
 export function userModelPath(): string {
 	return process.env.PSTACK_USER_MODEL_FILE ?? USER_MODEL_FILE
+}
+
+export function pluginModelPath(): string {
+	return process.env.PSTACK_PLUGIN_MODEL_FILE ?? PLUGIN_MODEL_FILE
 }
 
 export const CONFIG_KEY = 'pstack.models'
@@ -318,12 +323,14 @@ export function fileModelMap(value: unknown): ModelMap {
 }
 
 export function resolveModels(input: {
+	pluginFile?: unknown
 	userFile?: unknown
 	workspaceFile?: unknown
 	stored?: unknown
 }): ModelMap {
 	return {
 		...DEFAULT_MODELS,
+		...fileModelMap(input.pluginFile),
 		...fileModelMap(input.userFile),
 		...storedModelMap(input.stored),
 		...fileModelMap(input.workspaceFile),
@@ -339,11 +346,14 @@ export function workspaceRootPath(amp: PluginAPI): string | null {
 export async function loadFileLayers(
 	workspaceRoot: string | null,
 	userFile = userModelPath(),
+	pluginFile = pluginModelPath(),
 ): Promise<{
+	pluginFile: unknown
 	userFile: unknown
 	workspaceFile: unknown
 }> {
 	return {
+		pluginFile: await readJsonFile(pluginFile),
 		userFile: await readJsonFile(userFile),
 		workspaceFile: workspaceRoot
 			? await readJsonFile(join(workspaceRoot, WORKSPACE_MODEL_FILE))
@@ -452,7 +462,7 @@ function instructionsFor(role: string): string {
 export default async function pstack(amp: PluginAPI) {
 	await Promise.all(SKILL_PATHS.map((path) => amp.registerSkill({ path })))
 
-	const fileLayers = () => loadFileLayers(workspaceRootPath(amp), userModelPath())
+	const fileLayers = () => loadFileLayers(workspaceRootPath(amp), userModelPath(), pluginModelPath())
 
 	const resolvedFrom = async (stored: unknown): Promise<ModelMap> => {
 		return resolveModels({ ...(await fileLayers()), stored })

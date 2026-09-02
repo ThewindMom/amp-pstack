@@ -5,15 +5,20 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
 const isolatedUserFile = join(tmpdir(), `pstack-user-models-${process.pid}.json`)
+const isolatedPluginFile = join(tmpdir(), `pstack-plugin-models-${process.pid}.json`)
 const previousUserFile = process.env.PSTACK_USER_MODEL_FILE
+const previousPluginFile = process.env.PSTACK_PLUGIN_MODEL_FILE
 
 beforeAll(() => {
 	process.env.PSTACK_USER_MODEL_FILE = isolatedUserFile
+	process.env.PSTACK_PLUGIN_MODEL_FILE = isolatedPluginFile
 })
 
 afterAll(() => {
 	if (previousUserFile === undefined) delete process.env.PSTACK_USER_MODEL_FILE
 	else process.env.PSTACK_USER_MODEL_FILE = previousUserFile
+	if (previousPluginFile === undefined) delete process.env.PSTACK_PLUGIN_MODEL_FILE
+	else process.env.PSTACK_PLUGIN_MODEL_FILE = previousPluginFile
 })
 
 import pstack, {
@@ -239,9 +244,10 @@ describe('model configuration', () => {
 		expect(Object.keys(CHEAP_MODELS).sort()).toEqual(Object.keys(DEFAULT_MODELS).sort())
 	})
 
-	test('resolveModels applies defaults, user file, stored overrides, then workspace file', () => {
+	test('resolveModels applies defaults, plugin file, user file, stored overrides, then workspace file', () => {
 		expect(
 			resolveModels({
+				pluginFile: { profile: 'cheap', models: { judgment: 'builtin:high' } },
 				userFile: { profile: 'cheap' },
 				stored: { hillclimb: 'builtin:high', judgment: 'anthropic/claude-fable-5' },
 				workspaceFile: { 'bug-fix': 'xai/grok-4.6' },
@@ -251,13 +257,31 @@ describe('model configuration', () => {
 			'bug-fix': 'xai/grok-4.6',
 			hillclimb: 'builtin:high',
 			'feature-refactoring': 'xai/grok-4.6',
+			'comment-reviewer': 'xai/grok-4.6',
 		})
+		expect(
+			resolveModels({
+				pluginFile: { profile: 'cheap', models: { judgment: 'builtin:high' } },
+			}).judgment,
+		).toBe('builtin:high')
 		expect(
 			resolveModels({
 				stored: { judgment: 'anthropic/claude-fable-5' },
 				workspaceFile: { profile: 'cheap' },
 			}).judgment,
 		).toBe('xai/grok-4.6')
+	})
+
+	test('bundled plugin json is cheap plus Sol builtins without Fable or Opus', async () => {
+		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
+		const mapped = fileModelMap(bundled)
+		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
+		expect(mapped['bug-fix']).toBe('builtin:medium')
+		expect(mapped.judgment).toBe('builtin:high')
+		expect(mapped['comment-reviewer']).toBe('builtin:high')
+		expect(mapped['how-critics']).toEqual(['builtin:high', 'builtin:medium', 'xai/grok-4.6'])
+		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
+		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
 	})
 
 	test('example json is a cheap profile without Fable or Opus', async () => {
@@ -291,8 +315,9 @@ describe('model configuration', () => {
 				join(root, '.amp', 'pstack.models.json'),
 				JSON.stringify({ profile: 'cheap' }),
 			)
-			const layers = await loadFileLayers(root, join(root, 'user.json'))
+			const layers = await loadFileLayers(root, join(root, 'user.json'), join(root, 'plugin.json'))
 			expect(fileModelMap(layers.workspaceFile).judgment).toBe('xai/grok-4.6')
+			expect(layers.pluginFile).toBeUndefined()
 			expect((await loadFileLayers(null, join(root, 'user.json'))).workspaceFile).toBeUndefined()
 			expect(workspaceRootPath({ system: { workspaceRoot: null } } as never)).toBeNull()
 			expect(

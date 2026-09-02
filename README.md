@@ -4,20 +4,31 @@ An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tr
 
 ## Install
 
-Install from GitHub for your Amp user:
+pstack is a directory plugin. Amp's URL installer (`amp plugins add`) only accepts a single `.ts` file, so do not use it here.
+
+**Personal plugins (recommended).** This loads on every machine and in orbs. Clone your Amp user-plugins repo, copy this tree in as `pstack/`, commit, and push:
+
+```bash
+amp clone user-plugins
+rsync -a --delete --exclude .git ./ /path/to/user-plugins/pstack/
+```
+
+Then reload plugins. A system clone at `~/.config/amp/plugins/pstack` beats a personal copy, so do not keep both.
+
+**This machine only:**
 
 ```bash
 git clone https://github.com/ThewindMom/amp-pstack.git ~/.config/amp/plugins/pstack
 ```
 
-Install only in the current workspace:
+**One project only:**
 
 ```bash
 mkdir -p .amp/plugins
 git clone https://github.com/ThewindMom/amp-pstack.git .amp/plugins/pstack
 ```
 
-Amp's URL installer is for single-file plugins; pstack is a directory plugin because it bundles skills and resources. Restart Amp after cloning, then confirm it loaded with `amp plugins list`. Update it with `git -C ~/.config/amp/plugins/pstack pull --ff-only`, or use the equivalent workspace path.
+Confirm with `amp plugins list`. A personal copy shows as `amp-global-plugin:pstack` with `scope: user`.
 
 ## Start
 
@@ -43,38 +54,37 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-| Purpose | Default |
+`poteto` extends Amp **medium**. The parent is GPT-5.6 Sol at med thinking plus pstack routing. It is not Fable.
+
+Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
+
+The bundled file is cheap plus Sol builtins. No Fable. No Opus.
+
+| Seat | Bundled map |
 |---|---|
-| Feature and refactoring | `xai/grok-4.6` |
-| Bugs, performance, hillclimbing | `anthropic/claude-fable-5-1` |
-| Judgment and synthesis | `anthropic/claude-fable-5-1` |
-| Panels | Fable 5.1, GPT-5.6 Sol, Grok 4.6, Opus 5 |
+| Parent `poteto` | Amp medium (Sol, med) |
+| Feature, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
+| Bugs, performance, hillclimb, reflect-tooling | `builtin:medium` (Sol, med) |
+| Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer | `builtin:high` (Sol, x-high) |
+| Panels | high, medium, Grok |
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. `builtin:medium` is Sol at med. `builtin:high` is Sol at x-high. `builtin:ultra` is Fable 5.1. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` does not pass `reasoningEffort`; Amp lists Grok with an empty efforts array, and xAI then defaults to high. Raw `openai/gpt-5.6-sol` also has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
 
-To skip Fable and Opus, copy [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) to `~/.config/amp/pstack.models.json` for yourself, or to `.amp/pstack.models.json` in a repo. `.amp/pstack.models.json` is gitignored. The example is the file you copy, not a file you commit as the live map.
+Later wins:
 
-The example is cheap plus Amp high on the old Fable roles:
+1. Balanced defaults in `index.ts`.
+2. Plugin file `pstack.models.json` next to `index.ts`. This is the live personal-plugin map.
+3. User file `~/.config/amp/pstack.models.json` on that machine.
+4. Amp user config from `pstack_configure_models` `set` or `profile`.
+5. Workspace file `.amp/pstack.models.json` in the current repo.
 
-```json
-{
-  "profile": "cheap",
-  "models": {
-    "arena-cross-judge": ["builtin:high"],
-    "judgment": "builtin:high",
-    "how-explainer": "builtin:medium",
-    "why-synthesizer": "builtin:high",
-    "reflect-judgment": "builtin:high",
-    "comment-reviewer": "builtin:medium"
-  }
-}
-```
+A workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. The plugin JSON, user JSON, and workspace JSON stay. Orb children inherit the plugin file because it travels with the plugin. They do not inherit a machine-local user JSON.
 
-Cheap puts Grok on mechanical work and Sol on specified code. Panels become two models, Grok then Sol. The overlays move judgment onto Sol at x-high. `{ "profile": "cheap" }` alone is valid and cheaper, but parks prose on Grok.
+To change the map that orbs see, edit [`pstack.models.json`](./pstack.models.json), push GitHub, then copy the tree into your Amp user-plugins repo and push that too. GitHub push alone does not update personal plugins.
 
-Later wins: plugin defaults, user JSON, Amp user config from `set`/`profile`, then the workspace file. A committed workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. Repo and user JSON stay. The plugin process reads the files and creates delegates with the resolved map, so orb children inherit it.
+[`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) is a smaller cheap-plus-high sketch for a machine-local overlay. `.amp/pstack.models.json` is gitignored. `{ "profile": "cheap" }` alone is valid and cheaper, but parks prose on Grok.
 
-A panel value is a JSON array. List length is how many agents `pstack_run_panel` runs. Cheap already uses two. Add a third ID only if you want a third seat.
+A panel value is a JSON array. List length is how many agents `pstack_run_panel` runs. The bundled file uses three seats. Add another ID only if you want another seat.
 
 ## Orbs, modes, and sizes
 

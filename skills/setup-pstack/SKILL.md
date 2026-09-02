@@ -31,12 +31,13 @@ Every provider/model ID must be in the detected set. Built-in aliases always pas
 
 Resolution order, later wins:
 
-1. Plugin defaults (`balanced`: Fable and Opus on judgment and panels).
-2. User file `~/.config/amp/pstack.models.json`.
-3. Amp user config from `pstack_configure_models` `set` or `profile`.
-4. Workspace file `.amp/pstack.models.json`.
+1. Balanced defaults in `index.ts` (Fable and Opus on judgment and panels).
+2. Plugin file `pstack.models.json` next to `index.ts`. This is the live map shipped with the personal plugin. Orbs inherit it.
+3. User file `~/.config/amp/pstack.models.json` on that machine.
+4. Amp user config from `pstack_configure_models` `set` or `profile`.
+5. Workspace file `.amp/pstack.models.json`.
 
-Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json`, or to `.amp/pstack.models.json` in a repo. The example is cheap plus Amp modes on judgment seats. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. The plugin process reads those files from the Amp workspace root and the user path, then creates delegates with the resolved map. Orb children do not need a copy of the JSON. Cursor `inherit-parent` is invalid here. Raw Grok and raw Sol do not carry Cursor thinking slugs.
+The bundled plugin file is cheap plus Sol builtins and contains no Fable or Opus. Edit that file when the change should follow the plugin. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Raw Grok and raw Sol do not carry Cursor thinking slugs.
 
 Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
