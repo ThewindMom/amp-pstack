@@ -89,7 +89,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Agents and threads
 
-Use `pstack_run_agent` for a focused one-shot delegate, `pstack_run_panel` for the same brief across a configured multi-model panel, and `pstack_start_agent` for durable background work. Use local execution when the delegate needs this checkout. Use orb execution for independent remote work from the project base. Orb delegates do not inherit uncommitted local files, so push or transfer required context only when authorized and necessary.
+Use `pstack_run_agent` for a focused one-shot delegate, `pstack_run_panel` for the same brief across a configured multi-model panel, and `pstack_start_agent` for durable background work. Use local execution when the delegate needs this checkout. Use orb execution for independent remote work from the project base. Orb delegates do not inherit uncommitted local files, so push or transfer required context only when authorized and necessary. Omit `timeoutMs` on `comment-reviewer`. The plugin floors that role at ten minutes and keeps it terminal, so it cannot load skills or spawn another reviewer.
 
 Plugin agent tools take `executor: local | orb` only. They cannot set orb size. When size or a plugin/custom `agent_mode` matters, spawn with Amp's native `create_thread` (`executor: "orb"`, `orb_size`, optional `agent_mode` and `project`) and give the child the same pstack brief. Do not invent a size on `pstack_run_agent`.
 

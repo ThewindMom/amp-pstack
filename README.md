@@ -33,7 +33,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 - **Selectable mode.** `poteto` extends Amp's medium mode with pstack routing and principles.
 - **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
-- **Role-based agents.** `pstack_run_agent` maps feature, bug, performance, investigation, and judgment roles to configurable models.
+- **Role-based agents.** `pstack_run_agent` maps feature, bug, performance, investigation, and judgment roles to configurable models. `comment-reviewer` is terminal and report-only. It can run read-only git. It cannot load skills or spawn agents. Callers should omit `timeoutMs`; the plugin floors that role at ten minutes.
 - **Multi-model panels.** `pstack_run_panel` runs arena, architect, critique, and interrogate briefs concurrently across model families.
 - **Durable child threads.** `pstack_start_agent` launches background local or orb work. Children can report to any known parent through `pstack_send_to_thread`.
 - **Thread-native memory.** Reflection reads the current transcript directly. Recall and personal-mode mining use Amp's thread search and full thread reader.

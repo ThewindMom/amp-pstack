@@ -144,11 +144,28 @@ export const CONFIG_KEY = 'pstack.models'
 export const WEBHOOK_EVENT_IDS_KEY = 'pstack.webhookEventIds'
 export const MAX_WEBHOOK_EVENT_IDS = 500
 export const WRITE_TOOLS = ['apply_patch', 'create_file', 'edit_file'] as const
+export const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
+export const MIN_TIMEOUT_MS = 30_000
+export const MAX_TIMEOUT_MS = 60 * 60 * 1000
+export const COMMENT_REVIEWER_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
 export const COMMENT_REVIEWER_EXCLUDED_TOOLS = [
 	...WRITE_TOOLS,
-	'shell_command',
-	'shell_command_kill',
 	'Task',
+	'skill',
+	'oracle',
+	'librarian',
+	'find_thread',
+	'read_thread',
+	'create_thread',
+	'wait_for_threads',
+	'send_thread_message',
+	'pstack_run_agent',
+	'pstack_run_panel',
+	'pstack_start_agent',
+	'pstack_send_to_thread',
+	'pstack_configure_models',
+	'pstack_create_wake_webhook',
+	'shell_command_kill',
 ] as const
 
 type ModelValue = string | string[]
@@ -177,7 +194,10 @@ const POTETO_INSTRUCTIONS = [
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
 	'Assigned role: comment-reviewer.',
-	'You are report-only. Do not edit files, run mutating shell, or spawn writers.',
+	'You are a terminal report-only reviewer.',
+	'Do not load skills, spawn agents, create threads, or call pstack tools.',
+	'Use read-only git and file reads to inspect the named scope.',
+	'Do not edit files or run mutating shell.',
 	'Return findings and MUST KILL symbols. Never apply a patch.',
 ].join(' ')
 
@@ -342,9 +362,13 @@ export function executorFrom(value: unknown): Executor {
 	throw new Error('executor must be local or orb.')
 }
 
-export function timeoutFrom(value: unknown): number {
-	if (typeof value !== 'number' || !Number.isFinite(value)) return 10 * 60 * 1000
-	return Math.max(30_000, Math.min(value, 60 * 60 * 1000))
+export function timeoutFrom(value: unknown, options?: { role?: string }): number {
+	const parsed = typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_TIMEOUT_MS
+	const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(parsed, MAX_TIMEOUT_MS))
+	if (resolveRole(options?.role ?? '') === 'comment-reviewer') {
+		return Math.max(COMMENT_REVIEWER_MIN_TIMEOUT_MS, clamped)
+	}
+	return clamped
 }
 
 export function formatMessage(message: ThreadMessage): Record<string, unknown> {
@@ -518,7 +542,7 @@ export default async function pstack(amp: PluginAPI) {
 			const result = await agentFor(model, role).run(prompt, {
 				parentThreadID: ctx.thread.id,
 				executor: executorFrom(input.executor),
-				timeoutMs: timeoutFrom(input.timeoutMs),
+				timeoutMs: timeoutFrom(input.timeoutMs, { role }),
 			})
 			return JSON.stringify({ role, model, threadID: result.threadID, text: result.text })
 		},

@@ -20,8 +20,10 @@ import pstack, {
 	AGENT_INSTRUCTIONS,
 	CHEAP_MODELS,
 	COMMENT_REVIEWER_EXCLUDED_TOOLS,
+	COMMENT_REVIEWER_MIN_TIMEOUT_MS,
 	CONFIG_KEY,
 	DEFAULT_MODELS,
+	DEFAULT_TIMEOUT_MS,
 	MAX_WEBHOOK_EVENT_IDS,
 	ROLE_ALIASES,
 	SKILL_PATHS,
@@ -40,6 +42,7 @@ import pstack, {
 	resolveModels,
 	resolveRole,
 	storedModelMap,
+	timeoutFrom,
 	validateModel,
 	validateOverrides,
 	webhookEventMarker,
@@ -199,6 +202,15 @@ describe('model configuration', () => {
 		expect(() => executorFrom('cloud')).toThrow('executor must be local or orb')
 	})
 
+	test('comment-reviewer timeouts cannot undercut the ten-minute floor', () => {
+		expect(timeoutFrom(undefined)).toBe(DEFAULT_TIMEOUT_MS)
+		expect(timeoutFrom(120_000)).toBe(120_000)
+		expect(timeoutFrom(120_000, { role: 'comment-reviewer' })).toBe(COMMENT_REVIEWER_MIN_TIMEOUT_MS)
+		expect(timeoutFrom(undefined, { role: 'comment-reviewer' })).toBe(COMMENT_REVIEWER_MIN_TIMEOUT_MS)
+		expect(timeoutFrom(20 * 60 * 1000, { role: 'comment-reviewer' })).toBe(20 * 60 * 1000)
+		expect(timeoutFrom(120_000, { role: 'bug-fix' })).toBe(120_000)
+	})
+
 	test('cheap profile has no Fable or Opus', () => {
 		const cheap = profileModels('cheap')
 		expect(cheap.judgment).toBe('xai/grok-4.6')
@@ -340,12 +352,14 @@ describe('runtime tool behavior', () => {
 
 	async function loadPlugin() {
 		const created: Array<Record<string, unknown>> = []
+		const runs: Array<Record<string, unknown>> = []
 		const config: Record<string, unknown> = {}
 		const tools = new Map<string, { execute: Function }>()
 		let webhookHandler: ((event: unknown, ctx: unknown) => Promise<void>) | undefined
 		const amp = {
 			tools,
 			created,
+			runs,
 			config,
 			get webhookHandler() {
 				return webhookHandler
@@ -355,7 +369,8 @@ describe('runtime tool behavior', () => {
 				created.push(definition)
 				return {
 					definition,
-					async run(prompt: string) {
+					async run(prompt: string, options?: Record<string, unknown>) {
+						runs.push({ prompt, ...options })
 						return { threadID: 'T-child', text: `ran:${prompt}` }
 					},
 					async createThread() {
@@ -394,6 +409,7 @@ describe('runtime tool behavior', () => {
 		} as never & {
 			tools: Map<string, { execute: Function }>
 			created: Array<Record<string, unknown>>
+			runs: Array<Record<string, unknown>>
 			config: Record<string, unknown>
 			webhookHandler?: (event: unknown, ctx: unknown) => Promise<void>
 			system: { workspaceRoot: string | null }
@@ -428,16 +444,19 @@ describe('runtime tool behavior', () => {
 			instructions: `${AGENT_INSTRUCTIONS} Assigned role: feature-refactoring.`,
 		})
 		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'comment-reviewer', prompt: 'review comments' },
+			{ role: 'comment-reviewer', prompt: 'review comments', timeoutMs: 120_000 },
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(amp.created.at(-1)).toMatchObject({
 			tools: { exclude: [...COMMENT_REVIEWER_EXCLUDED_TOOLS] },
 		})
-		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('shell_command')
+		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).not.toContain('shell_command')
 		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('Task')
+		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('skill')
+		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('pstack_run_agent')
 		expect(WRITE_TOOLS.every((name) => COMMENT_REVIEWER_EXCLUDED_TOOLS.includes(name))).toBe(true)
-		expect(String(amp.created.at(-1)?.instructions)).toContain('report-only')
+		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
+		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
 	})
 
 	test('configure set stores overrides only and unknown actions fail', async () => {
