@@ -459,7 +459,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
 	})
 
-	test('poteto-mode.ts registers a Grok parent on the medium harness', async () => {
+	test('poteto-mode.ts registers a Grok parent on the Grok/ultra harness', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -476,11 +476,11 @@ describe('runtime tool behavior', () => {
 		potetoMode(amp)
 		expect(modes).toEqual(['poteto'])
 		expect(created[0]).toMatchObject({
-			extends: 'medium',
+			extends: 'ultra',
 			model: 'xai/grok-4.6',
 			reasoningEffort: 'high',
-			tools: 'all',
 		})
+		expect(created[0]).not.toHaveProperty('tools')
 	})
 
 	test('feature alias uses the shared role and comment-reviewer cannot write', async () => {

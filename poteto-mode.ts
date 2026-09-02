@@ -3,7 +3,7 @@
 import type { PluginAPI } from '@ampcode/plugin'
 
 export const description =
-	'Poteto mode for Amp: Grok 4.6 parent on the medium harness, with pstack playbook routing. Use for pstack work. Pair with the pstack directory plugin for skills and tools.'
+	'Poteto mode for Amp: Grok 4.6 parent on Amp\'s Grok/ultra harness, plus pstack playbook routing. Pair with the pstack directory plugin for skills and tools.'
 
 const POTETO_INSTRUCTIONS = [
 	'For every nontrivial task, load the pstack:poteto-mode skill before acting and follow its matched playbook.',
@@ -14,11 +14,11 @@ const POTETO_INSTRUCTIONS = [
 
 export default function potetoMode(amp: PluginAPI) {
 	const poteto = amp.createAgent({
-		extends: 'medium',
+		extends: 'ultra',
 		model: 'xai/grok-4.6',
 		instructions: POTETO_INSTRUCTIONS,
-		tools: 'all',
 		reasoningEffort: 'high',
+		compactionThresholdTokens: 300_000,
 		display: { label: 'poteto', color: '#eab308' },
 	})
 
@@ -26,7 +26,7 @@ export default function potetoMode(amp: PluginAPI) {
 		key: 'poteto',
 		label: 'poteto',
 		description:
-			'Routes rigorous engineering work through pstack playbooks, multi-model delegates, evidence-first verification, and Amp threads or orbs.',
+			'Grok 4.6 with Amp\'s Grok/ultra prompt and tools, then pstack playbooks, delegates, threads, and orbs.',
 		color: '#eab308',
 		agent: poteto.definition,
 	})
