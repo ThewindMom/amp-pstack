@@ -208,7 +208,7 @@ export function backgroundChildPrompt(prompt: string, parentThreadID: string): s
 		'Report outcome, evidence, blockers, and next action. No file dumps.',
 		'Do not spawn another agent for this same scope.',
 		'Do not message sibling threads. The parent may steer you mid-run.',
-		'If this child is an orb or the artifact is large, write the file and cite the path for download_thread_file instead of pasting it.',
+		'If either this child or the parent is an orb, or the artifact is large, write the file and cite the path for download_thread_file instead of pasting it.',
 	].join('\n')
 }
 

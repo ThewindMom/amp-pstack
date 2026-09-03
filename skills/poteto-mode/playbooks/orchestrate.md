@@ -55,7 +55,7 @@ Size the brief to the unit. A one-command unit gets the template collapsed to a 
 
 #### File transfer
 
-Threads do not share a filesystem. A `pstack_send_to_thread` message does not move files or commits. When a worker needs an uncommitted artifact, a screenshot, a schema, or a store file the brief cannot point at in git, transfer it explicitly.
+Threads do not share a filesystem. A `pstack_send_to_thread` message does not move files or commits. Only a same-machine local coordinator and local worker share the checkout. If either is an orb, transfer. When a worker needs an uncommitted artifact, a screenshot, a schema, or a store file the brief cannot point at in git, transfer it explicitly.
 
 - Coordinator to child: `upload_thread_file` with the child thread ID, the local path, and a destination under that child's workspace. Parent directory on the child must already exist. Cap is 4 MiB.
 - Child to coordinator: the child writes the file in its workspace and reports the path. The coordinator pulls it with `download_thread_file`.

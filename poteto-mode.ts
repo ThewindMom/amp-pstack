@@ -150,7 +150,7 @@ These guidance files are delivered dynamically in the conversation context after
 
 # pstack routing
 
-For every nontrivial task, load the pstack:poteto-mode skill before acting and follow its matched playbook. Load referenced pstack skills when their trigger applies. Default long work to pstack_start_agent so the parent does not freeze; the child reports with pstack_send_to_thread. Steer a live child instead of spawning a second one for the same scope. Children report to the parent, not to siblings. Transfer files with upload_thread_file / download_thread_file only when executors differ or the artifact is too large to paste. Use pstack_run_agent only when this turn cannot proceed without one result. Never redo a child's scope in the parent. Use Amp child threads and orbs for durable background work, and schedules for work that must wake later.
+For every nontrivial task, load the pstack:poteto-mode skill before acting and follow its matched playbook. Load referenced pstack skills when their trigger applies. Default long work to pstack_start_agent so the parent does not freeze; the child reports with pstack_send_to_thread. Steer a live child instead of spawning a second one for the same scope. Children report to the parent, not to siblings. Transfer files with upload_thread_file / download_thread_file when either thread is an orb, or the artifact is too large to paste. Two orbs do not share a disk. Use pstack_run_agent only when this turn cannot proceed without one result. Never redo a child's scope in the parent. Use Amp child threads and orbs for durable background work, and schedules for work that must wake later.
 `
 
 /** Ultra's tool list (UNIFIED_SMART_INCLUDE_TOOLS in core/src/inference/agent-modes.ts). */
