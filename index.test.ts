@@ -23,6 +23,7 @@ afterAll(() => {
 
 import pstack, {
 	AGENT_INSTRUCTIONS,
+	START_AGENT_NEXT,
 	CHEAP_MODELS,
 	COMMENT_REVIEWER_EXCLUDED_TOOLS,
 	COMMENT_REVIEWER_MIN_TIMEOUT_MS,
@@ -606,7 +607,9 @@ describe('runtime tool behavior', () => {
 			model: DEFAULT_MODELS['feature-refactoring'],
 			threadID: 'T-child',
 			parentThreadID: 'T-parent',
+			next: START_AGENT_NEXT,
 		})
+		expect(result.next).toContain('Do not call wait_for_threads')
 		expect(amp.waited).toHaveLength(0)
 		expect(amp.started).toHaveLength(1)
 		expect(amp.started[0]?.prompt).toBe(

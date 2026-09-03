@@ -91,11 +91,11 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait.
 
-**Join.** Default to `pstack_start_agent`. It returns `threadID` immediately. The child reports with `pstack_send_to_thread` (steer defaults on) and wakes this parent. After starting, do remaining parent work or end the turn. `wait_for_threads` is optional when this turn already has those IDs and nothing else to do. Do not freeze the parent on `pstack_run_agent` for feature, how, bug-fix, perf, hillclimb, or refactoring.
+**Join.** Default to `pstack_start_agent`. It returns `threadID` immediately. The child reports with `pstack_send_to_thread` (steer defaults on) and wakes this parent. After starting, end the turn. Do not call `wait_for_threads`. Amp returns `unknown` / `settled` with an empty transcript while the child is still starting. That is not failure. Zero messages is not dead. Do not spawn `Task`, `pstack_run_agent`, or a second `pstack_start_agent` for that scope. Do not freeze the parent on `pstack_run_agent` for feature, how, bug-fix, perf, hillclimb, or refactoring.
 
 **Blocking wait.** `pstack_run_agent` and `pstack_run_panel` wait. Use them only when this turn cannot proceed without one result, such as comment-reviewer or a panel you must rank now. Omit `timeoutMs`. The plugin floors waits at ten minutes. They always return `threadID`. Timeout is `status: timeout` plus that ID. The child remains the owner. Read it with `read_thread` and use its report.
 
-**Never redo.** A timeout, a late report, or a live child is not a signal to implement that scope in the parent. Duplicate parent work is the expensive failure.
+**Never redo.** A timeout, a late report, `wait_for_threads` `unknown`, or a live child is not a signal to implement that scope in the parent or to spawn a replacement owner. Duplicate parent work is the expensive failure.
 
 **Steer.** The parent may message a live child with `pstack_send_to_thread` or Amp `send_thread_message` (`steer: true`) to tighten scope, share a sibling finding, or stop a wrong path. Do not spawn a second child for the same scope. Children do not chat with siblings. They report to the parent. The parent relays. Sibling-to-sibling messages hide spend and duplicate work.
 

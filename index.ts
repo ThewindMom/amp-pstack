@@ -212,6 +212,9 @@ export function backgroundChildPrompt(prompt: string, parentThreadID: string): s
 	].join('\n')
 }
 
+export const START_AGENT_NEXT =
+	'End this turn now. Do not call wait_for_threads. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. The child remains the owner until it steers this parent. If you must check later, read_thread; zero messages means not started yet, not dead.'
+
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
 	'Assigned role: comment-reviewer.',
@@ -658,7 +661,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Start pstack background agent',
 		transcriptGroup: { active: 'Starting pstack agent', complete: 'Started pstack agent' },
 		description:
-			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. The child reports with pstack_send_to_thread (steer defaults on). Parent joins with wait_for_threads or by ending the turn. Do not redo the child\'s scope.',
+			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. The child reports with pstack_send_to_thread (steer defaults on). After this result, end the turn. Do not call wait_for_threads: Amp returns unknown/settled on an empty child and that is not failure. Do not spawn a second owner for this scope.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -679,7 +682,13 @@ export default async function pstack(amp: PluginAPI) {
 				type: 'user-message',
 				content: backgroundChildPrompt(text(input.prompt, 'prompt'), ctx.thread.id),
 			})
-			return JSON.stringify({ role, model, threadID: thread.id, parentThreadID: ctx.thread.id })
+			return JSON.stringify({
+				role,
+				model,
+				threadID: thread.id,
+				parentThreadID: ctx.thread.id,
+				next: START_AGENT_NEXT,
+			})
 		},
 	})
 
