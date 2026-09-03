@@ -382,9 +382,10 @@ describe('runtime tool behavior', () => {
 		return found
 	}
 
-	async function loadPlugin() {
+	async function loadPlugin(options?: { waitError?: Error }) {
 		const created: Array<Record<string, unknown>> = []
 		const runs: Array<Record<string, unknown>> = []
+		const threads: Array<Record<string, unknown>> = []
 		const config: Record<string, unknown> = {}
 		const tools = new Map<string, { execute: Function }>()
 		let webhookHandler: ((event: unknown, ctx: unknown) => Promise<void>) | undefined
@@ -392,6 +393,7 @@ describe('runtime tool behavior', () => {
 			tools,
 			created,
 			runs,
+			threads,
 			config,
 			get webhookHandler() {
 				return webhookHandler
@@ -405,11 +407,24 @@ describe('runtime tool behavior', () => {
 						runs.push({ prompt, ...options })
 						return { threadID: 'T-child', text: `ran:${prompt}` }
 					},
-					async createThread() {
-						return {
+					async createThread(createOptions?: Record<string, unknown>) {
+						const thread = {
 							id: 'T-child',
-							async appendUserMessage() {},
+							parentThreadID: createOptions?.parentThreadID,
+							executor: createOptions?.executor,
+							prompt: '',
+							timeoutMs: undefined as number | undefined,
+							async appendUserMessage({ content }: { content: string }) {
+								thread.prompt = content
+							},
+							async waitForResponse({ timeoutMs }: { timeoutMs?: number } = {}) {
+								thread.timeoutMs = timeoutMs
+								threads.push(thread)
+								if (options?.waitError) throw options.waitError
+								return { content: [{ type: 'text', text: `ran:${thread.prompt}` }] }
+							},
 						}
+						return thread
 					},
 				}
 			},
@@ -442,6 +457,7 @@ describe('runtime tool behavior', () => {
 			tools: Map<string, { execute: Function }>
 			created: Array<Record<string, unknown>>
 			runs: Array<Record<string, unknown>>
+			threads: Array<Record<string, unknown>>
 			config: Record<string, unknown>
 			webhookHandler?: (event: unknown, ctx: unknown) => Promise<void>
 			system: { workspaceRoot: string | null }
@@ -517,17 +533,38 @@ describe('runtime tool behavior', () => {
 		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('pstack_run_agent')
 		expect(WRITE_TOOLS.every((name) => COMMENT_REVIEWER_EXCLUDED_TOOLS.includes(name))).toBe(true)
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
-		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'how-explainer', prompt: 'explain it', timeoutMs: 120_000 },
-			{ thread: { id: 'T-parent' } },
+		expect(amp.threads.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
+		const explained = JSON.parse(
+			await tool(amp, 'pstack_run_agent').execute(
+				{ role: 'how-explainer', prompt: 'explain it', timeoutMs: 120_000 },
+				{ thread: { id: 'T-parent' } },
+			),
 		)
-		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
+		expect(explained).toMatchObject({
+			status: 'done',
+			threadID: 'T-child',
+			timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS,
+		})
+		expect(amp.threads.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
 		await tool(amp, 'pstack_run_agent').execute(
 			{ role: 'feature-refactoring', prompt: 'implement it', timeoutMs: 240_000 },
 			{ thread: { id: 'T-parent' } },
 		)
-		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
+		expect(amp.threads.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
+	})
+
+	test('run_agent timeout keeps the child thread as owner', async () => {
+		const amp = await loadPlugin({ waitError: new Error('wait expired') })
+		const result = JSON.parse(
+			await tool(amp, 'pstack_run_agent').execute(
+				{ role: 'feature-refactoring', prompt: 'implement fixture' },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		expect(result.status).toBe('timeout')
+		expect(result.threadID).toBe('T-child')
+		expect(result.text).toContain('Child thread T-child is still the owner')
+		expect(result.text).toContain('Do not redo the delegated work')
 	})
 
 	test('configure set stores overrides only and unknown actions fail', async () => {

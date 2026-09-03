@@ -491,6 +491,49 @@ export default async function pstack(amp: PluginAPI) {
 		return undefined
 	}
 
+	const lastAssistantText = (message: { content?: unknown }): string => {
+		const content = Array.isArray(message.content) ? message.content : []
+		return content
+			.filter((block): block is { type: string; text: string } => {
+				return (
+					typeof block === 'object' &&
+					block !== null &&
+					'type' in block &&
+					block.type === 'text' &&
+					'text' in block &&
+					typeof block.text === 'string'
+				)
+			})
+			.map((block) => block.text)
+			.join('\n')
+			.trim()
+	}
+
+	const runOnThread = async (input: {
+		agent: Agent
+		prompt: string
+		parentThreadID: ThreadID
+		executor: ReturnType<typeof executorFrom>
+		timeoutMs: number
+	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' }> => {
+		const thread = await input.agent.createThread({
+			parentThreadID: input.parentThreadID,
+			executor: input.executor,
+		})
+		await thread.appendUserMessage({ type: 'user-message', content: input.prompt })
+		try {
+			const reply = await thread.waitForResponse({ timeoutMs: input.timeoutMs })
+			return { threadID: thread.id, text: lastAssistantText(reply), status: 'done' }
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error)
+			return {
+				threadID: thread.id,
+				status: 'timeout',
+				text: `Timed out waiting for agent response after ${input.timeoutMs}ms. Child thread ${thread.id} is still the owner of this work. Read that thread and use its report. Do not redo the delegated work in the parent. ${detail}`,
+			}
+		}
+	}
+
 	const agentFor = (model: string, role: string): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
 		const resolved = resolveRole(role)
@@ -517,7 +560,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack delegate',
 		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
 		description:
-			'Run one configured pstack role in an isolated agent thread and return its final report. Use local execution for the current checkout and orb execution for independent remote work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
+			'Run one configured pstack role in a child Amp thread and wait for its report. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -532,12 +575,15 @@ export default async function pstack(amp: PluginAPI) {
 			const role = resolveRole(text(input.role, 'role'))
 			const prompt = text(input.prompt, 'prompt')
 			const model = await modelFor(role)
-			const result = await agentFor(model, role).run(prompt, {
+			const timeoutMs = timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS })
+			const result = await runOnThread({
+				agent: agentFor(model, role),
+				prompt,
 				parentThreadID: ctx.thread.id,
 				executor: executorFrom(input.executor),
-				timeoutMs: timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS }),
+				timeoutMs,
 			})
-			return JSON.stringify({ role, model, threadID: result.threadID, text: result.text })
+			return JSON.stringify({ role, model, timeoutMs, ...result })
 		},
 	})
 
@@ -546,7 +592,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack panel',
 		transcriptGroup: { active: 'Running pstack panel', complete: 'Ran pstack panel' },
 		description:
-			'Run the same standalone brief concurrently across every model configured for a pstack panel. Returns one labeled result per model for parent synthesis.',
+			'Run the same standalone brief concurrently across every model configured for a pstack panel. Each seat is a child thread. Returns threadID even when a seat times out so the parent can read that thread instead of redoing the work.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -561,20 +607,23 @@ export default async function pstack(amp: PluginAPI) {
 			const panel = text(input.panel, 'panel')
 			const prompt = text(input.prompt, 'prompt')
 			const models = await panelFor(panel)
+			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS })
 			const settled = await Promise.allSettled(
 				models.map(async (model, index) => {
-					const result = await agentFor(model, `${panel}-${index + 1}`).run(prompt, {
+					const result = await runOnThread({
+						agent: agentFor(model, `${panel}-${index + 1}`),
+						prompt,
 						parentThreadID: ctx.thread.id,
 						executor: executorFrom(input.executor),
-						timeoutMs: timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS }),
+						timeoutMs,
 					})
-					return { label: `${panel}-${index + 1}`, model, ...result }
+					return { label: `${panel}-${index + 1}`, model, timeoutMs, ...result }
 				}),
 			)
 			return JSON.stringify(
 				settled.map((result, index) =>
 					result.status === 'fulfilled'
-						? { status: 'done', ...result.value }
+						? result.value
 						: { status: 'error', model: models[index], error: String(result.reason) },
 				),
 			)

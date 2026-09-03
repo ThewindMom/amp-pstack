@@ -38,7 +38,7 @@ When candidates must run in orbs, size them from the **poteto-mode** Agents and 
 
 The rationale is mandatory. Without it, the parent cannot tell whether a candidate's structure is principled or accidental, which makes Phase E grafting unreliable. Each rationale names the alternatives the candidate considered and what it rejected.
 
-If a candidate fails to produce output, proceed with N-1 and note the dropout in the synthesis record.
+If a candidate returns `status: timeout`, read its `threadID` before calling it a dropout. Proceed with N-1 only after that child has no report. Do not redo a timed-out candidate in the parent.
 
 ## Phase C: Cross-judge
 
