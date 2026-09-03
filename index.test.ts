@@ -501,7 +501,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
 	})
 
-	test('poteto-mode.ts registers an explicit Grok parent without extends', async () => {
+	test('poteto-mode.ts registers a builtin medium parent without a Grok pin', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -521,11 +521,12 @@ describe('runtime tool behavior', () => {
 		expect(modes).toEqual(['poteto'])
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
-			model: 'xai/grok-4.6',
-			reasoningEffort: 'high',
+			extends: 'medium',
 		})
-		expect(created[0]).not.toHaveProperty('extends')
+		expect(created[0]).not.toHaveProperty('model')
+		expect(created[0]).not.toHaveProperty('tools')
 		expect(String(created[0]?.instructions)).toContain('pstack:poteto-mode')
+		expect(String(created[0]?.instructions)).toContain('Do not call painter')
 	})
 
 	test('feature alias uses the shared role and comment-reviewer cannot write', async () => {
