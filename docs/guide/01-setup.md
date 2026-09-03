@@ -4,22 +4,17 @@ In this page you install the plugin, pick which models pstack uses, and run your
 
 ## Install the plugin
 
-Amp's URL installer is for single-file plugins. pstack is a directory plugin. Clone it, then restart Amp.
-
-User install:
+Amp's URL installer is for single-file plugins. pstack is a directory plugin. The recommended install is your Amp personal plugins repo, so orbs and other machines see it.
 
 ```bash
-git clone https://github.com/ThewindMom/amp-pstack.git ~/.config/amp/plugins/pstack
+amp clone user-plugins
+rsync -a --delete --exclude .git ./ /path/to/user-plugins/pstack/
+cp poteto-mode.ts /path/to/user-plugins/poteto-mode.ts
 ```
 
-Workspace install:
+A machine-only clone at `~/.config/amp/plugins/pstack` is optional and beats the personal copy. Do not keep both. Playbooks are files on the loaded skill. After `pstack:poteto-mode` loads, Amp names that skill's base directory. Never `cat ~/.config/amp/plugins/pstack/skills/...` on a personal-plugin install; that path is absent.
 
-```bash
-mkdir -p .amp/plugins
-git clone https://github.com/ThewindMom/amp-pstack.git .amp/plugins/pstack
-```
-
-Confirm it loaded with `amp plugins list`. That listing shows the `setup-models` command, the pstack tools, and the `poteto` mode. It does not print the plugin description. Update with `git -C ~/.config/amp/plugins/pstack pull --ff-only`, or the workspace equivalent.
+Confirm it loaded with `amp plugins list`. A personal copy shows as `amp-global-plugin:pstack`. `poteto-mode.ts` at the user-plugins root registers the `poteto` Dial mode.
 
 ## Pick your models
 

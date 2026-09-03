@@ -45,7 +45,7 @@ Decompose the question into 2-4 parallel exploration angles, each a distinct sli
 
 The right decomposition depends on the question. Use your judgment. Narrow questions: 2 explorers is fine. Broad subsystems: up to 4.
 
-Launch all explorers concurrently with `pstack_run_agent`, role `how-explorer`, local executor. Give each explorer a distinct angle and a read-only brief. The plugin resolves the configured model.
+Launch all explorers concurrently with `pstack_run_agent`, role `how-explorer`, local executor, and no `timeoutMs`. Give each explorer a distinct angle and a read-only brief. The plugin resolves the configured model and floors the wait at ten minutes.
 
 Each explorer gets the same base prompt from `references/explorer-prompt.md` plus a specific exploration angle naming its slice. Each explorer should:
 - Start broad: Glob for relevant directories, Grep for key types/interfaces/class names
@@ -60,7 +60,7 @@ Then proceed to Step 3.
 
 ### Step 2b. Direct Explain (simple questions)
 
-Run one `pstack_run_agent` call with role `how-explainer`, local executor, and a read-only brief that explores and explains in one pass.
+Run one `pstack_run_agent` call with role `how-explainer`, local executor, no `timeoutMs`, and a read-only brief that explores and explains in one pass.
 
 The agent does its own exploration (Glob, Grep, Read) and writes the explanation directly. Read `references/explainer-prompt.md` for the communication style and output format. Same structure, just no explorer findings as input.
 

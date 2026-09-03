@@ -29,6 +29,7 @@ import pstack, {
 	CONFIG_KEY,
 	DEFAULT_MODELS,
 	DEFAULT_TIMEOUT_MS,
+	RUN_AGENT_MIN_TIMEOUT_MS,
 	MAX_WEBHOOK_EVENT_IDS,
 	ROLE_ALIASES,
 	SKILL_PATHS,
@@ -207,13 +208,19 @@ describe('model configuration', () => {
 		expect(() => executorFrom('cloud')).toThrow('executor must be local or orb')
 	})
 
-	test('comment-reviewer timeouts cannot undercut the ten-minute floor', () => {
+	test('one-shot delegates cannot undercut the ten-minute floor', () => {
 		expect(timeoutFrom(undefined)).toBe(DEFAULT_TIMEOUT_MS)
 		expect(timeoutFrom(120_000)).toBe(120_000)
 		expect(timeoutFrom(120_000, { role: 'comment-reviewer' })).toBe(COMMENT_REVIEWER_MIN_TIMEOUT_MS)
 		expect(timeoutFrom(undefined, { role: 'comment-reviewer' })).toBe(COMMENT_REVIEWER_MIN_TIMEOUT_MS)
 		expect(timeoutFrom(20 * 60 * 1000, { role: 'comment-reviewer' })).toBe(20 * 60 * 1000)
-		expect(timeoutFrom(120_000, { role: 'bug-fix' })).toBe(120_000)
+		expect(timeoutFrom(120_000, { role: 'how-explainer', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
+			RUN_AGENT_MIN_TIMEOUT_MS,
+		)
+		expect(timeoutFrom(240_000, { role: 'feature-refactoring', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
+			RUN_AGENT_MIN_TIMEOUT_MS,
+		)
+		expect(timeoutFrom(20 * 60 * 1000, { floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(20 * 60 * 1000)
 	})
 
 	test('cheap profile has no Fable or Opus', () => {
@@ -511,6 +518,16 @@ describe('runtime tool behavior', () => {
 		expect(WRITE_TOOLS.every((name) => COMMENT_REVIEWER_EXCLUDED_TOOLS.includes(name))).toBe(true)
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
 		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
+		await tool(amp, 'pstack_run_agent').execute(
+			{ role: 'how-explainer', prompt: 'explain it', timeoutMs: 120_000 },
+			{ thread: { id: 'T-parent' } },
+		)
+		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
+		await tool(amp, 'pstack_run_agent').execute(
+			{ role: 'feature-refactoring', prompt: 'implement it', timeoutMs: 240_000 },
+			{ thread: { id: 'T-parent' } },
+		)
+		expect(amp.runs.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
 	})
 
 	test('configure set stores overrides only and unknown actions fail', async () => {

@@ -152,6 +152,7 @@ export const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 export const MIN_TIMEOUT_MS = 30_000
 export const MAX_TIMEOUT_MS = 60 * 60 * 1000
 export const COMMENT_REVIEWER_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
+export const RUN_AGENT_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
 export const COMMENT_REVIEWER_EXCLUDED_TOOLS = [
 	...WRITE_TOOLS,
 	'Task',
@@ -364,13 +365,13 @@ export function executorFrom(value: unknown): Executor {
 	throw new Error('executor must be local or orb.')
 }
 
-export function timeoutFrom(value: unknown, options?: { role?: string }): number {
+export function timeoutFrom(value: unknown, options?: { role?: string; floor?: number }): number {
 	const parsed = typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_TIMEOUT_MS
 	const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(parsed, MAX_TIMEOUT_MS))
-	if (resolveRole(options?.role ?? '') === 'comment-reviewer') {
-		return Math.max(COMMENT_REVIEWER_MIN_TIMEOUT_MS, clamped)
-	}
-	return clamped
+	const roleFloor =
+		resolveRole(options?.role ?? '') === 'comment-reviewer' ? COMMENT_REVIEWER_MIN_TIMEOUT_MS : 0
+	const floor = Math.max(options?.floor ?? 0, roleFloor)
+	return Math.max(floor, clamped)
 }
 
 export function formatMessage(message: ThreadMessage): Record<string, unknown> {
@@ -534,7 +535,7 @@ export default async function pstack(amp: PluginAPI) {
 			const result = await agentFor(model, role).run(prompt, {
 				parentThreadID: ctx.thread.id,
 				executor: executorFrom(input.executor),
-				timeoutMs: timeoutFrom(input.timeoutMs, { role }),
+				timeoutMs: timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS }),
 			})
 			return JSON.stringify({ role, model, threadID: result.threadID, text: result.text })
 		},
@@ -565,7 +566,7 @@ export default async function pstack(amp: PluginAPI) {
 					const result = await agentFor(model, `${panel}-${index + 1}`).run(prompt, {
 						parentThreadID: ctx.thread.id,
 						executor: executorFrom(input.executor),
-						timeoutMs: timeoutFrom(input.timeoutMs),
+						timeoutMs: timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS }),
 					})
 					return { label: `${panel}-${index + 1}`, model, ...result }
 				}),
