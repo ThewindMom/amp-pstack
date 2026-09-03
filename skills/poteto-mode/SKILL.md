@@ -89,7 +89,15 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Agents and threads
 
-Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID. `pstack_run_agent` and `pstack_run_panel` create that child, wait for its report, and always return `threadID`. On timeout they return `status: timeout` plus the child ID. The child remains the owner. Read that thread with `read_thread` and use its report. Do not redo the delegated work in the parent. Use `pstack_start_agent` when the parent must keep working without waiting; the child reports with `pstack_send_to_thread`. Omit `timeoutMs`. The plugin floors waits at ten minutes. Playbooks live with this skill. After load, Amp names the skill base directory. Open `playbooks/<name>.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
+Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait.
+
+**Join.** Default to `pstack_start_agent`. It returns `threadID` immediately. The child reports with `pstack_send_to_thread` (steer defaults on) and wakes this parent. After starting, do remaining parent work or end the turn. `wait_for_threads` is optional when this turn already has those IDs and nothing else to do. Do not freeze the parent on `pstack_run_agent` for feature, how, bug-fix, perf, hillclimb, or refactoring.
+
+**Blocking wait.** `pstack_run_agent` and `pstack_run_panel` wait. Use them only when this turn cannot proceed without one result, such as comment-reviewer or a panel you must rank now. Omit `timeoutMs`. The plugin floors waits at ten minutes. They always return `threadID`. Timeout is `status: timeout` plus that ID. The child remains the owner. Read it with `read_thread` and use its report.
+
+**Never redo.** A timeout, a late report, or a live child is not a signal to implement that scope in the parent. Duplicate parent work is the expensive failure.
+
+**Briefs.** Compact: paths, named data shape, success criteria, how to report. No file dumps. Large artifacts go through `upload_thread_file` / `download_thread_file`. Playbooks live with this skill. After load, Amp names the skill base directory. Open `playbooks/<name>.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
 
 Plugin agent tools take `executor: local | orb` only. They cannot set orb size. When size or a plugin/custom `agent_mode` matters, spawn with Amp's native `create_thread` (`executor: "orb"`, `orb_size`, optional `agent_mode` and `project`) and give the child the same pstack brief. Do not invent a size on `pstack_run_agent`.
 
@@ -99,7 +107,7 @@ Pick size from this table unless the user named one. The user-named size always 
 |---|---|---|
 | Read-only fan-out: how explorers, how-critics, why investigators, interrogate reviewers, comment-reviewer | `a1.tiny` | `create_thread` |
 | Small scripts, focused edits, light checks, recall/reflect miners | `a1.small` | `create_thread`, or plugin orb if the project default is already small |
-| Ordinary feature, bug, refactor, or hillclimb on a single-package repo | project default (`a1.small` or `a1.medium`) | `pstack_run_agent` / `pstack_start_agent` with `executor: "orb"` |
+| Ordinary feature, bug, refactor, or hillclimb on a single-package repo | project default (`a1.small` or `a1.medium`) | `pstack_start_agent` with `executor: "orb"` |
 | Moderate builds, local services, test suites | `a1.medium` | `create_thread` when the default is smaller |
 | Monorepos, several services, browsers, CPU-heavy tests, live visual lanes | `a1.large` | `create_thread` |
 | Unusually large builds and wide parallel workloads | `a1.xxlarge` | `create_thread` |

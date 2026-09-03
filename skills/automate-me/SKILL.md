@@ -5,6 +5,7 @@ builtin-tools:
   - find_thread
   - read_thread
   - pstack_run_agent
+  - pstack_start_agent
 ---
 
 # Automate me
@@ -29,7 +30,7 @@ Update mode changes the rest of the flow:
 
 ### 1. Mine their history
 
-Use `find_thread` to search the active project or repository and the requested date range. Read relevant conversations with `read_thread`. For a large result set, run parallel `pstack_run_agent` calls with role `how-explorer` over non-overlapping thread-ID slices. Each miner returns recurring patterns with Amp thread links. Default signals worth hunting:
+Use `find_thread` to search the active project or repository and the requested date range. Read relevant conversations with `read_thread`. For a large result set, run parallel `pstack_start_agent` calls with role `how-explorer` over non-overlapping thread-ID slices. Join on the reports. Each miner returns recurring patterns with Amp thread links. Default signals worth hunting:
 
 - Response preferences (length, tone, format, "dumb it down" corrections)
 - Delegation habits (subagents, models, specialized workflows, parallelism)

@@ -187,7 +187,26 @@ export const AGENT_INSTRUCTIONS = [
 	'Use available tools directly rather than guessing.',
 	'Do not push, merge, deploy, publish, delete shared data, or perform other external writes unless the user explicitly authorized that action.',
 	'When editing, verify the result and report files changed, checks run, blockers, and the next action.',
+	'Keep reports short: outcome, evidence (paths, commands, thread IDs), blockers, next action. Do not dump files.',
+	'If a large artifact is required, write it and cite the path so the parent can pull it with download_thread_file.',
+	'Do not spawn another agent for this same scope.',
 ].join(' ')
+
+export function steerFrom(value: unknown): boolean {
+	return value !== false
+}
+
+export function backgroundChildPrompt(prompt: string, parentThreadID: string): string {
+	return [
+		prompt,
+		'',
+		`Parent thread: ${parentThreadID}.`,
+		'When finished, call pstack_send_to_thread with that thread ID and a compact report.',
+		'Omit steer unless you must not wake the parent (steer defaults to true).',
+		'Report outcome, evidence, blockers, and next action. No file dumps.',
+		'Do not spawn another agent for this same scope.',
+	].join('\n')
+}
 
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
@@ -560,7 +579,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack delegate',
 		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
 		description:
-			'Run one configured pstack role in a child Amp thread and wait for its report. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
+			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Prefer pstack_start_agent for feature, how, bug-fix, and other long work. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -635,7 +654,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Start pstack background agent',
 		transcriptGroup: { active: 'Starting pstack agent', complete: 'Started pstack agent' },
 		description:
-			'Start a durable background pstack agent in a child thread. The agent must report back with pstack_send_to_thread when the parent needs its result.',
+			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. The child reports with pstack_send_to_thread (steer defaults on). Parent joins with wait_for_threads or by ending the turn. Do not redo the child\'s scope.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -654,7 +673,7 @@ export default async function pstack(amp: PluginAPI) {
 			})
 			await thread.appendUserMessage({
 				type: 'user-message',
-				content: `${text(input.prompt, 'prompt')}\n\nParent thread: ${ctx.thread.id}. When finished, call pstack_send_to_thread with that thread ID and your compact report.`,
+				content: backgroundChildPrompt(text(input.prompt, 'prompt'), ctx.thread.id),
 			})
 			return JSON.stringify({ role, model, threadID: thread.id, parentThreadID: ctx.thread.id })
 		},
@@ -664,7 +683,8 @@ export default async function pstack(amp: PluginAPI) {
 		name: 'pstack_send_to_thread',
 		title: 'Report to pstack thread',
 		transcriptGroup: { active: 'Reporting to parent', complete: 'Reported to parent' },
-		description: 'Send a delegate report or steering message to a known Amp thread.',
+		description:
+			'Send a delegate report or steering message to a known Amp thread. steer defaults to true so the parent wakes. Pass false only for a non-waking note.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -679,7 +699,7 @@ export default async function pstack(amp: PluginAPI) {
 			if (!threadID.startsWith('T-')) throw new Error('Invalid Amp thread ID.')
 			await amp.threads.get(threadID as ThreadID).appendUserMessage(
 				{ type: 'user-message', content: text(input.message, 'message') },
-				{ steer: input.steer === true },
+				{ steer: steerFrom(input.steer) },
 			)
 			return `Sent report to ${threadID}.`
 		},

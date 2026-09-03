@@ -30,7 +30,7 @@ Open an explicit checklist with one entry per phase before launching anything.
 
 ## Phase B: Fan out
 
-Launch all workers concurrently with `pstack_run_agent`, role `swarm-worker`. Use local execution when they need the current checkout or uncommitted state. Use orb execution only for independent work from the project's remote base. Keep every `threadID`. A timeout is a dropout only after you read that child and confirm it has no report. For work that must not block the parent, use `pstack_start_agent` and require `pstack_send_to_thread`.
+Launch all workers concurrently with `pstack_start_agent`, role `swarm-worker`. Use local execution when they need the current checkout or uncommitted state. Use orb execution only for independent work from the project's remote base. Keep every `threadID`. After starting, end the turn or keep doing parent work. Join on `pstack_send_to_thread` reports. Do not freeze the parent on `pstack_run_agent`. A missing report is a dropout only after you read that child and confirm it has none.
 
 Orb size follows the **poteto-mode** Agents and threads table. Coverage slices that only read and report use `create_thread` with `a1.tiny` or `a1.small`. Live visual lanes, browsers, or CPU-heavy tests use `a1.large`. Plugin `executor: "orb"` is enough when the project default already matches. A user-named size always wins.
 

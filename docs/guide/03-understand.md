@@ -10,7 +10,7 @@ Editing code you don't understand is how subtle regressions ship. pstack gives y
 Load pstack:how. How do we dedupe notifications? Is there an n+1 when we look up subscribers?
 ```
 
-Ask the question you actually have. [`pstack:how`](../../skills/how/SKILL.md) reads the code and answers at the level of a senior engineer onboarding you onto the subsystem, with the runtime flow, the key types, and the non-obvious parts. For a big subsystem it fans out two to four read-only explorers with `pstack_run_agent` role `how-explorer`. For a narrow question it runs one `how-explainer`. Critique mode then runs panel `how-critics`.
+Ask the question you actually have. [`pstack:how`](../../skills/how/SKILL.md) reads the code and answers at the level of a senior engineer onboarding you onto the subsystem, with the runtime flow, the key types, and the non-obvious parts. For a big subsystem it fans out two to four read-only explorers with `pstack_start_agent` role `how-explorer`. For a narrow question it starts one `how-explainer`. Join on the reports. Critique mode then runs panel `how-critics`.
 
 ```text
 Load pstack:how. Explain the sync service, then critique its ownership boundaries.

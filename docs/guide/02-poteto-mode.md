@@ -48,9 +48,9 @@ Fix the root cause, then prove it on the real export.
 
 The plugin exposes three levels:
 
-1. `pstack_run_agent` runs one configured role and waits for its report.
-2. `pstack_run_panel` runs the same brief across a configured model panel.
-3. `pstack_start_agent` creates a durable child thread that reports to its parent.
+1. `pstack_start_agent` is the default. It creates a durable child thread and returns immediately. The child reports with `pstack_send_to_thread` and wakes the parent.
+2. `pstack_run_panel` waits for the same brief across a configured model panel. Use it when this turn must rank seats now.
+3. `pstack_run_agent` waits for one role. Use it only when this turn cannot proceed without that result, such as comment-reviewer.
 
 Use local execution for the current checkout. Use an orb for isolated work from the project's remote base. Orb size comes from the table in `pstack:poteto-mode`: tiny or small for read-only fan-out, the project default for ordinary features, large for browsers and heavy tests. The plugin API cannot set `orb_size`, so those rows spawn with native `create_thread`.
 

@@ -3,6 +3,8 @@ name: why
 description: "Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Discovers available MCPs and queries each evidence category (source control, issue tracker, long-form docs, real-time chat, infrastructure observability, error tracking, product analytics warehouse) in parallel, then returns a cited read on decisions and tradeoffs. Use how for runtime behavior."
 builtin-tools:
   - pstack_run_agent
+  - pstack_start_agent
+  - pstack_send_to_thread
 ---
 
 # Why
@@ -115,7 +117,7 @@ Source control is always available through git and `gh`. For the other six, clas
 
 Aim for a complete **coverage map**, not a minimal one. A null result from an issue tracker is evidence the decision was not ticketed, a useful fact in itself. Document the null, don't skip the search.
 
-Launch one `pstack_run_agent` call per matching category concurrently, using role `why-investigator` and the local executor. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs. The brief forbids writes even though the agent has tools, because MCP access is required.
+Launch one `pstack_start_agent` call per matching category concurrently, using role `why-investigator` and the local executor. Keep each `threadID` and join on the reports. Do not call `pstack_run_agent` for investigators. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs. The brief forbids writes even though the agent has tools, because MCP access is required.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -157,7 +159,7 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 
 ## Step 4. Synthesize
 
-Run one `pstack_run_agent` call with role `why-synthesizer`, local executor, and the full synthesis brief. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
+Run one `pstack_start_agent` call with role `why-synthesizer`, local executor, and the full synthesis brief. Join on the report. Do not write the synthesis in the parent. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification

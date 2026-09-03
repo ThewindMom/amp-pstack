@@ -150,7 +150,7 @@ These guidance files are delivered dynamically in the conversation context after
 
 # pstack routing
 
-For every nontrivial task, load the pstack:poteto-mode skill before acting and follow its matched playbook. Load referenced pstack skills when their trigger applies. Use pstack agent and panel tools when model diversity or isolated context materially improves the result. Use Amp child threads and orbs for durable background work, and schedules for work that must wake later.
+For every nontrivial task, load the pstack:poteto-mode skill before acting and follow its matched playbook. Load referenced pstack skills when their trigger applies. Default long work to pstack_start_agent so the parent does not freeze; the child reports with pstack_send_to_thread. Use pstack_run_agent only when this turn cannot proceed without one result. Never redo a child's scope in the parent. Use Amp child threads and orbs for durable background work, and schedules for work that must wake later.
 `
 
 /** Ultra's tool list (UNIFIED_SMART_INCLUDE_TOOLS in core/src/inference/agent-modes.ts). */

@@ -4,6 +4,7 @@ description: Spawn three parallel review subagents over the active transcript, s
 builtin-tools:
   - pstack_read_current_thread
   - pstack_run_agent
+  - pstack_start_agent
 ---
 
 # Reflect
@@ -28,7 +29,7 @@ Call `pstack_read_current_thread` with the largest useful limit. It reads this A
 
 ### 2. Spawn three reviewers in parallel
 
-Launch three `pstack_run_agent` calls concurrently. Reviewers need the available tools for context lookups, but each prompt forbids writes; the parent applies edits.
+Launch three `pstack_start_agent` calls concurrently. Keep each `threadID` and join on the reports. Reviewers need the available tools for context lookups, but each prompt forbids writes; the parent applies edits.
 
 | Lens | `model` | Prompt template |
 |---|---|---|
@@ -40,7 +41,7 @@ Pass each template verbatim, substituting the transcript JSON or digest where ma
 
 ### 3. Synthesize
 
-Run one `pstack_run_agent` call with role `reflect-judgment`. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+Run one `pstack_start_agent` call with role `reflect-judgment`. Join on the report. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 

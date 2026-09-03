@@ -35,6 +35,7 @@ import pstack, {
 	SKILL_PATHS,
 	WEBHOOK_EVENT_IDS_KEY,
 	WRITE_TOOLS,
+	backgroundChildPrompt,
 	claimWebhookEvent,
 	description,
 	executorFrom,
@@ -47,6 +48,7 @@ import pstack, {
 	readJsonFile,
 	resolveModels,
 	resolveRole,
+	steerFrom,
 	storedModelMap,
 	timeoutFrom,
 	validateModel,
@@ -385,7 +387,9 @@ describe('runtime tool behavior', () => {
 	async function loadPlugin(options?: { waitError?: Error }) {
 		const created: Array<Record<string, unknown>> = []
 		const runs: Array<Record<string, unknown>> = []
-		const threads: Array<Record<string, unknown>> = []
+		const waited: Array<Record<string, unknown>> = []
+		const started: Array<Record<string, unknown>> = []
+		const sent: Array<Record<string, unknown>> = []
 		const config: Record<string, unknown> = {}
 		const tools = new Map<string, { execute: Function }>()
 		let webhookHandler: ((event: unknown, ctx: unknown) => Promise<void>) | undefined
@@ -393,7 +397,9 @@ describe('runtime tool behavior', () => {
 			tools,
 			created,
 			runs,
-			threads,
+			waited,
+			started,
+			sent,
 			config,
 			get webhookHandler() {
 				return webhookHandler
@@ -419,11 +425,12 @@ describe('runtime tool behavior', () => {
 							},
 							async waitForResponse({ timeoutMs }: { timeoutMs?: number } = {}) {
 								thread.timeoutMs = timeoutMs
-								threads.push(thread)
+								waited.push(thread)
 								if (options?.waitError) throw options.waitError
 								return { content: [{ type: 'text', text: `ran:${thread.prompt}` }] }
 							},
 						}
+						started.push(thread)
 						return thread
 					},
 				}
@@ -453,11 +460,23 @@ describe('runtime tool behavior', () => {
 			logger: { log() {} },
 			system: { workspaceRoot: null },
 			helpers: { filePathFromURI: (uri: string) => uri },
+			threads: {
+				get(threadID: string) {
+					return {
+						id: threadID,
+						async appendUserMessage(message: { content: string }, options?: { steer?: boolean }) {
+							sent.push({ threadID, content: message.content, steer: options?.steer })
+						},
+					}
+				},
+			},
 		} as never & {
 			tools: Map<string, { execute: Function }>
 			created: Array<Record<string, unknown>>
 			runs: Array<Record<string, unknown>>
-			threads: Array<Record<string, unknown>>
+			waited: Array<Record<string, unknown>>
+			started: Array<Record<string, unknown>>
+			sent: Array<Record<string, unknown>>
 			config: Record<string, unknown>
 			webhookHandler?: (event: unknown, ctx: unknown) => Promise<void>
 			system: { workspaceRoot: string | null }
@@ -533,7 +552,7 @@ describe('runtime tool behavior', () => {
 		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('pstack_run_agent')
 		expect(WRITE_TOOLS.every((name) => COMMENT_REVIEWER_EXCLUDED_TOOLS.includes(name))).toBe(true)
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
-		expect(amp.threads.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
+		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
 		const explained = JSON.parse(
 			await tool(amp, 'pstack_run_agent').execute(
 				{ role: 'how-explainer', prompt: 'explain it', timeoutMs: 120_000 },
@@ -545,12 +564,12 @@ describe('runtime tool behavior', () => {
 			threadID: 'T-child',
 			timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS,
 		})
-		expect(amp.threads.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
+		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
 		await tool(amp, 'pstack_run_agent').execute(
 			{ role: 'feature-refactoring', prompt: 'implement it', timeoutMs: 240_000 },
 			{ thread: { id: 'T-parent' } },
 		)
-		expect(amp.threads.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
+		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
 	})
 
 	test('run_agent timeout keeps the child thread as owner', async () => {
@@ -565,6 +584,51 @@ describe('runtime tool behavior', () => {
 		expect(result.threadID).toBe('T-child')
 		expect(result.text).toContain('Child thread T-child is still the owner')
 		expect(result.text).toContain('Do not redo the delegated work')
+	})
+
+	test('steer defaults on and can be declined', () => {
+		expect(steerFrom(undefined)).toBe(true)
+		expect(steerFrom(true)).toBe(true)
+		expect(steerFrom(false)).toBe(false)
+	})
+
+	test('start_agent returns immediately and tells the child to report', async () => {
+		const amp = await loadPlugin({ waitError: new Error('must not wait') })
+		const result = JSON.parse(
+			await tool(amp, 'pstack_start_agent').execute(
+				{ role: 'feature-refactoring', prompt: 'implement fixture' },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		expect(result).toEqual({
+			role: 'feature-refactoring',
+			model: DEFAULT_MODELS['feature-refactoring'],
+			threadID: 'T-child',
+			parentThreadID: 'T-parent',
+		})
+		expect(amp.waited).toHaveLength(0)
+		expect(amp.started).toHaveLength(1)
+		expect(amp.started[0]?.prompt).toBe(
+			backgroundChildPrompt('implement fixture', 'T-parent'),
+		)
+		expect(String(amp.started[0]?.prompt)).toContain('pstack_send_to_thread')
+	})
+
+	test('send_to_thread steers the parent unless steer is false', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_send_to_thread').execute({
+			threadID: 'T-parent',
+			message: 'done',
+		})
+		await tool(amp, 'pstack_send_to_thread').execute({
+			threadID: 'T-parent',
+			message: 'note',
+			steer: false,
+		})
+		expect(amp.sent).toEqual([
+			{ threadID: 'T-parent', content: 'done', steer: true },
+			{ threadID: 'T-parent', content: 'note', steer: false },
+		])
 	})
 
 	test('configure set stores overrides only and unknown actions fail', async () => {

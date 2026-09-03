@@ -46,7 +46,7 @@ Decompose the question into 2-4 parallel exploration angles, each a distinct sli
 
 The right decomposition depends on the question. Use your judgment. Narrow questions: 2 explorers is fine. Broad subsystems: up to 4.
 
-Launch all explorers concurrently with `pstack_run_agent`, role `how-explorer`, local executor, and no `timeoutMs`. Give each explorer a distinct angle and a read-only brief. Keep each returned `threadID`. If a seat times out, read that child thread. Do not re-trace its slice in the parent. The plugin resolves the configured model.
+Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer`, local executor. Give each explorer a distinct angle and a read-only brief. Keep each `threadID`. After starting, end the turn or keep doing parent work. Join on each child's `pstack_send_to_thread` report. Do not call `pstack_run_agent` for explorers. Do not re-trace a child's slice in the parent. The plugin resolves the configured model.
 
 Each explorer gets the same base prompt from `references/explorer-prompt.md` plus a specific exploration angle naming its slice. Each explorer should:
 - Start broad: Glob for relevant directories, Grep for key types/interfaces/class names
@@ -61,7 +61,7 @@ Then proceed to Step 3.
 
 ### Step 2b. Direct Explain (simple questions)
 
-Run one `pstack_run_agent` call with role `how-explainer`, local executor, no `timeoutMs`, and a read-only brief that explores and explains in one pass. Keep the `threadID`. On timeout, read that child. Do not write the architecture trace in the parent.
+Run one `pstack_start_agent` call with role `how-explainer`, local executor, and a read-only brief that explores and explains in one pass. Keep the `threadID`. Join on the report. Do not call `pstack_run_agent` for this step. Do not write the architecture trace in the parent.
 
 The agent does its own exploration (Glob, Grep, Read) and writes the explanation directly. Read `references/explainer-prompt.md` for the communication style and output format. Same structure, just no explorer findings as input.
 
@@ -69,7 +69,7 @@ Proceed to Step 4.
 
 ### Step 3. Synthesize (complex questions only)
 
-Once all explorers return, run one `pstack_run_agent` call with role `how-explainer` to synthesize their findings into one coherent explanation.
+Once all explorers return, run one `pstack_start_agent` call with role `how-explainer` to synthesize their findings into one coherent explanation. Join on that report. Do not write the architecture trace in the parent.
 
 The explainer gets all explorers' findings and writes the human-facing explanation (output format below). Read `references/explainer-prompt.md` for the full prompt template. The explainer reconciles overlapping findings, resolves contradictions, and weaves the slices into a unified picture.
 
