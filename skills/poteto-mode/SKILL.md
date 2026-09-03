@@ -97,7 +97,11 @@ Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equiva
 
 **Never redo.** A timeout, a late report, or a live child is not a signal to implement that scope in the parent. Duplicate parent work is the expensive failure.
 
-**Briefs.** Compact: paths, named data shape, success criteria, how to report. No file dumps. Large artifacts go through `upload_thread_file` / `download_thread_file`. Playbooks live with this skill. After load, Amp names the skill base directory. Open `playbooks/<name>.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
+**Steer.** The parent may message a live child with `pstack_send_to_thread` or Amp `send_thread_message` (`steer: true`) to tighten scope, share a sibling finding, or stop a wrong path. Do not spawn a second child for the same scope. Children do not chat with siblings. They report to the parent. The parent relays. Sibling-to-sibling messages hide spend and duplicate work.
+
+**Files.** Threads do not share a filesystem. A steer message does not move files. Same-machine local parent and local child already share the checkout; cite paths, do not copy. Transfer only when executors differ (parent local, child orb) or the artifact is too large to paste (trace, screenshot, dump, store file, uncommitted fixture). Parent → child: `upload_thread_file` (4 MiB, destination parent dir must exist). Child → parent: child writes, cites the path, parent `download_thread_file`. Need a URL: `thread_file_url` (expires). Do not paste a file body into a brief when a transfer can carry it. Do not push only to make an orb see a file unless the user authorized that push.
+
+**Briefs.** Compact: paths, named data shape, success criteria, how to report. No file dumps. Playbooks live with this skill. After load, Amp names the skill base directory. Open `playbooks/<name>.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
 
 Plugin agent tools take `executor: local | orb` only. They cannot set orb size. When size or a plugin/custom `agent_mode` matters, spawn with Amp's native `create_thread` (`executor: "orb"`, `orb_size`, optional `agent_mode` and `project`) and give the child the same pstack brief. Do not invent a size on `pstack_run_agent`.
 

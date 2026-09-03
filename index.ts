@@ -190,6 +190,8 @@ export const AGENT_INSTRUCTIONS = [
 	'Keep reports short: outcome, evidence (paths, commands, thread IDs), blockers, next action. Do not dump files.',
 	'If a large artifact is required, write it and cite the path so the parent can pull it with download_thread_file.',
 	'Do not spawn another agent for this same scope.',
+	'Do not message sibling threads. Report only to the named parent.',
+	'The parent may steer you mid-run. Treat a steering message as the new scope.',
 ].join(' ')
 
 export function steerFrom(value: unknown): boolean {
@@ -205,6 +207,8 @@ export function backgroundChildPrompt(prompt: string, parentThreadID: string): s
 		'Omit steer unless you must not wake the parent (steer defaults to true).',
 		'Report outcome, evidence, blockers, and next action. No file dumps.',
 		'Do not spawn another agent for this same scope.',
+		'Do not message sibling threads. The parent may steer you mid-run.',
+		'If this child is an orb or the artifact is large, write the file and cite the path for download_thread_file instead of pasting it.',
 	].join('\n')
 }
 
