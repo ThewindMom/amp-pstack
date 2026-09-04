@@ -38,6 +38,8 @@ Load pstack:create-verification-skill
 
 Opening a PR does not start a babysit. Post the URL and keep building. Finish the phase or stack first. Run [Babysit](../../skills/poteto-mode/playbooks/babysit.md) only when you ask for merge-ready after the whole stack exists. [Shipping](../../skills/poteto-mode/playbooks/shipping.md) is a separate request. Green is not safe, and nothing merges without explicit authorization.
 
-The bundled watcher is `skills/poteto-mode/scripts/watch-pr/watch-pr`. Trust its merge state. The Graphite playbooks require `gt`. Without it, use ordinary independent PRs and keep independent verification.
+The bundled watcher is `skills/poteto-mode/scripts/watch-pr/watch-pr`. It covers GitHub. Resolve the forge once, use `gh` by default or Origin when its CLI can resolve the repository, and keep independent verification. Graphite is not required.
+
+The [Shipping playbook](../../skills/poteto-mode/playbooks/shipping.md) verifies each PR independently before it arms anything. One fresh agent per PR proves the behavior live, and the agent that judges a change is never the one that wrote it. Shipping then lands only the contiguous verified run from the bottom, one PR at a time through the resolved forge. A verified PR above an unverified one waits because merging it would pull the gap underneath.
 
 Next: [Run work while you sleep](./07-overnight.md).

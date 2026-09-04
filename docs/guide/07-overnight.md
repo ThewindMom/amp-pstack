@@ -58,6 +58,6 @@ Because you'll review this work after stepping away, poteto-mode routes it throu
 
 ## Scale past one agent
 
-A standing program uses [Orchestrate](../../skills/poteto-mode/playbooks/orchestrate.md). A queue of independent PRs uses [Autopilot-full](../../skills/poteto-mode/playbooks/autopilot-full.md) or [Autopilot-stack](../../skills/poteto-mode/playbooks/autopilot-stack.md). Schedules and webhooks still require explicit authorization. A request to monitor does not authorize merging.
+A standing program uses [Orchestrate](../../skills/poteto-mode/playbooks/orchestrate.md). A queue of independent PRs uses [Autopilot-full](../../skills/poteto-mode/playbooks/autopilot-full.md). Sequenced or coupled work uses [Autopilot-stack](../../skills/poteto-mode/playbooks/autopilot-stack.md), which produces a linear base-branch stack for the operator to land. Schedules and webhooks still require explicit authorization. A request to monitor does not authorize merging.
 
 Next: [Steer with principle names](./08-principles.md).

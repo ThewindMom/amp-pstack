@@ -4,6 +4,7 @@ description: "Spawn N parallel candidates at the same task, pick a base, graft t
 builtin-tools:
   - pstack_run_agent
   - pstack_run_panel
+  - pstack_start_agent
 ---
 
 # Arena
@@ -27,12 +28,12 @@ The N candidates will receive the same prompt, so the prompt is the contract. Ge
 
 1. State the artifact each candidate is producing.
 2. Derive the rubric. State what success looks like for *this* task, then turn it into 3-6 concrete gradeable criteria. Concrete: `Adds a --dry-run flag that skips writes`. Vague: `code is correct`. The rubric is the picker's tool in Phase D; candidates only see the task.
-3. Pick the runners. Use panel `arena-runners`. `pstack_run_panel` resolves its configured model list. For a custom count or repeated-model generation run, call `pstack_run_agent` once per candidate role instead.
+3. Pick the runners. Accept a runner panel from the caller and default to `arena-runners`. `pstack_run_panel` resolves the selected panel's configured model list. For a custom count or repeated-model generation run, call `pstack_run_agent` once per candidate role instead.
 4. Assign output paths. Each candidate writes to its own location (a git worktree where possible, otherwise `/tmp/arena-<slug>/candidate-<n>/`). N candidates writing to the same path is shared mutable state and fails the the **separate-before-serializing-shared-state** principle skill test.
 
 ## Phase B: Fan out
 
-Call `pstack_run_panel` once with panel `arena-runners` and a complete shared brief. Each agent receives a unique role label. Tell candidates to return the artifact in their response or write only to a path derived from that unique label. For custom runners, launch `pstack_run_agent` calls concurrently.
+Call `pstack_run_panel` once with the selected runner panel and a complete shared brief. Each agent receives a unique role label. Tell candidates to return the artifact in their response or write only to a path derived from that unique label. For custom runners, launch `pstack_run_agent` calls concurrently.
 
 When candidates must run in orbs, size them from the **poteto-mode** Agents and threads table. Design sketches and cross-judges are `a1.tiny` or `a1.small` via `create_thread` unless the project default is already that small. Implementation bakeoffs that build or drive the app follow the feature/bug row. Plugin panels cannot set `orb_size`.
 
@@ -42,7 +43,7 @@ If a candidate returns `status: timeout`, read its `threadID` before calling it 
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, run `pstack_run_panel` with panel `arena-cross-judge`. It sees the rubric and completed candidates by label, scores each criterion, and recommends a base with rationale. Run it in parallel with the parent's reading in Phase D, never while candidates are still producing output.
+After all Phase B candidates complete, start one background agent with `pstack_start_agent`, role `arena-cross-judge`. The plugin requires this call at runtime: if the parent ends the turn first, it continues until that judge starts. It sees the rubric and completed candidates by label, scores each criterion, and recommends a base with rationale. While it runs, read every candidate for Phase D. Join only when its verdict is needed to finish the pick. Never start it while candidates are still producing output.
 
 ## Phase D: Pick a base
 

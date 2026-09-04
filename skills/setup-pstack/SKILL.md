@@ -7,7 +7,7 @@ builtin-tools:
 
 # Setup pstack
 
-Read and update pstack's role map through `pstack_configure_models`, plus optional JSON files. Skills name roles and panels. The plugin process resolves models at each invocation, so changes apply to the next spawn.
+Read and update pstack's role map through `pstack_configure_models`, plus optional JSON files. Skills name roles and panels. The plugin process resolves models at each invocation, so changes apply to the next local spawn. Amp snapshots custom orb modes at plugin initialization; reload plugins before an orb spawn after changing the map.
 
 ## Steps
 
@@ -66,7 +66,7 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
 
 ### 6. Confirm
 
-Call `show` once more and report the active map. Re-running this skill updates the same global configuration.
+Call `show` once more and report the active map. Re-running this skill updates the same global configuration. The next local or orb delegate uses the result immediately.
 
 ### 7. Offer a verification skill (optional)
 

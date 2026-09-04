@@ -51,13 +51,13 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 - **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'`: Sol parent, Amp tools, pstack routing. It does not pin Grok and does not copy ultra tools (`painter`, `public_artifact_url`). Grok stays on feature/how/swarm workers. Official `grok46` is a different mode and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
-- **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. It returns `threadID` immediately. The child reports with `pstack_send_to_thread` (steer defaults on) and wakes the parent. The parent ends the turn. Do not call `wait_for_threads`: Amp returns `unknown`/`settled` on an empty child and that is not failure. `pstack_run_agent` waits. Use it only when this turn cannot proceed without one result, such as comment-reviewer. Timeout still returns `threadID`. Read the child. Do not redo its work in the parent. Callers omit `timeoutMs`. The wait floor is ten minutes.
+- **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Implementation starts need a non-empty `scope`; their launch target defaults to `current-checkout`. It returns `threadID` immediately. The child exclusively owns its delegated scope and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when the child blocks further progress. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits. Use it only when this turn cannot proceed without one result, such as comment-reviewer. Timeout still returns `threadID`. Read the child. Callers omit `timeoutMs`. The wait floor is ten minutes.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, critique, and interrogate seats. Keep it for ranking that this turn needs now.
 - **Durable child threads.** `pstack_start_agent` launches background local or orb work. Children report through `pstack_send_to_thread`. The parent can steer a live child with the same tool. Children do not talk to siblings; the parent relays. Only same-machine local parent and local child share the checkout. If either thread is an orb, transfer files with `upload_thread_file` / `download_thread_file` (4 MiB), same as local-parent / orb-child. Two orbs do not share a disk. Need a URL: `thread_file_url`.
 - **Thread-native memory.** Reflection reads the current transcript directly. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and capability webhooks instead of editor polling commands.
 - **External wakeups.** `pstack_create_wake_webhook` creates an at-least-once webhook that wakes its owning orb thread.
-- **Existing tools.** The Graphite orchestration ledger and GitHub PR watcher remain executable Bun tools.
+- **Existing tools.** The legacy orchestration ledger and GitHub PR watcher remain executable Bun tools. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
 
 ## Agent and panel defaults
 
@@ -87,6 +87,8 @@ Later wins:
 
 A workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. The plugin JSON, user JSON, and workspace JSON stay. Orb children inherit the plugin file because it travels with the plugin. They do not inherit a machine-local user JSON.
 
+Every delegate resolves this stack on every spawn. Amp requires custom orb modes to be active before a tool runs, so pstack registers the current role/model map when the plugin loads and keeps those exact Agents active for the process lifetime. Local launches still create an unregistered Agent from the latest configuration. After changing the map, local launches use it immediately; reload plugins before the next orb launch so Amp can publish the new modes.
+
 To change the map that orbs see, edit [`pstack.models.json`](./pstack.models.json), push GitHub, then copy the tree into your Amp user-plugins repo and push that too. GitHub push alone does not update personal plugins.
 
 [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) is a smaller cheap-plus-high sketch for a machine-local overlay. `.amp/pstack.models.json` is gitignored. `{ "profile": "cheap" }` alone is valid and cheaper, but parks prose on Grok.
@@ -95,9 +97,9 @@ A panel value is a JSON array. List length is how many agents `pstack_run_panel`
 
 ## Orbs, modes, and sizes
 
-The plugin agent API can choose local or orb execution and a model or built-in Amp mode. It cannot set an orb size. `pstack:poteto-mode` maps work to `a1.tiny` through `a1.xxlarge` and tells the parent to use native `create_thread` when that size differs from the project default. A user-named size always wins.
+`pstack_start_agent` takes a discriminated `launchTarget`. `current-checkout` forces local and is the implementation default. `repo-independent-orb` is an explicit plugin orb for work that does not depend on a checkout. `native-orb` requires `project` and returns a complete native `create_thread` redirect for project, orb size, or custom mode. It keeps the registered pstack mode key unless `agentMode` is set; that explicit override also gives up the pstack role's model, instructions, and tool policy. A required `arena-cross-judge` cannot override that mode. Amp has no `cloudBaseBranch`. Arbitrary native threads bypass the live implementation-owner guard.
 
-Orb children start from the project's remote base and do not see local uncommitted changes. Use local execution when the current checkout matters. Do not push work only to make it visible to an orb unless the user authorized that push.
+Orb children start from the project's remote base and do not see local uncommitted changes. Use `current-checkout` when the current checkout matters. Do not push work only to make it visible to an orb unless the user authorized that push.
 
 ## Skills and playbooks
 
@@ -123,9 +125,9 @@ bun run typecheck:tools
 amp plugins exec . session.start --data '{"thread":{"id":"T-00000000-0000-0000-0000-000000000000"}}'
 ```
 
-`bun install` also installs the Graphite and PR-watcher tools under `skills/poteto-mode/scripts`. Bare `bun test`, `bun run test:tools`, and `bun run typecheck:tools` install that package if it is missing, so a fresh clone does not depend on a hidden `node_modules`. Tool typecheck uses that package's `typescript` and `bun-types`, not a global `tsc`.
+`bun install` also installs the legacy orchestration and PR-watcher tools under `skills/poteto-mode/scripts`. Bare `bun test`, `bun run test:tools`, and `bun run typecheck:tools` install that package if it is missing, so a fresh clone does not depend on a hidden `node_modules`. Tool typecheck uses that package's `typescript` and `bun-types`, not a global `tsc`.
 
-`amp plugins list` shows the `setup-models` command, the seven pstack tools, and the `poteto` mode. It does not print `export const description`. That string is in `index.ts` and in `package.json`. Thread setup uses `pstack_configure_models` with `action: "profile"` or `pstack:setup-pstack`. The palette command is optional.
+`amp plugins list` shows the `setup-models` command, the seven pstack tools, the generated `pstack-*` orb adapter modes, and the `poteto` mode. It does not print `export const description`. That string is in `index.ts` and in `package.json`. Thread setup uses `pstack_configure_models` with `action: "profile"` or `pstack:setup-pstack`. The palette command is optional.
 
 ## Attribution
 

@@ -91,11 +91,11 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait.
 
-**Join.** Default to `pstack_start_agent`. It returns `threadID` immediately. The child reports with `pstack_send_to_thread` (steer defaults on) and wakes this parent. After starting, end the turn. Do not call `wait_for_threads`. Amp returns `unknown` / `settled` with an empty transcript while the child is still starting. That is not failure. Zero messages is not dead. Do not spawn `Task`, `pstack_run_agent`, or a second `pstack_start_agent` for that scope. Do not freeze the parent on `pstack_run_agent` for feature, how, bug-fix, perf, hillclimb, or refactoring.
+**Join.** Default to `pstack_start_agent`. It returns `threadID` immediately. Implementation roles require a non-empty `scope`; omitted `launchTarget` defaults to `current-checkout`, which forces local. Use `repo-independent-orb` only when the brief is committed and does not depend on a checkout. Use `native-orb` with a required `project` when project, orb size, or a custom mode matters; that returns a complete native `create_thread` redirect and preserves the pstack role/model unless you deliberately override `agentMode`. That override also gives up the role's model, instructions, and tool policy. The child exclusively owns its delegated scope and reports with `pstack_send_to_thread` (steer defaults on). Continue parent work that is independent of that scope. End the turn when the child blocks further progress. Never call `wait_for_threads` to judge startup. Amp can return `unknown` / `settled` with an empty transcript while the child is still starting. That is not failure. Zero messages is not dead. Do not spawn `Task`, `pstack_run_agent`, or a second `pstack_start_agent` for that scope. Do not freeze the parent on `pstack_run_agent` for feature, how, bug-fix, perf, hillclimb, or refactoring. One implementation owner is live per parent; a second start is rejected.
 
 **Blocking wait.** `pstack_run_agent` and `pstack_run_panel` wait. Use them only when this turn cannot proceed without one result, such as comment-reviewer or a panel you must rank now. Omit `timeoutMs`. The plugin floors waits at ten minutes. They always return `threadID`. Timeout is `status: timeout` plus that ID. The child remains the owner. Read it with `read_thread` and use its report.
 
-**Never redo.** A timeout, a late report, `wait_for_threads` `unknown`, or a live child is not a signal to implement that scope in the parent or to spawn a replacement owner. Duplicate parent work is the expensive failure.
+**Never redo.** A timeout, a late report, `wait_for_threads` `unknown`, or a live child is not a signal to implement that scope in the parent or to spawn a replacement owner. Never redo or replace a live child. Duplicate parent work is the expensive failure.
 
 **Steer.** The parent may message a live child with `pstack_send_to_thread` or Amp `send_thread_message` (`steer: true`) to tighten scope, share a sibling finding, or stop a wrong path. Do not spawn a second child for the same scope. Children do not chat with siblings. They report to the parent. The parent relays. Sibling-to-sibling messages hide spend and duplicate work.
 
@@ -103,19 +103,21 @@ Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equiva
 
 **Briefs.** Compact: paths, named data shape, success criteria, how to report. No file dumps. Playbooks live with this skill. After load, Amp names the skill base directory. Open `playbooks/<name>.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
 
-Plugin agent tools take `executor: local | orb` only. They cannot set orb size. When size or a plugin/custom `agent_mode` matters, spawn with Amp's native `create_thread` (`executor: "orb"`, `orb_size`, optional `agent_mode` and `project`) and give the child the same pstack brief. Do not invent a size on `pstack_run_agent`.
+Plugin agent tools take `launchTarget` plus optional `executor: local | orb`. `current-checkout` always forces local. `repo-independent-orb` is the explicit plugin orb for work that does not depend on a checkout. They cannot set orb size, project, or an arbitrary agent mode. When those fields matter, `pstack_start_agent` with `launchTarget.kind: "native-orb"` and a `project` returns a complete native `create_thread` redirect that keeps the registered pstack mode key unless you set `agentMode`. Amp has no `cloudBaseBranch`. Arbitrary native threads bypass the implementation-owner guard. Do not invent a size on `pstack_run_agent`. Do not use blocking `pstack_run_agent` for implementation roles.
 
-Pick size from this table unless the user named one. The user-named size always wins. Changing a project default does not resize a running orb.
+Pick size from this table unless the user named one. The user-named size always wins. Changing a project default does not resize a running orb. Implementation defaults to `current-checkout` / local unless the brief is committed and repo-independent.
 
 | Work | Size | How to spawn |
 |---|---|---|
-| Read-only fan-out: how explorers, how-critics, why investigators, interrogate reviewers, comment-reviewer | `a1.tiny` | `create_thread` |
-| Small scripts, focused edits, light checks, recall/reflect miners | `a1.small` | `create_thread`, or plugin orb if the project default is already small |
-| Ordinary feature, bug, refactor, or hillclimb on a single-package repo | project default (`a1.small` or `a1.medium`) | `pstack_start_agent` with `executor: "orb"` |
-| Moderate builds, local services, test suites | `a1.medium` | `create_thread` when the default is smaller |
-| Monorepos, several services, browsers, CPU-heavy tests, live visual lanes | `a1.large` | `create_thread` |
-| Unusually large builds and wide parallel workloads | `a1.xxlarge` | `create_thread` |
-| User named a size or mode | that size or mode | `create_thread` only |
+| Read-only local inspection | n/a | `pstack_start_agent` with `launchTarget.kind: "current-checkout"` |
+| Read-only fan-out that needs a tiny orb | `a1.tiny` | `launchTarget.kind: "native-orb"`, then the returned `create_thread` |
+| Small scripts, focused edits, light checks, recall/reflect miners | `a1.small` | `native-orb` `create_thread`, or `repo-independent-orb` if the project default is already small and the brief needs no checkout |
+| Ordinary feature, bug, refactor, or hillclimb on the current checkout | n/a | `pstack_start_agent` with `launchTarget.kind: "current-checkout"` |
+| Committed, repo-independent feature work at the project default | project default (`a1.small` or `a1.medium`) | `pstack_start_agent` with `launchTarget.kind: "repo-independent-orb"` |
+| Moderate builds, local services, test suites | `a1.medium` | `native-orb` when the default is smaller |
+| Monorepos, several services, browsers, CPU-heavy tests, live visual lanes | `a1.large` | `native-orb` |
+| Unusually large builds and wide parallel workloads | `a1.xxlarge` | `native-orb` |
+| User named a size or mode | that size or mode | `native-orb` only |
 
 Start small when unsure. A later thread can be larger. Never resize in place.
 
@@ -161,11 +163,11 @@ A large or cross-cutting effort (a migration across many call sites, an ambitiou
 - **Authoring or modifying a skill.** Writing or editing a SKILL.md. `playbooks/authoring-a-skill.md`.
 - **Eval.** Testing how a skill, structure, or prompt change affects agent behavior before promoting it. `playbooks/eval.md`.
 - **Babysit.** Driving a PR or a stack to merge-ready: conflicts, review threads, CI. `playbooks/babysit.md`.
-- **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run with Graphite merge-when-ready. `playbooks/shipping.md`.
+- **Shipping.** The half after Babysit. Independently verifying a green stack, then landing the contiguous verified run bottom-up through `gh` by default or Origin when its CLI is available. `playbooks/shipping.md`.
 - **Autonomous run.** A long task to drive to completion without stopping ("run until done", "keep going until X"). `playbooks/autonomous-run.md`.
 - **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of subagents, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate; work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds. `playbooks/orchestrate.md`.
 - **Autopilot-full.** A queue of independent PRs run to merged with full autonomy: one owner per PR carries build through merge, and the root swarm-verifies each merge-ready head before its owner merges ("autopilot this queue", "full autopilot", one-owner-per-PR programs). `playbooks/autopilot-full.md`.
-- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed Graphite stack the operator lands herself ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `playbooks/autopilot-stack.md`.
+- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed base-branch stack the operator lands herself ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `playbooks/autopilot-stack.md`.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from an Amp thread, resume note, or pushed branch. `playbooks/session-pickup.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, an Amp restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.
 - **Multi-phase or multi-PR plan.** Work that spans phases or stacked PRs. `playbooks/multi-phase-plan.md`.

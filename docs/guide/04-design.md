@@ -24,7 +24,7 @@ Load pstack:architect with checkpoint. Stop and show me before implementing.
 Load pstack:arena. Take my prompt to the arena verbatim. I want to compare their proposals with yours.
 ```
 
-[`pstack:arena`](../../skills/arena/SKILL.md) is the general tool underneath. `pstack_run_panel` with panel `arena-runners` attempts the same design or code brief in parallel. A judge on panel `arena-cross-judge` scores every candidate against a rubric. The coordinator reads each candidate end to end, picks a base, grafts in the best ideas from the losers, and verifies the result.
+[`pstack:arena`](../../skills/arena/SKILL.md) is the general tool underneath. `pstack_run_panel` uses the caller's candidate panel, defaulting to `arena-runners`, to attempt the same design or code brief in parallel. One background `arena-cross-judge` is required after the candidate panel. It scores every candidate against a rubric while the coordinator reads each candidate end to end. The coordinator picks a base, grafts in the best ideas from the losers, and verifies the result.
 
 ## Cover slices with `pstack:swarm`
 

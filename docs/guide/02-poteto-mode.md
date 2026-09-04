@@ -52,7 +52,7 @@ The plugin exposes three levels:
 2. `pstack_run_panel` waits for the same brief across a configured model panel. Use it when this turn must rank seats now.
 3. `pstack_run_agent` waits for one role. Use it only when this turn cannot proceed without that result, such as comment-reviewer.
 
-Use local execution for the current checkout. Use an orb for isolated work from the project's remote base. Orb size comes from the table in `pstack:poteto-mode`: tiny or small for read-only fan-out, the project default for ordinary features, large for browsers and heavy tests. The plugin API cannot set `orb_size`, so those rows spawn with native `create_thread`.
+Use `launchTarget.kind: "current-checkout"` for the current checkout. That is the implementation default. Use `repo-independent-orb` only when the brief is committed and does not depend on a checkout. When project, size, or a custom mode matters, `native-orb` requires `project` and returns a complete native `create_thread` redirect. Amp has no cloud base branch.
 
 The parent can steer a live child with `pstack_send_to_thread`. Children report only to the parent. Do not let siblings message each other. Only a same-machine local parent and local child share the checkout, so cite paths. If either thread is an orb, they do not share a disk: parent orb / child orb, parent orb / child local, and parent local / child orb all transfer. Upload with `upload_thread_file` (4 MiB) or have the child write and the parent `download_thread_file`. Do not paste file bodies into briefs when a transfer can carry them.
 

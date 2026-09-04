@@ -7,9 +7,41 @@ import type {
 	BuiltinAgentMode,
 	PluginAgentModel,
 	PluginAPI,
+	Subscription,
 	ThreadID,
 	ThreadMessage,
 } from '@ampcode/plugin'
+
+import {
+	CODE_IMPLEMENTATION_ROLES,
+	IMPLEMENTATION_BLOCKING_ERROR,
+	WRITE_TOOLS,
+	WorkflowParityPolicy,
+	capabilityFor,
+	cloudBaseBranchUnsupported,
+	isDesignPanel,
+	isImplementationRole,
+	isStrictReadonlyRole,
+	nativeRedirect,
+	parseLaunchTarget,
+} from './workflow-parity'
+
+export {
+	ARBITRARY_SHELL_GAP,
+	CODE_IMPLEMENTATION_ROLES,
+	IMPLEMENTATION_BLOCKING_ERROR,
+	REPORTING_READONLY_TOOLS,
+	STRICT_READONLY_TOOLS,
+	WRITE_TOOLS,
+	WorkflowParityPolicy,
+	capabilityFor,
+	cloudBaseBranchUnsupported,
+	isDesignPanel,
+	isImplementationRole,
+	isStrictReadonlyRole,
+	nativeRedirect,
+	parseLaunchTarget,
+} from './workflow-parity'
 
 export const description =
 	'Ports pstack to Amp with 45 workflow skills, the poteto mode, configurable multi-model delegates, background threads, transcript tools, and wake webhooks.'
@@ -147,7 +179,6 @@ export function pluginModelPath(): string {
 export const CONFIG_KEY = 'pstack.models'
 export const WEBHOOK_EVENT_IDS_KEY = 'pstack.webhookEventIds'
 export const MAX_WEBHOOK_EVENT_IDS = 500
-export const WRITE_TOOLS = ['apply_patch', 'create_file', 'edit_file'] as const
 export const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 export const MIN_TIMEOUT_MS = 30_000
 export const MAX_TIMEOUT_MS = 60 * 60 * 1000
@@ -177,9 +208,51 @@ type ModelValue = string | string[]
 export type ModelMap = Record<string, ModelValue>
 type Executor = 'local' | 'orb'
 
+export type ResolvedAgentSpec = Readonly<{
+	role: string
+	model: string
+}>
+
 const BUILTIN_MODE = /^builtin:(low|medium|high|ultra)$/
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9._-]+)*$/i
 const KNOWN_ROLES = new Set(Object.keys(DEFAULT_MODELS))
+const PANEL_ROLES = new Set([
+	'how-critics',
+	'arena-runners',
+	'architect-runners',
+	'interrogate-reviewers',
+])
+
+export const ORB_MODE_RELOAD_ERROR =
+	'Orb agents use the role/model map captured when pstack loaded. Reload plugins, then retry this orb launch. Local launches use configuration changes immediately.'
+
+export function orbAgentModeFor(role: string, model: string): { key: string; label: string } {
+	const hasher = new Bun.CryptoHasher('sha256')
+	hasher.update(JSON.stringify([role, model]))
+	const digest = hasher.digest('hex')
+	const roleSlug =
+		role
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '')
+	const seat = roleSlug.match(/-\d+$/)?.[0] ?? ''
+	const roleLabel =
+		(seat ? `${roleSlug.slice(0, 11 - seat.length)}${seat}` : roleSlug.slice(0, 11)) || 'delegate'
+	return {
+		key: `pstack-${digest.slice(0, 16)}`,
+		label: `${roleLabel}-${digest.slice(0, 12)}`,
+	}
+}
+
+export function orbAgentSpecsFor(models: ModelMap): ResolvedAgentSpec[] {
+	return Object.entries(models).flatMap(([role, value]) => {
+		if (typeof value === 'string') return [{ role, model: value }]
+		if (PANEL_ROLES.has(role)) {
+			return value.map((model, index) => ({ role: `${role}-${index + 1}`, model }))
+		}
+		return [{ role, model: value[0] }]
+	})
+}
 
 export const AGENT_INSTRUCTIONS = [
 	'You are a pstack delegate running in Amp.',
@@ -193,6 +266,18 @@ export const AGENT_INSTRUCTIONS = [
 	'Do not message sibling threads. Report only to the named parent.',
 	'The parent may steer you mid-run. Treat a steering message as the new scope.',
 ].join(' ')
+
+export const POTETO_DELEGATE_INSTRUCTIONS =
+	'Before work, load pstack:poteto-mode and read it in full. Follow its principles while directly owning the delegated scope.'
+
+function usesPotetoDelegateWrapper(role: string): boolean {
+	return (
+		CODE_IMPLEMENTATION_ROLES.has(role) ||
+		role === 'judgment' ||
+		role.startsWith('arena-runners-') ||
+		role.startsWith('architect-runners-')
+	)
+}
 
 export function steerFrom(value: unknown): boolean {
 	return value !== false
@@ -213,7 +298,7 @@ export function backgroundChildPrompt(prompt: string, parentThreadID: string): s
 }
 
 export const START_AGENT_NEXT =
-	'End this turn now. Do not call wait_for_threads. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. The child remains the owner until it steers this parent. If you must check later, read_thread; zero messages means not started yet, not dead.'
+	'The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. Never redo or replace a live child. The child reports through pstack_send_to_thread, and the parent may steer it. If you must check later, read_thread; zero messages means not started yet, not dead.'
 
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
@@ -468,17 +553,20 @@ export function planWebhookDelivery(
 	return { action: 'append', next: recorded.next }
 }
 
-function toolsFor(role: string): 'all' | { exclude: readonly string[] } {
-	if (role === 'comment-reviewer') return { exclude: COMMENT_REVIEWER_EXCLUDED_TOOLS }
-	return 'all'
+function toolsFor(role: string) {
+	return capabilityFor(role).tools
 }
 
 function instructionsFor(role: string): string {
 	if (role === 'comment-reviewer') return COMMENT_REVIEWER_INSTRUCTIONS
+	if (usesPotetoDelegateWrapper(role)) {
+		return `${AGENT_INSTRUCTIONS} ${POTETO_DELEGATE_INSTRUCTIONS} Assigned role: ${role}.`
+	}
 	return `${AGENT_INSTRUCTIONS} Assigned role: ${role}.`
 }
 
 export default async function pstack(amp: PluginAPI) {
+	const policy = new WorkflowParityPolicy()
 	await Promise.all(SKILL_PATHS.map((path) => amp.registerSkill({ path })))
 
 	const fileLayers = () => loadFileLayers(workspaceRootPath(amp), userModelPath(), pluginModelPath())
@@ -535,31 +623,6 @@ export default async function pstack(amp: PluginAPI) {
 			.trim()
 	}
 
-	const runOnThread = async (input: {
-		agent: Agent
-		prompt: string
-		parentThreadID: ThreadID
-		executor: ReturnType<typeof executorFrom>
-		timeoutMs: number
-	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' }> => {
-		const thread = await input.agent.createThread({
-			parentThreadID: input.parentThreadID,
-			executor: input.executor,
-		})
-		await thread.appendUserMessage({ type: 'user-message', content: input.prompt })
-		try {
-			const reply = await thread.waitForResponse({ timeoutMs: input.timeoutMs })
-			return { threadID: thread.id, text: lastAssistantText(reply), status: 'done' }
-		} catch (error) {
-			const detail = error instanceof Error ? error.message : String(error)
-			return {
-				threadID: thread.id,
-				status: 'timeout',
-				text: `Timed out waiting for agent response after ${input.timeoutMs}ms. Child thread ${thread.id} is still the owner of this work. Read that thread and use its report. Do not redo the delegated work in the parent. ${detail}`,
-			}
-		}
-	}
-
 	const agentFor = (model: string, role: string): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
 		const resolved = resolveRole(role)
@@ -581,6 +644,89 @@ export default async function pstack(amp: PluginAPI) {
 		})
 	}
 
+	type RegisteredOrbAgent = { agent: Agent; subscription: Subscription }
+	const orbAgents = new Map<string, RegisteredOrbAgent>()
+
+	const orbAgentIdentity = (model: string, role: string): string => {
+		const resolved = resolveRole(role)
+		return JSON.stringify([resolved, model])
+	}
+
+	const registerOrbAgent = (model: string, role: string): Agent => {
+		const resolved = resolveRole(role)
+		const identity = orbAgentIdentity(model, resolved)
+		const registered = orbAgents.get(identity)
+		if (registered) return registered.agent
+		const agent = agentFor(model, resolved)
+		const mode = orbAgentModeFor(resolved, model)
+		const subscription = amp.registerAgentMode({ ...mode, agent: agent.definition })
+		orbAgents.set(identity, { agent, subscription })
+		return agent
+	}
+
+	const orbAgentFor = (model: string, role: string): Agent => {
+		const registered = orbAgents.get(orbAgentIdentity(model, role))
+		if (!registered) throw new Error(ORB_MODE_RELOAD_ERROR)
+		return registered.agent
+	}
+
+	const startupModels = await configuredModels().catch(async (error: unknown) => {
+		amp.logger.log(
+			`Could not read Amp configuration while registering orb modes; using file layers: ${String(error)}`,
+		)
+		return resolvedFrom(undefined)
+	})
+	for (const spec of orbAgentSpecsFor(startupModels)) {
+		registerOrbAgent(spec.model, spec.role)
+	}
+
+	const createAgentThread = (input: {
+		model: string
+		role: string
+		parentThreadID: ThreadID
+		executor: Executor
+	}) => {
+		const agent =
+			input.executor === 'orb'
+				? orbAgentFor(input.model, input.role)
+				: agentFor(input.model, input.role)
+		return agent.createThread({
+			parentThreadID: input.parentThreadID,
+			executor: input.executor,
+		})
+	}
+
+	const runOnThread = async (input: {
+		model: string
+		role: string
+		prompt: string
+		parentThreadID: ThreadID
+		executor: ReturnType<typeof executorFrom>
+		timeoutMs: number
+	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' }> => {
+		const thread = await createAgentThread(input)
+		if (isStrictReadonlyRole(input.role)) {
+			await policy.trackReadonly(thread, input.role, input.parentThreadID)
+		}
+		try {
+			await thread.appendUserMessage({ type: 'user-message', content: input.prompt })
+		} catch (error) {
+			if (isStrictReadonlyRole(input.role)) policy.untrack(thread.id)
+			throw error
+		}
+		try {
+			const reply = await thread.waitForResponse({ timeoutMs: input.timeoutMs })
+			return { threadID: thread.id, text: lastAssistantText(reply), status: 'done' }
+		} catch (error) {
+			const detail = error instanceof Error ? error.message : String(error)
+			return {
+				threadID: thread.id,
+				status: 'timeout',
+				text: `Timed out waiting for agent response after ${input.timeoutMs}ms. Child thread ${thread.id} is still the owner of this work. Read that thread and use its report. Do not redo the delegated work in the parent. ${detail}`,
+			}
+		}
+	}
+
 	amp.registerTool({
 		name: 'pstack_run_agent',
 		title: 'Run pstack delegate',
@@ -599,11 +745,13 @@ export default async function pstack(amp: PluginAPI) {
 		},
 		async execute(input, ctx) {
 			const role = resolveRole(text(input.role, 'role'))
+			if (isImplementationRole(role)) throw new Error(IMPLEMENTATION_BLOCKING_ERROR)
 			const prompt = text(input.prompt, 'prompt')
 			const model = await modelFor(role)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS })
 			const result = await runOnThread({
-				agent: agentFor(model, role),
+				model,
+				role,
 				prompt,
 				parentThreadID: ctx.thread.id,
 				executor: executorFrom(input.executor),
@@ -634,18 +782,23 @@ export default async function pstack(amp: PluginAPI) {
 			const prompt = text(input.prompt, 'prompt')
 			const models = await panelFor(panel)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS })
+			if (isDesignPanel(panel)) policy.beginDesign(ctx.thread.id, panel)
 			const settled = await Promise.allSettled(
 				models.map(async (model, index) => {
+					const role = `${panel}-${index + 1}`
 					const result = await runOnThread({
-						agent: agentFor(model, `${panel}-${index + 1}`),
+						model,
+						role,
 						prompt,
 						parentThreadID: ctx.thread.id,
 						executor: executorFrom(input.executor),
 						timeoutMs,
 					})
-					return { label: `${panel}-${index + 1}`, model, timeoutMs, ...result }
+					if (isDesignPanel(panel)) policy.addCandidate(ctx.thread.id, result.threadID)
+					return { label: role, model, timeoutMs, ...result }
 				}),
 			)
+			if (isDesignPanel(panel)) policy.markJudgeRequired(ctx.thread.id)
 			return JSON.stringify(
 				settled.map((result, index) =>
 					result.status === 'fulfilled'
@@ -661,34 +814,130 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Start pstack background agent',
 		transcriptGroup: { active: 'Starting pstack agent', complete: 'Started pstack agent' },
 		description:
-			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. The child reports with pstack_send_to_thread (steer defaults on). After this result, end the turn. Do not call wait_for_threads: Amp returns unknown/settled on an empty child and that is not failure. Do not spawn a second owner for this scope.',
+			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. Implementation roles require a non-empty scope; their launch target defaults to current-checkout. current-checkout forces local. repo-independent-orb explicitly selects a plugin orb for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with pstack_send_to_thread (steer defaults on). Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				role: { type: 'string' },
 				prompt: { type: 'string' },
+				scope: { type: 'string' },
 				executor: { type: 'string', enum: ['local', 'orb'] },
+				launchTarget: {
+					type: 'object',
+					properties: {
+						kind: {
+							type: 'string',
+							enum: ['current-checkout', 'repo-independent-orb', 'native-orb'],
+						},
+						project: { type: 'string', description: 'Required for native-orb.' },
+						orbSize: { type: 'string', enum: ['a1.tiny', 'a1.small', 'a1.medium', 'a1.large', 'a1.xxlarge'] },
+						agentMode: { type: 'string' },
+						cloudBaseBranch: { type: 'string' },
+					},
+				},
+				cloudBaseBranch: { type: 'string' },
 			},
 			required: ['role', 'prompt'],
 		},
 		async execute(input, ctx) {
 			const role = resolveRole(text(input.role, 'role'))
-			const model = await modelFor(role)
-			const thread = await agentFor(model, role).createThread({
-				parentThreadID: ctx.thread.id,
-				executor: executorFrom(input.executor),
-			})
-			await thread.appendUserMessage({
-				type: 'user-message',
-				content: backgroundChildPrompt(text(input.prompt, 'prompt'), ctx.thread.id),
-			})
-			return JSON.stringify({
-				role,
-				model,
-				threadID: thread.id,
-				parentThreadID: ctx.thread.id,
-				next: START_AGENT_NEXT,
-			})
+			const prompt = text(input.prompt, 'prompt')
+			const implementation = isImplementationRole(role)
+			const scope = implementation
+				? text(input.scope, 'scope')
+				: typeof input.scope === 'string'
+					? input.scope.trim()
+					: ''
+			const launchValue =
+				input.launchTarget && typeof input.launchTarget === 'object' && !Array.isArray(input.launchTarget)
+					? {
+							...(input.launchTarget as Record<string, unknown>),
+							cloudBaseBranch:
+								(input.launchTarget as Record<string, unknown>).cloudBaseBranch ?? input.cloudBaseBranch,
+						}
+					: typeof input.cloudBaseBranch === 'string'
+						? { cloudBaseBranch: input.cloudBaseBranch }
+						: input.launchTarget
+			const launchTarget = parseLaunchTarget(launchValue, implementation)
+			if (launchTarget?.kind === 'cloud-base-branch') {
+				return JSON.stringify(cloudBaseBranchUnsupported(launchTarget.branch))
+			}
+			const judgeReserved =
+				role === 'arena-cross-judge' ? policy.reserveJudge(ctx.thread.id) : false
+			if (implementation) policy.reserveImplementation(ctx.thread.id, role, scope)
+			let judgeStarted = false
+			try {
+				const model = await modelFor(role)
+				if (launchTarget?.kind === 'native-orb') {
+					if (judgeReserved && launchTarget.agentMode) {
+						throw new Error(
+							'The required arena-cross-judge must use its registered pstack mode; omit agentMode.',
+						)
+					}
+					const mode = orbAgentModeFor(role, model)
+					if (!launchTarget.agentMode) orbAgentFor(model, role)
+					const redirect = nativeRedirect({
+						role,
+						model,
+						parentThreadID: ctx.thread.id,
+						prompt: backgroundChildPrompt(prompt, ctx.thread.id),
+						scope,
+						modeKey: mode.key,
+						target: launchTarget,
+					})
+					const nativeInput = redirect.create_thread as Record<string, unknown>
+					if (implementation) policy.expectNative(ctx.thread.id, nativeInput)
+					else if (judgeReserved) policy.expectNativeJudge(ctx.thread.id, nativeInput)
+					return JSON.stringify(redirect)
+				}
+				const executor =
+					launchTarget?.kind === 'repo-independent-orb'
+						? 'orb'
+						: launchTarget?.kind === 'current-checkout'
+							? 'local'
+							: executorFrom(input.executor)
+				const thread = await createAgentThread({
+					model,
+					role,
+					parentThreadID: ctx.thread.id,
+					executor,
+				})
+				if (implementation) await policy.attachRunning(ctx.thread.id, thread)
+				else if (judgeReserved) {
+					await policy.startJudge(ctx.thread.id, thread)
+					judgeStarted = true
+				} else if (isStrictReadonlyRole(role)) {
+					await policy.trackReadonly(thread, role, ctx.thread.id)
+				}
+				try {
+					await thread.appendUserMessage({
+						type: 'user-message',
+						content: backgroundChildPrompt(prompt, ctx.thread.id),
+					})
+				} catch (error) {
+					if (implementation) policy.release(ctx.thread.id)
+					else if (judgeStarted) policy.failJudgeStart(ctx.thread.id)
+					else if (isStrictReadonlyRole(role)) policy.untrack(thread.id)
+					throw error
+				}
+				return JSON.stringify({
+					role,
+					model,
+					threadID: thread.id,
+					parentThreadID: ctx.thread.id,
+					scope: scope || undefined,
+					executor,
+					launchTarget,
+					next:
+						launchTarget?.kind === 'repo-independent-orb'
+							? `${START_AGENT_NEXT} This work must not depend on a checkout.`
+							: START_AGENT_NEXT,
+				})
+			} catch (error) {
+				if (judgeReserved && !judgeStarted) policy.cancelJudgeReservation(ctx.thread.id)
+				policy.releaseIfReserving(ctx.thread.id)
+				throw error
+			}
 		},
 	})
 
@@ -756,7 +1005,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Configure pstack models',
 		transcriptGroup: { active: 'Configuring pstack', complete: 'Configured pstack' },
 		description:
-			'Show, update, reset, or apply a named profile to the pstack role map. Later wins: plugin defaults, user ~/.config/amp/pstack.models.json, Amp user config from set/profile, then workspace .amp/pstack.models.json. cheap avoids Fable and Opus. Unknown actions fail.',
+			'Show, update, reset, or apply a named profile to the pstack role map. Later wins: plugin defaults, user ~/.config/amp/pstack.models.json, Amp user config from set/profile, then workspace .amp/pstack.models.json. Changes apply to the next local spawn; reload plugins before an orb spawn. cheap avoids Fable and Opus. Unknown actions fail.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -885,4 +1134,33 @@ export default async function pstack(amp: PluginAPI) {
 			await ctx.ui.notify(`pstack profile set to ${profile}.`)
 		},
 	)
+
+	if (typeof amp.on === 'function') {
+		amp.on('tool.call', (event) => {
+			const files = amp.helpers?.filesModifiedByToolCall?.(event) ?? null
+			return policy.onToolCall(event, files)
+		})
+		amp.on('tool.result', (event) => {
+			return policy.onToolResult(event, (threadID) => {
+				try {
+					return amp.threads.get(threadID as ThreadID)
+				} catch {
+					return undefined
+				}
+			})
+		})
+		amp.on('agent.end', (_event, ctx) => {
+			return policy.onAgentEnd(ctx.thread.id)
+		})
+	}
+	amp.onDispose(() => {
+		for (const registration of orbAgents.values()) registration.subscription.unsubscribe()
+		orbAgents.clear()
+		const { discarded } = policy.dispose()
+		if (discarded > 0) {
+			amp.logger.log(
+				`Discarding ${discarded} process-local workflow guards on plugin reload. They are not persisted.`,
+			)
+		}
+	})
 }
