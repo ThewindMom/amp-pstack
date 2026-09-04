@@ -19,11 +19,14 @@ import {
 	WorkflowParityPolicy,
 	capabilityFor,
 	cloudBaseBranchUnsupported,
+	executorForParent,
 	isDesignPanel,
 	isImplementationRole,
 	isStrictReadonlyRole,
+	launchTargetForParent,
 	nativeRedirect,
-	parseLaunchTarget,
+	type DelegateExecutor,
+	type ParentExecutorKind,
 } from './workflow-parity'
 
 export {
@@ -31,17 +34,23 @@ export {
 	CODE_IMPLEMENTATION_ROLES,
 	IMPLEMENTATION_BLOCKING_ERROR,
 	REPORTING_READONLY_TOOLS,
+	REMOTE_CURRENT_CHECKOUT_ERROR,
+	REMOTE_LOCAL_EXECUTOR_ERROR,
 	STRICT_READONLY_TOOLS,
 	WRITE_TOOLS,
 	WorkflowParityPolicy,
 	capabilityFor,
 	cloudBaseBranchUnsupported,
+	executorForParent,
 	isDesignPanel,
 	isImplementationRole,
 	isStrictReadonlyRole,
+	launchTargetForParent,
 	nativeRedirect,
 	parseLaunchTarget,
 } from './workflow-parity'
+
+export type { DelegateExecutor, LaunchTarget, ParentExecutorKind } from './workflow-parity'
 
 export const description =
 	'Ports pstack to Amp with 45 workflow skills, the poteto mode, configurable multi-model delegates, background threads, transcript tools, and wake webhooks.'
@@ -206,7 +215,6 @@ export const COMMENT_REVIEWER_EXCLUDED_TOOLS = [
 
 type ModelValue = string | string[]
 export type ModelMap = Record<string, ModelValue>
-type Executor = 'local' | 'orb'
 
 export type ResolvedAgentSpec = Readonly<{
 	role: string
@@ -470,10 +478,11 @@ export function text(value: unknown, name: string): string {
 	return value.trim()
 }
 
-export function executorFrom(value: unknown): Executor {
-	if (value === undefined || value === null || value === '') return 'local'
-	if (value === 'orb' || value === 'local') return value
-	throw new Error('executor must be local or orb.')
+export function executorFrom(
+	value: unknown,
+	parentExecutorKind: ParentExecutorKind = 'unknown',
+): DelegateExecutor {
+	return executorForParent(value, parentExecutorKind)
 }
 
 export function timeoutFrom(value: unknown, options?: { role?: string; floor?: number }): number {
@@ -684,7 +693,7 @@ export default async function pstack(amp: PluginAPI) {
 		model: string
 		role: string
 		parentThreadID: ThreadID
-		executor: Executor
+		executor: DelegateExecutor
 	}) => {
 		const agent =
 			input.executor === 'orb'
@@ -732,7 +741,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack delegate',
 		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
 		description:
-			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Prefer pstack_start_agent for feature, how, bug-fix, and other long work. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
+			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Prefer pstack_start_agent for feature, how, bug-fix, and other long work. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -754,7 +763,7 @@ export default async function pstack(amp: PluginAPI) {
 				role,
 				prompt,
 				parentThreadID: ctx.thread.id,
-				executor: executorFrom(input.executor),
+				executor: executorFrom(input.executor, amp.system.executor.kind),
 				timeoutMs,
 			})
 			return JSON.stringify({ role, model, timeoutMs, ...result })
@@ -766,7 +775,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack panel',
 		transcriptGroup: { active: 'Running pstack panel', complete: 'Ran pstack panel' },
 		description:
-			'Run the same standalone brief concurrently across every model configured for a pstack panel. Each seat is a child thread. Returns threadID even when a seat times out so the parent can read that thread instead of redoing the work.',
+			'Run the same standalone brief concurrently across every model configured for a pstack panel. Each seat is a child thread. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Returns threadID even when a seat times out so the parent can read that thread instead of redoing the work.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -782,6 +791,7 @@ export default async function pstack(amp: PluginAPI) {
 			const prompt = text(input.prompt, 'prompt')
 			const models = await panelFor(panel)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS })
+			const executor = executorFrom(input.executor, amp.system.executor.kind)
 			if (isDesignPanel(panel)) policy.beginDesign(ctx.thread.id, panel)
 			const settled = await Promise.allSettled(
 				models.map(async (model, index) => {
@@ -791,7 +801,7 @@ export default async function pstack(amp: PluginAPI) {
 						role,
 						prompt,
 						parentThreadID: ctx.thread.id,
-						executor: executorFrom(input.executor),
+						executor,
 						timeoutMs,
 					})
 					if (isDesignPanel(panel)) policy.addCandidate(ctx.thread.id, result.threadID)
@@ -814,7 +824,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Start pstack background agent',
 		transcriptGroup: { active: 'Starting pstack agent', complete: 'Started pstack agent' },
 		description:
-			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. Implementation roles require a non-empty scope; their launch target defaults to current-checkout. current-checkout forces local. repo-independent-orb explicitly selects a plugin orb for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with pstack_send_to_thread (steer defaults on). Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
+			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. Implementation roles require a non-empty scope. Local parents default implementation to current-checkout; orb parents and explicit executor orb use a fresh parent-project-orb. current-checkout is rejected from an orb parent because it cannot share that orb filesystem. repo-independent-orb is for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with pstack_send_to_thread (steer defaults on). Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -827,7 +837,12 @@ export default async function pstack(amp: PluginAPI) {
 					properties: {
 						kind: {
 							type: 'string',
-							enum: ['current-checkout', 'repo-independent-orb', 'native-orb'],
+							enum: [
+								'current-checkout',
+								'parent-project-orb',
+								'repo-independent-orb',
+								'native-orb',
+							],
 						},
 						project: { type: 'string', description: 'Required for native-orb.' },
 						orbSize: { type: 'string', enum: ['a1.tiny', 'a1.small', 'a1.medium', 'a1.large', 'a1.xxlarge'] },
@@ -858,7 +873,11 @@ export default async function pstack(amp: PluginAPI) {
 					: typeof input.cloudBaseBranch === 'string'
 						? { cloudBaseBranch: input.cloudBaseBranch }
 						: input.launchTarget
-			const launchTarget = parseLaunchTarget(launchValue, implementation)
+			const launchTarget = launchTargetForParent(launchValue, {
+				implementation,
+				parentExecutorKind: amp.system.executor.kind,
+				executor: input.executor,
+			})
 			if (launchTarget?.kind === 'cloud-base-branch') {
 				return JSON.stringify(cloudBaseBranchUnsupported(launchTarget.branch))
 			}
@@ -891,11 +910,12 @@ export default async function pstack(amp: PluginAPI) {
 					return JSON.stringify(redirect)
 				}
 				const executor =
+					launchTarget?.kind === 'parent-project-orb' ||
 					launchTarget?.kind === 'repo-independent-orb'
 						? 'orb'
 						: launchTarget?.kind === 'current-checkout'
 							? 'local'
-							: executorFrom(input.executor)
+							: executorFrom(input.executor, amp.system.executor.kind)
 				const thread = await createAgentThread({
 					model,
 					role,
@@ -931,7 +951,9 @@ export default async function pstack(amp: PluginAPI) {
 					next:
 						launchTarget?.kind === 'repo-independent-orb'
 							? `${START_AGENT_NEXT} This work must not depend on a checkout.`
-							: START_AGENT_NEXT,
+							: launchTarget?.kind === 'parent-project-orb'
+								? `${START_AGENT_NEXT} This fresh orb inherits the parent project, not the parent executor's live filesystem. Required state must exist in the project remote or be transferred explicitly.`
+								: START_AGENT_NEXT,
 				})
 			} catch (error) {
 				if (judgeReserved && !judgeStarted) policy.cancelJudgeReservation(ctx.thread.id)

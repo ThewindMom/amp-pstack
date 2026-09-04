@@ -31,6 +31,8 @@ export const RESEARCH_EXCLUDED_TOOLS = [...WRITE_TOOLS] as const
 
 export const ORB_SIZES = ['a1.tiny', 'a1.small', 'a1.medium', 'a1.large', 'a1.xxlarge'] as const
 export type OrbSize = (typeof ORB_SIZES)[number]
+export type DelegateExecutor = 'local' | 'orb'
+export type ParentExecutorKind = 'local' | 'remote' | 'unknown'
 
 export const ARBITRARY_SHELL_GAP =
 	'Arbitrary shell_command is not classified as a write. filesModifiedByToolCall recognizes editor calls and limited in-place mutations such as sed, not arbitrary shell, other processes, user edits, or unpaired native threads.'
@@ -38,8 +40,15 @@ export const ARBITRARY_SHELL_GAP =
 export const IMPLEMENTATION_BLOCKING_ERROR =
 	'Implementation roles cannot use blocking pstack_run_agent. Use pstack_start_agent with a non-empty scope and a launch target.'
 
+export const REMOTE_LOCAL_EXECUTOR_ERROR =
+	'executor local is unavailable when the parent runs in an orb. Use an orb child, or keep the work in the parent thread when it depends on that orb\'s live filesystem.'
+
+export const REMOTE_CURRENT_CHECKOUT_ERROR =
+	'current-checkout is unavailable when the parent runs in an orb because local targets the current Amp client, not the parent orb filesystem. Use parent-project-orb or native-orb for a fresh orb. Keep the work in the parent thread or transfer/persist its state first when the child needs live parent-orb files.'
+
 export type LaunchTarget =
 	| { kind: 'current-checkout' }
+	| { kind: 'parent-project-orb' }
 	| { kind: 'repo-independent-orb' }
 	| {
 			kind: 'native-orb'
@@ -169,6 +178,7 @@ export function parseLaunchTarget(value: unknown, required: boolean): LaunchTarg
 	}
 	const kind = value.kind
 	if (kind === 'current-checkout') return { kind: 'current-checkout' }
+	if (kind === 'parent-project-orb') return { kind: 'parent-project-orb' }
 	if (kind === 'repo-independent-orb') return { kind: 'repo-independent-orb' }
 	if (kind === 'native-orb') {
 		if (typeof value.project !== 'string' || !value.project.trim()) {
@@ -189,7 +199,44 @@ export function parseLaunchTarget(value: unknown, required: boolean): LaunchTarg
 		}
 		return target
 	}
-	throw new Error('launchTarget.kind must be current-checkout, repo-independent-orb, or native-orb.')
+	throw new Error(
+		'launchTarget.kind must be current-checkout, parent-project-orb, repo-independent-orb, or native-orb.',
+	)
+}
+
+export function executorForParent(
+	value: unknown,
+	parentExecutorKind: ParentExecutorKind,
+): DelegateExecutor {
+	const executor = value === undefined || value === null || value === '' ? undefined : value
+	if (executor !== undefined && executor !== 'local' && executor !== 'orb') {
+		throw new Error('executor must be local or orb.')
+	}
+	if (parentExecutorKind === 'remote') {
+		if (executor === 'local') throw new Error(REMOTE_LOCAL_EXECUTOR_ERROR)
+		return 'orb'
+	}
+	return executor ?? 'local'
+}
+
+export function launchTargetForParent(
+	value: unknown,
+	options: {
+		implementation: boolean
+		parentExecutorKind: ParentExecutorKind
+		executor: unknown
+	},
+): LaunchTarget | null {
+	const executor = executorForParent(options.executor, options.parentExecutorKind)
+	const target = parseLaunchTarget(value, false)
+	if (target) {
+		if (target.kind === 'current-checkout' && options.parentExecutorKind === 'remote') {
+			throw new Error(REMOTE_CURRENT_CHECKOUT_ERROR)
+		}
+		return target
+	}
+	if (executor === 'orb') return { kind: 'parent-project-orb' }
+	return options.implementation ? { kind: 'current-checkout' } : null
 }
 
 export function nativeRedirect(input: {

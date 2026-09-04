@@ -32,7 +32,7 @@ Load pstack:arena. Take my prompt to the arena verbatim. I want to compare their
 Load pstack:swarm. Check every package under packages/ against its check.sh. One worker per package. One report.
 ```
 
-[`pstack:swarm`](../../skills/swarm/SKILL.md) fans out role `swarm-worker`. Use local execution when workers need the current checkout. Use orb execution only for independent work from the remote base.
+[`pstack:swarm`](../../skills/swarm/SKILL.md) fans out role `swarm-worker`. The plugin keeps an orb parent's workers in orbs. From a local parent, use local execution for current-checkout state and orb execution for independent work from the project remote.
 
 ## Stress the result with `pstack:interrogate`
 

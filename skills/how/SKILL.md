@@ -46,7 +46,7 @@ Decompose the question into 2-4 parallel exploration angles, each a distinct sli
 
 The right decomposition depends on the question. Use your judgment. Narrow questions: 2 explorers is fine. Broad subsystems: up to 4.
 
-Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer`, `launchTarget.kind: "current-checkout"`. Give each explorer a distinct angle and a read-only brief. Keep each `threadID`. Each child exclusively owns its slice. Continue independent parent work, then end the turn when the reports block further progress. Do not call `wait_for_threads` to judge startup. Join on each child's `pstack_send_to_thread` report. Do not call `pstack_run_agent` for explorers. Never re-trace or replace a live child's slice in the parent. The plugin resolves the configured model.
+Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer`. Route from the parent executor first. An orb parent defaults each explorer to `parent-project-orb`. From a local parent, use `current-checkout` when the explanation needs local or uncommitted state and `parent-project-orb` for the clean project remote. If the question depends on live changes inside a parent orb, keep the inspection in that parent or transfer a bounded fixture. A fresh child orb cannot read those files. Give each explorer a distinct angle and a read-only brief. Keep each `threadID`. Each child exclusively owns its slice. Continue independent parent work, then end the turn when the reports block further progress. Do not call `wait_for_threads` to judge startup. Join on each child's `pstack_send_to_thread` report. Do not call `pstack_run_agent` for explorers. Never re-trace or replace a live child's slice in the parent. The plugin resolves the configured model.
 
 Each explorer gets the same base prompt from `references/explorer-prompt.md` plus a specific exploration angle naming its slice. Each explorer should:
 - Start broad: Glob for relevant directories, Grep for key types/interfaces/class names
@@ -61,7 +61,7 @@ Then proceed to Step 3.
 
 ### Step 2b. Direct Explain (simple questions)
 
-Run one `pstack_start_agent` call with role `how-explainer`, `launchTarget.kind: "current-checkout"`, and a read-only brief that explores and explains in one pass. Keep the `threadID`. Join on the report. Do not call `pstack_run_agent` for this step. Do not write the architecture trace in the parent.
+Run one `pstack_start_agent` call with role `how-explainer` and a read-only brief that explores and explains in one pass. Use the same parent-executor routing as Step 2a. Keep the `threadID`. Join on the report. Do not call `pstack_run_agent` for this step. Do not write the architecture trace in the parent unless live parent-orb files make a child inaccurate and cannot be transferred.
 
 The agent does its own exploration (Glob, Grep, Read) and writes the explanation directly. Read `references/explainer-prompt.md` for the communication style and output format. Same structure, just no explorer findings as input.
 

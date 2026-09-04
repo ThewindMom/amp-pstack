@@ -52,9 +52,9 @@ The plugin exposes three levels:
 2. `pstack_run_panel` waits for the same brief across a configured model panel. Use it when this turn must rank seats now.
 3. `pstack_run_agent` waits for one role. Use it only when this turn cannot proceed without that result, such as comment-reviewer.
 
-Use `launchTarget.kind: "current-checkout"` for the current checkout. That is the implementation default. Use `repo-independent-orb` only when the brief is committed and does not depend on a checkout. When project, size, or a custom mode matters, `native-orb` requires `project` and returns a complete native `create_thread` redirect. Amp has no cloud base branch.
+The parent executor decides the safe default. A local parent runs implementation in `current-checkout`. An orb parent starts a fresh `parent-project-orb`, and the plugin rejects local child routing. From a local parent, choose `parent-project-orb` for clean work from the project remote. Use `repo-independent-orb` only when the brief does not depend on a checkout. When project, size, or a custom mode matters, `native-orb` requires `project` and returns a complete native `create_thread` redirect. Amp has no cloud base branch.
 
-The parent can steer a live child with `pstack_send_to_thread`. Children report only to the parent. Do not let siblings message each other. Only a same-machine local parent and local child share the checkout, so cite paths. If either thread is an orb, they do not share a disk: parent orb / child orb, parent orb / child local, and parent local / child orb all transfer. Upload with `upload_thread_file` (4 MiB) or have the child write and the parent `download_thread_file`. Do not paste file bodies into briefs when a transfer can carry them.
+The parent can steer a live child with `pstack_send_to_thread`. Children report only to the parent. Do not let siblings message each other. Only a same-machine local parent and local child share the checkout, so cite paths. A child orb inherits the parent project, not the parent orb's files. If either thread is an orb, transfer files with `upload_thread_file` (4 MiB) or `download_thread_file`. Do not paste file bodies into briefs when a transfer can carry them.
 
 Never let two writing agents share a worktree. Give each one a branch or worktree.
 

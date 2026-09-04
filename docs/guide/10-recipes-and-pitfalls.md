@@ -61,6 +61,7 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 
 ## What did not port exactly
 
+- `local` uses the current Amp client. It does not target a parent orb's filesystem. The plugin defaults children of an orb parent to `parent-project-orb` and rejects local routing. A fresh child orb inherits the project, not live files from the parent orb.
 - A plugin-created orb cannot select `orb_size`, project, or an arbitrary agent mode. Use `launchTarget.kind: "native-orb"` with a `project`, then call native `create_thread` with the complete returned fields. Follow the size table in `pstack:poteto-mode`.
 - Amp has no Cursor `inherit-parent` or `auto`. A missing role uses the plugin default, not the parent chat model.
 - Amp has no Cursor thinking slugs. Grok thinking is xAI high unless you use the official `grok46` mode. Sol thinking is only `builtin:medium` or `builtin:high`. Fable is only `builtin:ultra`.

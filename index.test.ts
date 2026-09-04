@@ -496,6 +496,7 @@ describe('runtime tool behavior', () => {
 		waitError?: Error
 		appendError?: Error
 		initialConfig?: Record<string, unknown>
+		executorKind?: 'local' | 'remote' | 'unknown'
 		filesModifiedByToolCall?: (event: Record<string, unknown>) => string[] | null
 	}) {
 		const created: Array<Record<string, unknown>> = []
@@ -670,7 +671,15 @@ describe('runtime tool behavior', () => {
 					logs.push(message)
 				},
 			},
-			system: { workspaceRoot: null },
+			system: {
+				workspaceRoot: null,
+				executor: {
+					kind: options?.executorKind ?? 'local',
+					async keepAlive() {
+						return { unsubscribe() {} }
+					},
+				},
+			},
 			helpers: {
 				filePathFromURI: (uri: string) => uri,
 				filesModifiedByToolCall: (event: Record<string, unknown>) => {
@@ -733,7 +742,13 @@ describe('runtime tool behavior', () => {
 			config: Record<string, unknown>
 			flushOrbSelections: () => void
 			webhookHandler?: (event: unknown, ctx: unknown) => Promise<void>
-			system: { workspaceRoot: string | null }
+			system: {
+				workspaceRoot: string | null
+				executor: {
+					kind: 'local' | 'remote' | 'unknown'
+					keepAlive: () => Promise<{ unsubscribe(): void }>
+				}
+			}
 			helpers: {
 				filePathFromURI: (uri: string) => string
 				filesModifiedByToolCall: (event: Record<string, unknown>) => string[] | null
@@ -1481,6 +1496,110 @@ describe('runtime tool behavior', () => {
 			input: {},
 		})
 		expect(rejected).toMatchObject({ action: 'reject-and-continue' })
+	})
+
+	test('remote parents keep plugin children in orbs and reject local routing', async () => {
+		const background = await loadPlugin({ executorKind: 'remote' })
+		const implementation = JSON.parse(
+			await tool(background, 'pstack_start_agent').execute(
+				{
+					role: 'feature-refactoring',
+					prompt: 'implement from the parent project base',
+					scope: 'index.ts routing',
+				},
+				{ thread: { id: 'T-remote-parent' } },
+			),
+		)
+		expect(implementation).toMatchObject({
+			executor: 'orb',
+			launchTarget: { kind: 'parent-project-orb' },
+		})
+		expect(background.started[0]).toMatchObject({ executor: 'orb' })
+		background.flushOrbSelections()
+		await expect(
+			tool(background, 'pstack_start_agent').execute(
+				{
+					role: 'bug-fix',
+					prompt: 'incorrectly request the orb checkout as local',
+					scope: 'src/bug.ts',
+					launchTarget: { kind: 'current-checkout' },
+				},
+				{ thread: { id: 'T-other-remote-parent' } },
+			),
+		).rejects.toThrow('current-checkout is unavailable when the parent runs in an orb')
+		await expect(
+			tool(background, 'pstack_start_agent').execute(
+				{
+					role: 'how-explorer',
+					prompt: 'contradictory explicit routing',
+					executor: 'local',
+					launchTarget: { kind: 'repo-independent-orb' },
+				},
+				{ thread: { id: 'T-other-remote-parent' } },
+			),
+		).rejects.toThrow('executor local is unavailable when the parent runs in an orb')
+
+		const blocking = await loadPlugin({ executorKind: 'remote' })
+		await tool(blocking, 'pstack_run_agent').execute(
+			{ role: 'how-explainer', prompt: 'explain it' },
+			{ thread: { id: 'T-remote-parent' } },
+		)
+		expect(blocking.started[0]).toMatchObject({ executor: 'orb' })
+		blocking.flushOrbSelections()
+		await expect(
+			tool(blocking, 'pstack_run_agent').execute(
+				{ role: 'how-explainer', prompt: 'wrong executor', executor: 'local' },
+				{ thread: { id: 'T-remote-parent' } },
+			),
+		).rejects.toThrow('executor local is unavailable when the parent runs in an orb')
+
+		const panel = await loadPlugin({ executorKind: 'remote' })
+		await tool(panel, 'pstack_run_panel').execute(
+			{ panel: 'how-critics', prompt: 'review it' },
+			{ thread: { id: 'T-remote-parent' } },
+		)
+		expect(panel.started).not.toHaveLength(0)
+		expect(panel.started.every((thread) => thread.executor === 'orb')).toBe(true)
+		panel.flushOrbSelections()
+		await expect(
+			tool(panel, 'pstack_run_panel').execute(
+				{ panel: 'how-critics', prompt: 'wrong executor', executor: 'local' },
+				{ thread: { id: 'T-remote-parent' } },
+			),
+		).rejects.toThrow('executor local is unavailable when the parent runs in an orb')
+	})
+
+	test('local parents retain current-checkout and honor an explicit orb request', async () => {
+		const local = await loadPlugin({ executorKind: 'local' })
+		const implementation = JSON.parse(
+			await tool(local, 'pstack_start_agent').execute(
+				{ role: 'feature-refactoring', prompt: 'local work', scope: 'index.ts routing' },
+				{ thread: { id: 'T-local-parent' } },
+			),
+		)
+		expect(implementation).toMatchObject({
+			executor: 'local',
+			launchTarget: { kind: 'current-checkout' },
+		})
+
+		const orb = await loadPlugin({ executorKind: 'local' })
+		const explicit = JSON.parse(
+			await tool(orb, 'pstack_start_agent').execute(
+				{
+					role: 'bug-fix',
+					prompt: 'clean remote-base work',
+					scope: 'src/bug.ts',
+					executor: 'orb',
+				},
+				{ thread: { id: 'T-local-parent' } },
+			),
+		)
+		expect(explicit).toMatchObject({
+			executor: 'orb',
+			launchTarget: { kind: 'parent-project-orb' },
+		})
+		expect(orb.started[0]).toMatchObject({ executor: 'orb' })
+		orb.flushOrbSelections()
 	})
 
 	test('current-checkout is local, repo-independent-orb is explicit, native redirect and unsupported base branch are honest', async () => {
