@@ -380,11 +380,14 @@ describe('model configuration', () => {
 		).toBe('xai/grok-4.6')
 	})
 
-	test('bundled plugin json is cheap plus Sol builtins without Fable or Opus', async () => {
+	test('bundled plugin json uses high for coding and retains medium diversity', async () => {
 		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
 		const mapped = fileModelMap(bundled)
 		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
-		expect(mapped['bug-fix']).toBe('builtin:medium')
+		expect(mapped['bug-fix']).toBe('builtin:high')
+		expect(mapped['perf-issue']).toBe('builtin:high')
+		expect(mapped.hillclimb).toBe('builtin:high')
+		expect(mapped['reflect-tooling']).toBe('builtin:medium')
 		expect(mapped.judgment).toBe('builtin:high')
 		expect(mapped['comment-reviewer']).toBe('builtin:high')
 		expect(mapped['how-critics']).toEqual(['builtin:high', 'builtin:medium', 'xai/grok-4.6'])
@@ -785,6 +788,19 @@ describe('runtime tool behavior', () => {
 			tools: 'all',
 		})
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
+	})
+
+	test('unknown workflow roles give actionable guidance without spawning', async () => {
+		const amp = await loadPlugin()
+		for (const name of ['pstack_start_agent', 'pstack_run_agent']) {
+			await expect(
+				tool(amp, name).execute(
+					{ role: 'how', prompt: 'review and run tests' },
+					{ thread: { id: 'T-parent' } },
+				),
+			).rejects.toThrow('how is a workflow, not a role: use how-explorer')
+		}
+		expect(amp.started).toHaveLength(0)
 	})
 
 	test('poteto-mode.ts registers a builtin high parent without a Grok pin', async () => {

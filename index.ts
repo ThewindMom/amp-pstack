@@ -149,6 +149,8 @@ export const ROLE_ALIASES = {
 	refactoring: 'feature-refactoring',
 } as const
 
+const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. Aliases: feature, refactoring. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
+
 export const CHEAP_MODELS = {
 	'feature-refactoring': 'xai/grok-4.6',
 	'bug-fix': 'openai/gpt-5.6-sol',
@@ -599,7 +601,7 @@ export default async function pstack(amp: PluginAPI) {
 		const value = (await configuredModels())[resolved]
 		if (typeof value === 'string') return value
 		if (Array.isArray(value) && value.length > 0) return value[0]
-		throw new Error(`Unknown pstack role: ${role}`)
+		throw new Error(`Unknown pstack role: ${role}. ${ROLE_GUIDANCE}`)
 	}
 
 	const panelFor = async (panel: string): Promise<string[]> => {
@@ -745,7 +747,7 @@ export default async function pstack(amp: PluginAPI) {
 		inputSchema: {
 			type: 'object',
 			properties: {
-				role: { type: 'string', description: 'Configured pstack role.' },
+				role: { type: 'string', description: ROLE_GUIDANCE },
 				prompt: { type: 'string', description: 'Complete standalone task brief.' },
 				executor: { type: 'string', enum: ['local', 'orb'] },
 				timeoutMs: { type: 'number' },
@@ -828,7 +830,7 @@ export default async function pstack(amp: PluginAPI) {
 		inputSchema: {
 			type: 'object',
 			properties: {
-				role: { type: 'string' },
+				role: { type: 'string', description: ROLE_GUIDANCE },
 				prompt: { type: 'string' },
 				scope: { type: 'string' },
 				executor: { type: 'string', enum: ['local', 'orb'] },

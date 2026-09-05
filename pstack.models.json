@@ -1,9 +1,9 @@
 {
 	"profile": "cheap",
 	"models": {
-		"bug-fix": "builtin:medium",
-		"perf-issue": "builtin:medium",
-		"hillclimb": "builtin:medium",
+		"bug-fix": "builtin:high",
+		"perf-issue": "builtin:high",
+		"hillclimb": "builtin:high",
 		"reflect-tooling": "builtin:medium",
 		"judgment": "builtin:high",
 		"how-explainer": "builtin:high",
