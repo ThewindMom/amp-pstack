@@ -49,7 +49,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'`: Sol parent, Amp tools, pstack routing. It does not pin Grok and does not copy ultra tools (`painter`, `public_artifact_url`). Grok stays on feature/how/swarm workers. Official `grok46` is a different mode and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'high'`: Amp's high-mode parent, Amp tools, pstack routing. It does not pin Grok and does not copy ultra tools (`painter`, `public_artifact_url`). Grok stays on feature/how/swarm workers. Official `grok46` is a different mode and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Implementation starts need a non-empty `scope`. A local parent defaults to `current-checkout`. An orb parent defaults to a fresh child orb that inherits the parent project. It returns `threadID` immediately. The child exclusively owns its delegated scope and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when the child blocks further progress. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits. Use it only when this turn cannot proceed without one result, such as comment-reviewer. Timeout still returns `threadID`. Read the child. Callers omit `timeoutMs`. The wait floor is ten minutes.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, critique, and interrogate seats. Keep it for ranking that this turn needs now.
@@ -61,7 +61,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` is builtin medium plus pstack. Sol parent, Amp tool list, playbook routing in the prompt. Official `grok46` still does not load poteto-mode by itself. A live Grok poteto parent called `painter` and `public_artifact_url` on skill files instead of starting children. Medium is the coordinator. Grok is the worker.
+`poteto` is builtin high plus pstack. Amp selects the parent model and reasoning effort; pstack supplies playbook routing. Official `grok46` still does not load poteto-mode by itself. High is the coordinator. Grok is the worker.
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
@@ -69,7 +69,7 @@ The bundled file is cheap plus Sol builtins. No Fable. No Opus.
 
 | Seat | Bundled map |
 |---|---|
-| Parent `poteto` | `extends: medium` (Sol, Amp tools) |
+| Parent `poteto` | `extends: high` (Amp-selected model and reasoning effort) |
 | Feature, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
 | Bugs, performance, hillclimb, reflect-tooling | `builtin:medium` (Sol, med) |
 | Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer | `builtin:high` (Sol, x-high) |

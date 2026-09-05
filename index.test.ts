@@ -787,7 +787,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
 	})
 
-	test('poteto-mode.ts registers a builtin medium parent without a Grok pin', async () => {
+	test('poteto-mode.ts registers a builtin high parent without a Grok pin', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -807,7 +807,7 @@ describe('runtime tool behavior', () => {
 		expect(modes).toEqual(['poteto'])
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
-			extends: 'medium',
+			extends: 'high',
 		})
 		expect(created[0]).not.toHaveProperty('model')
 		expect(created[0]).not.toHaveProperty('tools')
