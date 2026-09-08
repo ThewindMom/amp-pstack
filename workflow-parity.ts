@@ -132,7 +132,7 @@ export function isImplementationRole(role: string): boolean {
 
 export function isStrictReadonlyRole(role: string): boolean {
 	if (STRICT_READONLY_ROLES.has(role)) return true
-	return role.startsWith('how-critics-') || role.startsWith('interrogate-reviewers-')
+	return role.startsWith('interrogate-reviewers-')
 }
 
 export function isResearchRole(role: string): boolean {

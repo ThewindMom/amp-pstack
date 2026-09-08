@@ -11,7 +11,6 @@
 		"reflect-judgment": "builtin:high",
 		"comment-reviewer": "builtin:high",
 		"arena-cross-judge": ["builtin:high"],
-		"how-critics": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"arena-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"architect-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"interrogate-reviewers": ["builtin:high", "builtin:medium", "xai/grok-4.6"]

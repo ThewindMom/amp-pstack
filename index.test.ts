@@ -70,7 +70,7 @@ import pstack, {
 
 describe('amp-pstack plugin', () => {
 	test('declares every bundled skill once', () => {
-		expect(SKILL_PATHS).toHaveLength(45)
+		expect(SKILL_PATHS).toHaveLength(47)
 		expect(new Set(SKILL_PATHS).size).toBe(SKILL_PATHS.length)
 		expect(SKILL_PATHS).toContain('skills/poteto-mode')
 		expect(description).toContain('Ports pstack to Amp')
@@ -292,13 +292,13 @@ describe('model configuration', () => {
 		expect(
 			orbAgentSpecsFor({
 				'bug-fix': 'builtin:high',
-				'how-critics': ['builtin:high', 'builtin:medium'],
+				'interrogate-reviewers': ['builtin:high', 'builtin:medium'],
 				'arena-cross-judge': ['builtin:high'],
 			}),
 		).toEqual([
 			{ role: 'bug-fix', model: 'builtin:high' },
-			{ role: 'how-critics-1', model: 'builtin:high' },
-			{ role: 'how-critics-2', model: 'builtin:medium' },
+			{ role: 'interrogate-reviewers-1', model: 'builtin:high' },
+			{ role: 'interrogate-reviewers-2', model: 'builtin:medium' },
 			{ role: 'arena-cross-judge', model: 'builtin:high' },
 		])
 	})
@@ -390,7 +390,11 @@ describe('model configuration', () => {
 		expect(mapped['reflect-tooling']).toBe('builtin:medium')
 		expect(mapped.judgment).toBe('builtin:high')
 		expect(mapped['comment-reviewer']).toBe('builtin:high')
-		expect(mapped['how-critics']).toEqual(['builtin:high', 'builtin:medium', 'xai/grok-4.6'])
+		expect(mapped['interrogate-reviewers']).toEqual([
+			'builtin:high',
+			'builtin:medium',
+			'xai/grok-4.6',
+		])
 		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
 		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
 	})
@@ -400,7 +404,10 @@ describe('model configuration', () => {
 		const mapped = fileModelMap(example)
 		expect(mapped.judgment).toBe('builtin:high')
 		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
-		expect(mapped['how-critics']).toEqual(['xai/grok-4.6', 'openai/gpt-5.6-sol'])
+		expect(mapped['interrogate-reviewers']).toEqual([
+			'xai/grok-4.6',
+			'openai/gpt-5.6-sol',
+		])
 		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
 		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
 	})
@@ -908,7 +915,7 @@ describe('runtime tool behavior', () => {
 		const amp = await loadPlugin()
 		amp.config[CONFIG_KEY] = {
 			'architect-runners': ['builtin:high', 'builtin:medium'],
-			'how-critics': ['builtin:high', 'builtin:medium'],
+			'interrogate-reviewers': ['builtin:high', 'builtin:medium'],
 		}
 		const firstCreated = amp.created.length
 		const architect = JSON.parse(
@@ -931,7 +938,7 @@ describe('runtime tool behavior', () => {
 
 		const secondCreated = amp.created.length
 		await tool(amp, 'pstack_run_panel').execute(
-			{ panel: 'how-critics', prompt: 'critique it' },
+			{ panel: 'interrogate-reviewers', prompt: 'interrogate it' },
 			{ thread: { id: 'T-parent' } },
 		)
 		for (const definition of amp.created.slice(secondCreated, secondCreated + 2)) {
@@ -1031,7 +1038,7 @@ describe('runtime tool behavior', () => {
 	test('blocking and panel orb launches use distinct startup-registered seats', async () => {
 		const models = {
 			'bug-fix': 'builtin:high',
-			'how-critics': ['builtin:high', 'builtin:high'],
+			'interrogate-reviewers': ['builtin:high', 'builtin:high'],
 		}
 		const amp = await loadPlugin({ initialConfig: { [CONFIG_KEY]: models } })
 		await tool(amp, 'pstack_start_agent').execute(
@@ -1044,13 +1051,13 @@ describe('runtime tool behavior', () => {
 			{ thread: { id: 'T-parent' } },
 		)
 		await tool(amp, 'pstack_run_panel').execute(
-			{ panel: 'how-critics', prompt: 'critique it', executor: 'orb' },
+			{ panel: 'interrogate-reviewers', prompt: 'interrogate it', executor: 'orb' },
 			{ thread: { id: 'T-parent' } },
 		)
 		const launchedModes = [
 			orbAgentModeFor('bug-fix', 'builtin:high'),
-			orbAgentModeFor('how-critics-1', 'builtin:high'),
-			orbAgentModeFor('how-critics-2', 'builtin:high'),
+			orbAgentModeFor('interrogate-reviewers-1', 'builtin:high'),
+			orbAgentModeFor('interrogate-reviewers-2', 'builtin:high'),
 		].map(({ key }) => amp.registeredModes.find((mode) => mode.key === key))
 		expect(launchedModes.every(Boolean)).toBe(true)
 		expect(launchedModes.every((mode) => amp.publishedModes.includes(mode as TestMode))).toBe(true)
@@ -1318,10 +1325,6 @@ describe('runtime tool behavior', () => {
 			kind: 'strict-readonly',
 			tools: { include: REPORTING_READONLY_TOOLS },
 		})
-		expect(capabilityFor('how-critics-1')).toEqual({
-			kind: 'strict-readonly',
-			tools: { include: STRICT_READONLY_TOOLS },
-		})
 		expect(capabilityFor('interrogate-reviewers-2')).toEqual({
 			kind: 'strict-readonly',
 			tools: { include: STRICT_READONLY_TOOLS },
@@ -1571,7 +1574,7 @@ describe('runtime tool behavior', () => {
 
 		const panel = await loadPlugin({ executorKind: 'remote' })
 		await tool(panel, 'pstack_run_panel').execute(
-			{ panel: 'how-critics', prompt: 'review it' },
+			{ panel: 'interrogate-reviewers', prompt: 'review it' },
 			{ thread: { id: 'T-remote-parent' } },
 		)
 		expect(panel.started).not.toHaveLength(0)
@@ -1579,7 +1582,7 @@ describe('runtime tool behavior', () => {
 		panel.flushOrbSelections()
 		await expect(
 			tool(panel, 'pstack_run_panel').execute(
-				{ panel: 'how-critics', prompt: 'wrong executor', executor: 'local' },
+				{ panel: 'interrogate-reviewers', prompt: 'wrong executor', executor: 'local' },
 				{ thread: { id: 'T-remote-parent' } },
 			),
 		).rejects.toThrow('executor local is unavailable when the parent runs in an orb')

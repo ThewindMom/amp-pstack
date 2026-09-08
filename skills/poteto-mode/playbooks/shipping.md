@@ -1,8 +1,8 @@
 ### Shipping
 
-**You own what lands. Verify each PR independently, land only the verified run from the root, then keep your hands off the queue.** For "land the stack", "ship it", "enable merge when ready", or the second half of a stack that **Babysit** already drove to green.
+**You own what lands. Verify each PR independently, land only the verified run from the root, then keep your hands off the queue.**
 
-This is the half after `playbooks/babysit.md`. Babysit makes a stack mergeable. Shipping decides what is actually safe to merge and lands it from the bottom, one PR at a time. Green is not safe, and the gap between those two words is where this playbook lives.
+This is the half after `playbooks/babysit.md`.
 
 1. **Resolve the forge, then verify every PR independently.** GitHub CLI (`gh`) is the default. If `command -v origin` succeeds and Origin can resolve the repository, use `origin pr ...` for PR view, watch, edit, and merge operations; otherwise stay on `gh` and record the fallback. Never require Graphite (`gt`). One Amp agent per PR, not batched. Use an orb for a clean remote checkout or local execution when verification depends on local state. Exercise the real surface with the repository's verification skill or harness against parent versus head. Each returns `PASS`, `PASS+NOTES`, or `FAIL`. Post the verdict on its PR only when the user authorized PR writes. Safe means a verdict from an agent that did not write the code. CI green and bot approval are inputs, not verdicts.
 2. **Land only the contiguous verified run rooted at the bottom.** Walk up from the lowest unmerged PR and stop at the first one without a passing verdict, where both `PASS` and `PASS+NOTES` pass. A verified PR sitting above an unverified one is not landable, because merging it would pull the gap in underneath it. Report the ceiling as a PR number and say what breaks the chain.

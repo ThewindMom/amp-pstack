@@ -1,6 +1,6 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack). It keeps pstack's 45 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.0. It keeps pstack's 47 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Install
 
@@ -50,9 +50,9 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 ## What the Amp port adds
 
 - **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'high'`: Amp's high-mode parent, Amp tools, pstack routing. It does not pin Grok and does not copy ultra tools (`painter`, `public_artifact_url`). Grok stays on feature/how/swarm workers. Official `grok46` is a different mode and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
-- **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
+- **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Implementation starts need a non-empty `scope`. A local parent defaults to `current-checkout`. An orb parent defaults to a fresh child orb that inherits the parent project. It returns `threadID` immediately. The child exclusively owns its delegated scope and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when the child blocks further progress. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits. Use it only when this turn cannot proceed without one result, such as comment-reviewer. Timeout still returns `threadID`. Read the child. Callers omit `timeoutMs`. The wait floor is ten minutes.
-- **Multi-model panels.** `pstack_run_panel` waits for arena, architect, critique, and interrogate seats. Keep it for ranking that this turn needs now.
+- **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now.
 - **Durable child threads.** `pstack_start_agent` launches background local or orb work. Children report through `pstack_send_to_thread`. The parent can steer a live child with the same tool. Children do not talk to siblings; the parent relays. Only same-machine local parent and local child share the checkout. If either thread is an orb, transfer files with `upload_thread_file` / `download_thread_file` (4 MiB), same as local-parent / orb-child. Two orbs do not share a disk. Need a URL: `thread_file_url`.
 - **Thread-native memory.** Reflection reads the current transcript directly. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and capability webhooks instead of editor polling commands.

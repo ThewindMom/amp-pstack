@@ -56,7 +56,6 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
   "reflect-judgment": "anthropic/claude-fable-5-1",
   "swarm-worker": "xai/grok-4.6",
   "comment-reviewer": "anthropic/claude-fable-5-1",
-  "how-critics": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"],
   "arena-runners": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"],
   "arena-cross-judge": ["anthropic/claude-opus-5"],
   "architect-runners": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"],
