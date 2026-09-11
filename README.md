@@ -65,15 +65,14 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
-The bundled file uses high for coding fixes, medium for tooling reflection, and distinct high/medium/Grok panel seats. No direct Fable or Opus assignments.
+The bundled file follows Cursor pstack's split without Fable or Opus: Grok for fast code and exploration, medium for bounded judgment and prose, high for perf, hillclimb, and the arena judge. Panels keep distinct high/medium/Grok seats.
 
 | Seat | Bundled map |
 |---|---|
 | Parent `poteto` | `extends: high` (Amp-selected model and reasoning effort) |
 | Feature, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
-| Bugs, performance, hillclimb | `builtin:high` |
-| reflect-tooling | `builtin:medium` |
-| Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer | `builtin:high` |
+| Performance, hillclimb, arena-cross-judge | `builtin:high` |
+| Bugs, judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer, reflect-tooling | `builtin:medium` |
 | Panels | high, medium, Grok |
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` does not pass `reasoningEffort`; Amp lists Grok with an empty efforts array, and xAI then defaults to high. Raw `openai/gpt-5.6-sol` also has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
