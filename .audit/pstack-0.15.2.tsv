@@ -1,0 +1,5 @@
+ts	phase	decision	why	evidence	result
+2026-09-15T16:45:00Z	frame	Set the target to Cursor pstack 0.15.2 plus preserved Amp-native orchestration	The port should track upstream 0.15.2 without Cursor Task slugs or inherit-parent	upstream 5bf2b15; baseline 5a7441c	open
+2026-09-15T16:50:00Z	design	Make Grok the default for bug-fix, perf, and hillclimb in DEFAULT_MODELS and CHEAP_MODELS	Upstream 0.15.2 moved those code seats to Grok; Fable stays on judgment	index.ts DEFAULT_MODELS CHEAP_MODELS	open
+2026-09-15T16:52:00Z	design	Keep bundled cheap map on Grok for code and builtin:medium for bounded judgment	User asked for more medium; 0.15.2 code seats should not stay on medium/high	pstack.models.json	open
+2026-09-15T16:55:00Z	port	Copy evidence labels, operator-neutral autopilot wording, and Amp-native setup budgets	Those are the four upstream commits after 0.15.0; budget rewrites builtins instead of Cursor slugs	skills/poteto-mode, setup-pstack	open

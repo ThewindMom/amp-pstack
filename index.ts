@@ -107,9 +107,9 @@ export const SKILL_PATHS = [
 
 export const DEFAULT_MODELS = {
 	'feature-refactoring': 'xai/grok-4.6',
-	'bug-fix': 'anthropic/claude-fable-5-1',
-	'perf-issue': 'anthropic/claude-fable-5-1',
-	hillclimb: 'anthropic/claude-fable-5-1',
+	'bug-fix': 'xai/grok-4.6',
+	'perf-issue': 'xai/grok-4.6',
+	hillclimb: 'xai/grok-4.6',
 	judgment: 'anthropic/claude-fable-5-1',
 	'how-explorer': 'xai/grok-4.6',
 	'how-explainer': 'anthropic/claude-fable-5-1',
@@ -149,9 +149,9 @@ const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. V
 
 export const CHEAP_MODELS = {
 	'feature-refactoring': 'xai/grok-4.6',
-	'bug-fix': 'openai/gpt-5.6-sol',
-	'perf-issue': 'openai/gpt-5.6-sol',
-	hillclimb: 'openai/gpt-5.6-sol',
+	'bug-fix': 'xai/grok-4.6',
+	'perf-issue': 'xai/grok-4.6',
+	hillclimb: 'xai/grok-4.6',
 	judgment: 'xai/grok-4.6',
 	'how-explorer': 'xai/grok-4.6',
 	'how-explainer': 'xai/grok-4.6',

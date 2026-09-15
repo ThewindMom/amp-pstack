@@ -18,7 +18,7 @@ Confirm it loaded with `amp plugins list`. A personal copy shows as `amp-global-
 
 ## Pick your models
 
-Select the `poteto` agent mode, or load `pstack:setup-pstack`. Setup reads `amp plugins show-agent-options --json`, shows each role, and writes only the roles you change through `pstack_configure_models`. Unspecified roles keep the plugin defaults.
+Select the `poteto` agent mode, or load `pstack:setup-pstack`. Setup reads `amp plugins show-agent-options --json`, asks for a reasoning budget, shows each role, and writes only the roles you change through `pstack_configure_models`. Unspecified roles keep the plugin defaults. The budget rewrites `builtin:*` seats. It does not parse Cursor thinking slugs.
 
 You can also call `pstack_configure_models` with `action: "profile"` and `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol and skips Fable and Opus. For a user or repo file, copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` or `.amp/pstack.models.json`. The example overlays `builtin:high` on judgment roles. The command-palette `setup-models` action is the same profiles behind a UI prompt.
 

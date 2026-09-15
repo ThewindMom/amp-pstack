@@ -140,7 +140,10 @@ describe('amp-pstack plugin', () => {
 	})
 
 	test('has multi-model role and panel defaults', () => {
-		expect(DEFAULT_MODELS['bug-fix']).toBe('anthropic/claude-fable-5-1')
+		expect(DEFAULT_MODELS['bug-fix']).toBe('xai/grok-4.6')
+		expect(DEFAULT_MODELS['perf-issue']).toBe('xai/grok-4.6')
+		expect(DEFAULT_MODELS.hillclimb).toBe('xai/grok-4.6')
+		expect(DEFAULT_MODELS.judgment).toBe('anthropic/claude-fable-5-1')
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(4)
 		expect(description.length).toBeLessThanOrEqual(300)
 		expect(ROLE_ALIASES.feature).toBe('feature-refactoring')
@@ -380,13 +383,13 @@ describe('model configuration', () => {
 		).toBe('xai/grok-4.6')
 	})
 
-	test('bundled plugin json uses medium for bounded judgment and high for hard seats', async () => {
+	test('bundled plugin json uses Grok for code and medium for bounded judgment', async () => {
 		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
 		const mapped = fileModelMap(bundled)
 		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
-		expect(mapped['bug-fix']).toBe('builtin:medium')
-		expect(mapped['perf-issue']).toBe('builtin:high')
-		expect(mapped.hillclimb).toBe('builtin:high')
+		expect(mapped['bug-fix']).toBe('xai/grok-4.6')
+		expect(mapped['perf-issue']).toBe('xai/grok-4.6')
+		expect(mapped.hillclimb).toBe('xai/grok-4.6')
 		expect(mapped['reflect-tooling']).toBe('builtin:medium')
 		expect(mapped.judgment).toBe('builtin:medium')
 		expect(mapped['how-explainer']).toBe('builtin:medium')
