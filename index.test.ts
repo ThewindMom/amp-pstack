@@ -383,19 +383,19 @@ describe('model configuration', () => {
 		).toBe('xai/grok-4.6')
 	})
 
-	test('bundled plugin json uses Grok for code and medium for bounded judgment', async () => {
+	test('bundled plugin json uses Grok for code and high for Fable and Sol seats', async () => {
 		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
 		const mapped = fileModelMap(bundled)
 		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
 		expect(mapped['bug-fix']).toBe('xai/grok-4.6')
 		expect(mapped['perf-issue']).toBe('xai/grok-4.6')
 		expect(mapped.hillclimb).toBe('xai/grok-4.6')
-		expect(mapped['reflect-tooling']).toBe('builtin:medium')
-		expect(mapped.judgment).toBe('builtin:medium')
-		expect(mapped['how-explainer']).toBe('builtin:medium')
-		expect(mapped['why-synthesizer']).toBe('builtin:medium')
-		expect(mapped['reflect-judgment']).toBe('builtin:medium')
-		expect(mapped['comment-reviewer']).toBe('builtin:medium')
+		expect(mapped['reflect-tooling']).toBe('builtin:high')
+		expect(mapped.judgment).toBe('builtin:high')
+		expect(mapped['how-explainer']).toBe('builtin:high')
+		expect(mapped['why-synthesizer']).toBe('builtin:high')
+		expect(mapped['reflect-judgment']).toBe('builtin:high')
+		expect(mapped['comment-reviewer']).toBe('builtin:high')
 		expect(mapped['arena-cross-judge']).toEqual(['builtin:high'])
 		expect(mapped['interrogate-reviewers']).toEqual([
 			'builtin:high',
