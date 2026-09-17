@@ -1,17 +1,13 @@
 {
 	"profile": "cheap",
 	"models": {
-		"bug-fix": "builtin:high",
-		"perf-issue": "builtin:high",
-		"hillclimb": "builtin:high",
-		"reflect-tooling": "builtin:medium",
 		"judgment": "builtin:high",
 		"how-explainer": "builtin:high",
 		"why-synthesizer": "builtin:high",
+		"reflect-tooling": "builtin:high",
 		"reflect-judgment": "builtin:high",
 		"comment-reviewer": "builtin:high",
 		"arena-cross-judge": ["builtin:high"],
-		"how-critics": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"arena-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"architect-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"interrogate-reviewers": ["builtin:high", "builtin:medium", "xai/grok-4.6"]

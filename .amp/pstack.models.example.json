@@ -3,9 +3,9 @@
 	"models": {
 		"arena-cross-judge": ["builtin:high"],
 		"judgment": "builtin:high",
-		"how-explainer": "builtin:medium",
+		"how-explainer": "builtin:high",
 		"why-synthesizer": "builtin:high",
 		"reflect-judgment": "builtin:high",
-		"comment-reviewer": "builtin:medium"
+		"comment-reviewer": "builtin:high"
 	}
 }

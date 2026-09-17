@@ -58,7 +58,7 @@ export {
 export type { DelegateExecutor, LaunchTarget, ParentExecutorKind } from './workflow-parity'
 
 export const description =
-	'Ports pstack to Amp with 45 workflow skills, the poteto mode, configurable multi-model delegates, background threads, transcript tools, and wake webhooks.'
+	'Ports pstack to Amp with 47 workflow skills, the poteto mode, configurable multi-model delegates, background threads, transcript tools, and wake webhooks.'
 
 export const SKILL_PATHS = [
 	'skills/architect',
@@ -74,6 +74,7 @@ export const SKILL_PATHS = [
 	'skills/make-bot-ui',
 	'skills/no-comments',
 	'skills/poteto-mode',
+	'skills/principle-attack-the-premise',
 	'skills/principle-boundary-discipline',
 	'skills/principle-build-the-lever',
 	'skills/principle-encode-lessons-in-structure',
@@ -94,6 +95,7 @@ export const SKILL_PATHS = [
 	'skills/principle-separate-before-serializing-shared-state',
 	'skills/principle-sequence-verifiable-units',
 	'skills/principle-subtract-before-you-add',
+	'skills/principle-test-behavior-not-implementation',
 	'skills/principle-type-system-discipline',
 	'skills/recall',
 	'skills/reflect',
@@ -110,9 +112,9 @@ export const SKILL_PATHS = [
 
 export const DEFAULT_MODELS = {
 	'feature-refactoring': 'xai/grok-4.6',
-	'bug-fix': 'anthropic/claude-fable-5-1',
-	'perf-issue': 'anthropic/claude-fable-5-1',
-	hillclimb: 'anthropic/claude-fable-5-1',
+	'bug-fix': 'xai/grok-4.6',
+	'perf-issue': 'xai/grok-4.6',
+	hillclimb: 'xai/grok-4.6',
 	judgment: 'anthropic/claude-fable-5-1',
 	'how-explorer': 'xai/grok-4.6',
 	'how-explainer': 'anthropic/claude-fable-5-1',
@@ -122,12 +124,6 @@ export const DEFAULT_MODELS = {
 	'reflect-judgment': 'anthropic/claude-fable-5-1',
 	'swarm-worker': 'xai/grok-4.6',
 	'comment-reviewer': 'anthropic/claude-fable-5-1',
-	'how-critics': [
-		'anthropic/claude-fable-5-1',
-		'openai/gpt-5.6-sol',
-		'xai/grok-4.6',
-		'anthropic/claude-opus-5',
-	],
 	'arena-runners': [
 		'anthropic/claude-fable-5-1',
 		'openai/gpt-5.6-sol',
@@ -158,9 +154,9 @@ const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. V
 
 export const CHEAP_MODELS = {
 	'feature-refactoring': 'xai/grok-4.6',
-	'bug-fix': 'openai/gpt-5.6-sol',
-	'perf-issue': 'openai/gpt-5.6-sol',
-	hillclimb: 'openai/gpt-5.6-sol',
+	'bug-fix': 'xai/grok-4.6',
+	'perf-issue': 'xai/grok-4.6',
+	hillclimb: 'xai/grok-4.6',
 	judgment: 'xai/grok-4.6',
 	'how-explorer': 'xai/grok-4.6',
 	'how-explainer': 'xai/grok-4.6',
@@ -170,7 +166,6 @@ export const CHEAP_MODELS = {
 	'reflect-judgment': 'xai/grok-4.6',
 	'swarm-worker': 'xai/grok-4.6',
 	'comment-reviewer': 'xai/grok-4.6',
-	'how-critics': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
 	'arena-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
 	'arena-cross-judge': ['openai/gpt-5.6-sol'],
 	'architect-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
@@ -238,7 +233,6 @@ const BUILTIN_MODE = /^builtin:(low|medium|high|ultra)$/
 const MODEL_ID = /^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*(?:\/[a-z0-9._-]+)*$/i
 const KNOWN_ROLES = new Set(Object.keys(DEFAULT_MODELS))
 const PANEL_ROLES = new Set([
-	'how-critics',
 	'arena-runners',
 	'architect-runners',
 	'interrogate-reviewers',

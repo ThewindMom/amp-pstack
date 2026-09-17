@@ -9,7 +9,7 @@ builtin-tools:
 
 Spawn Comment Sicko. Act on accepted findings.
 
-Authoring agents defend comments. Defer to Comment Sicko's fresh perspective.
+Defer to Comment Sicko's fresh perspective.
 
 ## Scope
 

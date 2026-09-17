@@ -1,6 +1,6 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack). It keeps pstack's 45 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.2. It keeps pstack's 47 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Install
 
@@ -50,10 +50,10 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 ## What the Amp port adds
 
 - **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'high'`: Amp's high-mode parent, Amp tools, pstack routing. It does not pin Grok and does not copy ultra tools (`painter`, `public_artifact_url`). Grok stays on feature/how/swarm workers. Official `grok46` is a different mode and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
-- **45 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
+- **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns `threadID` immediately. The child exclusively owns its paths and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits only when this turn cannot proceed without one result. Timeout preserves the live `threadID`; terminal failure returns `status: "error"`.
-- **Multi-model panels.** `pstack_run_panel` waits for arena, architect, critique, and interrogate seats. Keep it for ranking that this turn needs now.
-- **Durable child threads.** `pstack_start_agent` launches on the current executor, a fresh orb, or a named runner. Children report through `pstack_send_to_thread`; the parent can steer a live child. Only work kept on the current executor can depend on its live checkout. Transfer files explicitly whenever either side is an orb. Two orbs do not share a disk.
+- **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now.
+- **Durable child threads.** `pstack_start_agent` launches on the current executor, a fresh orb, or a named runner. Children report through `pstack_send_to_thread`; the parent can steer a live child and relays between siblings. Only work kept on the current executor can depend on its live checkout. Transfer files explicitly whenever either side is an orb. Two orbs do not share a disk.
 - **Durable ownership.** A transactional SQLite journal outside the plugin checkout permits disjoint paths to overlap, prevents duplicate or prefix-overlapping writers, and restores live claims after plugin reload on the same persistent executor.
 - **Thread-native memory.** Reflection reads the current transcript directly. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and capability webhooks instead of editor polling commands.
@@ -66,15 +66,13 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
-The bundled file uses high for coding fixes, medium for tooling reflection, and distinct high/medium/Grok panel seats. No direct Fable or Opus assignments.
+The bundled file follows Cursor pstack 0.15.2 without Fable or Opus. Amp `ultra` is Fable, so the cheap file uses `builtin:high` (Sol at xhigh) for every Fable or Sol seat. `builtin:medium` is only the second panel seat.
 
 | Seat | Bundled map |
 |---|---|
 | Parent `poteto` | `extends: high` (Amp-selected model and reasoning effort) |
-| Feature, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
-| Bugs, performance, hillclimb | `builtin:high` |
-| reflect-tooling | `builtin:medium` |
-| Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer | `builtin:high` |
+| Feature, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
+| Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer, reflect-tooling, arena-cross-judge | `builtin:high` |
 | Panels | high, medium, Grok |
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` does not pass `reasoningEffort`; Amp lists Grok with an empty efforts array, and xAI then defaults to high. Raw `openai/gpt-5.6-sol` also has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.

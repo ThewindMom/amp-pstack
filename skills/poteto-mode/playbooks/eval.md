@@ -2,17 +2,15 @@
 
 **You own the experiment design. Plan, blind, run, synthesize.**
 
-Evals test how a change affects agent behavior before promoting it: a new skill variant, a structural change, a prompt tweak. The failure mode is the observer effect. An agent that knows it's being evaluated behaves differently, so candidates must run blind.
-
 **Non-negotiables for blinding:**
 
 - No `eval`, `test`, `judge`, `experiment`, `rubric`, `score`, `compare`, `benchmark`, `candidate`, or `arena` in any directory, file, or prompt the candidate sees.
-- The candidate prompt looks like an organic user request. State the goal, not the meta. "build me a small todo cli" not "show me how you follow the principles chain".
-- No chain-eliciting cues. Don't ask the candidate to list which skills, principles, or files they applied; that meta-prompt inflates citation behavior. Ask for design notes generally and grade chain-following from code shape, not self-report.
-- Sanitize directory and slug names. Use project-shaped names a user might pick, not labels like `candidate-1` or `agent-a`.
+- The candidate prompt looks like an organic user request. State the goal, not the meta.
+- No chain-eliciting cues. Don't ask the candidate to list which skills, principles, or files they applied. Ask for design notes generally and grade chain-following from code shape, not self-report.
+- Sanitize directory and slug names. Use project-shaped names a user might pick.
 - Don't tell the candidate other candidates exist.
 - The judge can know it's judging but sees outputs by sanitized label only, never by model name.
-- Comparing two variants: one judge scores both sets in a single pass on one scale, blind to which set each came from. Two judge runs with different prompts don't compare, the calibration drifts.
+- Comparing two variants: one judge scores both sets in a single pass on one scale, blind to which set each came from.
 
 **Steps:**
 

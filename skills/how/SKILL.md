@@ -1,121 +1,48 @@
 ---
 name: how
-description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Can critique architecture. Use why for motivation."
+description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
 builtin-tools:
   - pstack_run_agent
-  - pstack_run_panel
   - pstack_start_agent
 ---
 
 # How
 
-Explore the codebase to answer "how does X work?" questions. Produce clear architectural explanations at the level of a senior engineer onboarding onto a subsystem. Enough to build a working mental model, not annotated source code.
+Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Two modes:
+## Step 1. Assess Complexity
 
-1. **Explain** (default). Explore the codebase and produce a clear explanation
-2. **Critique.** Explain first, then spawn multiple models to independently identify architectural issues
+If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-## Explain Mode
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. One explainer explores and explains in a single pass. Go to Step 2b.
+- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): spawn parallel explorers first, then hand off to the explainer. Go to Step 2a.
 
-### Step 1. Understand the Question and Assess Complexity
+When in doubt, take the simple path.
 
-Parse what the user is asking about:
+## Step 2a. Explore (complex questions only)
 
-- "How does the rate limiter work?", a subsystem
-- "How do we handle billing for on-demand usage?", a feature flow
-- "How is the auth service structured?", an architectural overview
-- "Walk me through what happens when a user submits a form", a runtime trace
-
-Identify the scope. If ambiguous, state your best-guess interpretation before exploring. Don't ask. Let the user redirect if you're off.
-
-**Assess complexity to decide the approach:**
-
-- **Simple** (a single module, a small utility, a narrow question like "how does function X work"): skip explorer agents; the explainer explores and explains in a single pass. Go to Step 2b.
-- **Complex** (a subsystem spanning multiple files/services, a cross-cutting feature, a full architectural overview): spawn parallel explorer agents first, then hand off to the explainer. Go to Step 2a.
-
-When in doubt, lean simple. You can always spawn explorers if the explainer hits a wall.
-
-### Step 2a. Explore (complex questions only)
-
-Decompose the question into 2-4 parallel exploration angles, each a distinct slice of the subsystem so explorers don't duplicate work. Example split for "how does the rate limiter work?":
-
-- Explorer 1: data model and state management
-- Explorer 2: request path and enforcement
-- Explorer 3: configuration and metrics infrastructure
-
-The right decomposition depends on the question. Use your judgment. Narrow questions: 2 explorers is fine. Broad subsystems: up to 4.
+Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem.
 
 Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer`. Route from the parent executor first. An orb parent defaults each explorer to `parent-project-orb`. From a local parent, use `current-checkout` when the explanation needs local or uncommitted state and `parent-project-orb` for the clean project remote. If the question depends on live changes inside a parent orb, keep the inspection in that parent or transfer a bounded fixture. A fresh child orb cannot read those files. Give each explorer a distinct angle and a read-only brief. Keep each `threadID`. Each child exclusively owns its slice. Continue independent parent work, then end the turn when the reports block further progress. Do not call `wait_for_threads` to judge startup. Join on each child's `pstack_send_to_thread` report. Do not call `pstack_run_agent` for explorers. Never re-trace or replace a live child's slice in the parent. The plugin resolves the configured model.
 
-Each explorer gets the same base prompt from `references/explorer-prompt.md` plus a specific exploration angle naming its slice. Each explorer should:
-- Start broad: Glob for relevant directories, Grep for key types/interfaces/class names
-- Follow the thread: from an entry point, trace the call chain (callers, callees, data flow, type definitions)
-- Read the actual code, don't guess from file names
-- Stop when it can describe the full path from input to output (or trigger to effect) without hand-waving any step
-- Note things that are surprising, non-obvious, or that a newcomer would get wrong
+Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in. Then go to Step 3.
 
-Each explorer returns structured findings: components found, flow traced, files read, anything non-obvious. Overlap between explorers is fine; the explainer reconciles.
-
-Then proceed to Step 3.
-
-### Step 2b. Direct Explain (simple questions)
+## Step 2b. Direct Explain (simple questions)
 
 Run one `pstack_start_agent` call with role `how-explainer` and a read-only brief that explores and explains in one pass. Use the same parent-executor routing as Step 2a. Keep the `threadID`. Join on the report. Do not call `pstack_run_agent` for this step. Do not write the architecture trace in the parent unless live parent-orb files make a child inaccurate and cannot be transferred.
 
-The agent does its own exploration (Glob, Grep, Read) and writes the explanation directly. Read `references/explainer-prompt.md` for the communication style and output format. Same structure, just no explorer findings as input.
+Build its prompt from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
 
-Proceed to Step 4.
-
-### Step 3. Synthesize (complex questions only)
+## Step 3. Synthesize (complex questions only)
 
 Once all explorers return, run one `pstack_start_agent` call with role `how-explainer` to synthesize their findings into one coherent explanation. Join on that report. Do not write the architecture trace in the parent.
 
-The explainer gets all explorers' findings and writes the human-facing explanation (output format below). Read `references/explainer-prompt.md` for the full prompt template. The explainer reconciles overlapping findings, resolves contradictions, and weaves the slices into a unified picture.
+Build its prompt from `references/explainer-prompt.md` with every explorer's findings filled in.
 
-### Step 4. Present
+## Step 4. Present
 
-Present the explainer's output to the user. You may lightly edit for clarity or add context from the conversation, but don't substantially rewrite. The explainer's communication is the product.
+Present the explainer's output to the user. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
 
-### Output Format
+## Output Format
 
-Follow this structure, adapted to the question. Not every section is needed for every question.
-
-**Overview.** 1-2 paragraphs. What it is, what it does, why it exists. Enough to decide whether to keep reading.
-
-**Key Concepts.** The important types, services, or abstractions. Brief definition of each. Not exhaustive, just the ones needed to understand the rest.
-
-**How It Works.** The core of the explanation. Walk through the flow: what triggers it, what happens step by step, where data goes, the decision points. Prose, not pseudocode. Reference specific files and functions so the reader can go look, but don't dump code blocks unless a snippet is genuinely necessary.
-
-**Where Things Live.** A brief map of the relevant files/directories. Not every file, just the ones needed to start working in this area.
-
-**Gotchas.** Non-obvious or surprising things that would trip someone up. Historical context that explains why something looks weird. Known sharp edges.
-
-## Critique Mode
-
-Triggered when the user asks for architectural issues, problems, or improvements, not just understanding.
-
-### Step 1. Explain First
-
-Run the full explain flow above (Steps 1-4). You must understand the architecture before critiquing it.
-
-### Step 2. Spawn Critics
-
-After the explanation is complete, call `pstack_run_panel` once with panel `how-critics` and the same critic brief for every model.
-
-Read `references/critic-prompt.md` for the prompt template. Each critic gets:
-1. The explanation from Step 1 (so they don't re-explore)
-2. The relevant file paths (so they can read the actual code)
-3. The architectural critique rubric from `references/critique-rubric.md`
-
-### Step 3. Lead Judgment
-
-Same framework as the interrogate skill. You're a pragmatic lead, not an aggregator.
-
-Categorize findings:
-- **Act on.** Architectural problems worth fixing now
-- **Consider.** Real concerns, but the cost/benefit is unclear
-- **Noted.** Valid observations, low priority
-- **Dismissed.** Wrong, missing context, or style preference
-
-Present the explanation first (from Step 1), then the critique verdict below it. The explanation should stand on its own; someone who just wants to understand the system shouldn't wade through critique.
+The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.

@@ -1,6 +1,6 @@
 ### Multi-phase or multi-PR plan
 
-**You own the plan, not the code. The plan is a checklist an owner runs box by box and the operator audits from the evidence.** For work that spans phases or stacked PRs. The plan is the deliverable. Do not implement.
+**You own the plan, not the code. The plan is a checklist an owner runs box by box and the operator audits from the evidence.** The plan is the deliverable. Do not implement.
 
 1. When the change is one or two files with an obvious approach, skip the plan. Say so and stop.
 2. Settle open questions by prototype before you write. For a question about layout, timing, behavior, or whether an API works, run `playbooks/prototype.md`. Keep the branch, the SHA, and the screenshots for Appendix A. Ask the operator only about a product or preference call that no run can settle. Give options (the **never-block-on-the-human** principle skill).
@@ -31,7 +31,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 ### Arm the program
 
-- [ ] State the protocol and this plan to the operator, then stop. Start execution only on her explicit go.
+- [ ] State the protocol and this plan to the operator, then stop. Start execution only on the operator's explicit go.
 - [ ] On approval, store this durable objective in the root thread and decision trail. "<The plan path, the PR ids in order, the verification rule, who merges, and the done condition.>"
 - [ ] Read these from trunk at program start. Re-read them at every tick.
   - [ ] `git show origin/main:skills/poteto-mode/playbooks/<execution playbook>.md`
@@ -40,7 +40,7 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
   - [ ] `git show origin/main:skills/poteto-mode/playbooks/opening-a-pr.md`
   - [ ] `git show origin/main:skills/<each other leaf skill the program uses>`
 - [ ] If the operator requested an ongoing run, arm a 30-minute Amp schedule for the root thread. Never leave the cadence to memory.
-- [ ] Use this tick prompt verbatim. "Re-read the execution playbook from trunk and the durable objective. Audit the operation against both and fix drift in this tick. Check every active Amp child thread and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then send the operator a status message with the queue table of PR, owner, state, and head SHA, new verdicts, merges, gates, and blockers."
+- [ ] Use this tick prompt verbatim. "Re-read the execution playbook from trunk and the durable objective. Audit the operation against both and fix drift in this tick. Check every active Amp child thread and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then post a status message to the operator in chat, whether or not anything changed, with the queue table of PR, owner, state, and head SHA, the verdicts since the last tick, what merged, open operator gates, and blockers."
 - [ ] On the operator's hold or stand-down, send every owner a zero-writes order at once.
 
 ### Spawn owners

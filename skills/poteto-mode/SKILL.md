@@ -15,12 +15,12 @@ builtin-tools:
 
 ## Non-negotiables
 
-**Start every multi-step task with an explicit checklist whose first item is to read the Principles section below in full.** Keep the checklist in the thread or in the matched playbook's durable state. The principles ground every trigger here. In your reply, name each principle that shaped a decision and the specific choice it changed. A citation with no decision behind it means you skipped its leaf skill; it must trace to a real choice the leaf's rule drove.
+The Principles section below grounds every trigger. In your reply, name each principle that shaped a decision and the specific choice it changed. Cite only principles whose leaf SKILL.md you read this session.
 
 Remaining triggers:
 
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
-- About to ask the user a "which approach", "how should I", or "what should this do" question → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. The ask is the slow path. A throwaway probe usually answers faster, and it hands the human a result to react to instead of a decision to make.
+- About to ask the user a "which approach", "how should I", or "what should this do" question → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
@@ -46,6 +46,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **Laziness Protocol** (**principle-laziness-protocol**). Refactoring, sizing a diff, or tempted to add abstractions, layers, or signal threading. Bias to deletion and the smallest change that solves the problem.
 - **Foundational Thinking** (**principle-foundational-thinking**). Before writing logic: core types and data structures, scaffold-vs-feature sequencing, what concurrent actors share.
 - **Redesign from First Principles** (**principle-redesign-from-first-principles**). Integrating a new requirement into an existing design. Redesign as if it had been foundational from day one.
+- **Attack the Premise** (**principle-attack-the-premise**). Two or more fixes that share one premise have failed the same gate. Take a census of which actors hold the imbalance before the next fix, then question the premise instead of writing another fix that assumes it.
 - **Subtract Before You Add** (**principle-subtract-before-you-add**). Sequencing an addition, refactor, or rewrite. Remove dead weight first, then build on the simpler base.
 - **Minimize Reader Load** (**principle-minimize-reader-load**). Reviewing or shaping code that's hard to trace. Count layers and hidden state, collapse one-caller wrappers, shrink mutable scope.
 - **Outcome-Oriented Execution** (**principle-outcome-oriented-execution**). Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
@@ -67,6 +68,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **Prove It Works** (**principle-prove-it-works**). After a task, before declaring done. Verify against the real artifact, not a proxy or "it compiles".
 - **Fix Root Causes** (**principle-fix-root-causes**). Debugging. Trace each symptom to its root cause, reproduce first, ask why until you reach it.
 - **Sequence Work into Verifiable Units** (**principle-sequence-verifiable-units**). Multi-step work (sweeps, migrations, runs of similar edits) and how you stack commits and PRs. Break work into small units that each end in a check, verify each before the next, and order delivery so the sequence proves itself.
+- **Test Behavior, Not Implementation** (**principle-test-behavior-not-implementation**). Writing, changing, or keeping a test. Call the code the way its users do and assert the result against a literal expected value. If the test would still pass when every imported function returns `undefined`, rewrite the assertion or delete the test.
 
 **Delegation**
 
@@ -123,7 +125,7 @@ Pick size from this table unless the user named one. The user-named size always 
 
 Start small when unsure. A later thread can be larger. Never resize in place.
 
-The `poteto` parent is Amp builtin `high` plus this skill. Amp selects its model and reasoning effort. It does not pin Grok or copy ultra tools. Grok stays on code and explorer workers. Do not start pstack work in official `grok46`; that mode does not load this skill. Never call `public_artifact_url` except for an image or video the user asked to share. Never call `painter` unless the user asked for an image. Model selection for delegates is role-based and configurable through the **setup-pstack** skill, `pstack_configure_models`, the plugin file `pstack.models.json`, `.amp/pstack.models.json`, or `~/.config/amp/pstack.models.json`. Specified code, prose, and judgment default to `anthropic/claude-fable-5-1`. Mechanical work defaults to `xai/grok-4.6`. Panels are Fable 5.1, Sol, Grok, and Opus 5. The bundled plugin JSON drops Fable and Opus. Feature and refactoring share role `feature-refactoring`; the aliases `feature` and `refactoring` resolve to it. A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate: the plugin extends that Amp mode and keeps the pstack instructions. Raw Grok delegates also request `reasoningEffort: high`.
+The `poteto` parent is Amp builtin `high` plus this skill. Amp selects its model and reasoning effort. It does not pin Grok or copy ultra tools. Grok stays on code and explorer workers. Do not start pstack work in official `grok46`; that mode does not load this skill. Never call `public_artifact_url` except for an image or video the user asked to share. Never call `painter` unless the user asked for an image. Model selection for delegates is role-based and configurable through the **setup-pstack** skill, `pstack_configure_models`, the plugin file `pstack.models.json`, `.amp/pstack.models.json`, or `~/.config/amp/pstack.models.json`. Code delegates (feature, refactoring, bug-fix, perf, hillclimb) default to `xai/grok-4.6`. The hardest changes, prose, and judgment default to `anthropic/claude-fable-5-1`. Panels are Fable 5.1, Sol, Grok, and Opus 5. The bundled plugin JSON drops Fable and Opus. Feature and refactoring share role `feature-refactoring`; the aliases `feature` and `refactoring` resolve to it. A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate: the plugin extends that Amp mode and keeps the pstack instructions. Raw Grok delegates also request `reasoningEffort: high`.
 
 For background work, include the parent thread ID and require the child to call `pstack_send_to_thread` with a compact report. For work that must wake later, explicitly use an Amp schedule. For an outside system that must wake an orb thread, use `pstack_create_wake_webhook`; Amp shows the capability URL through UI rather than transcript output. Webhooks are orb-only, at least once, and recover on the same persistent executor. Validate payload domains and make downstream actions idempotent.
 
@@ -131,24 +133,25 @@ You own every subagent's work. Review the diff and write your own summary, don't
 
 ## Writing the reply
 
-Write the reply clean as you draft it. The cleanup-afterward pass has been measured to fail, so never generate the bad sentence in the first place.
+Write the reply clean as you draft it. A cleanup pass after drafting does not remove these patterns.
 
 - **Short declarative sentences.** One thought per sentence, ended with a period.
-- **The long-dash character is banned outright.** Two cases. A file-list bullet joining a filename to its description with a dash. Write it as a sentence ("`main.js` owns persistence and the IPC handlers"). A bold section header joined to its text by a dash. Write the header as its own sentence ("**Verification.** End to end via CDP").
+- **No long-dash character anywhere.** Write a file-list bullet as a sentence ("`main.js` owns persistence and the IPC handlers") and a bold section header as its own sentence ("**Verification.** End to end via CDP").
 - **A colon as a mid-sentence connector is also out** (unslop rule 14). A colon before a list is fine.
 - **Terse is not an excuse to drop content.** Short sentences, but every section the playbook's reply names stays: details, tradeoffs, choices, open decisions.
 - **Frame impact for the consumer and the maintainer.** Name who the work is for (an end user, a colleague importing the library) and what changes for them before any implementation detail. Then what the next engineer who owns this code inherits. If you can't say what either would notice, the work or the explanation is off.
 - **Never fabricate a link, citation, or transcript reference.** Link only artifacts you produced or read this session.
+- **Every claim carries its evidence or its label in the same sentence.** Measured, inferred, or guess. A prediction or an unseen cause is a guess. Never hand the human a check you could run.
 
 Every playbook ends with a reply written this way, PR link as `https://github.com/<owner>/<repo>/pull/<number>`. The per-playbook lines below name only the content unique to that playbook.
 
 ## Comments
 
-Comments follow the same rule as the reply. Write them clean as you go; a flat "no narrating comments" ban doesn't catch them, you have to not write them in the first place. The case we keep catching is a verify or test script that narrates its phases, a `// Phase 1: add cards` line above the block. Delete it; the assertion or log string is the only doc you need. Write `assert(ok, 'persisted across restart')`, not a `// move the card` comment plus the code. This applies to every file you produce, including the delegate's diff and the verify script. Keep a comment only for a non-obvious *why* the code can't show.
+Comments follow the same rule as the reply. Write them clean as you go. Keep a comment only for a non-obvious *why* the code can't show. A verify or test script gets no phase-narrating comments such as `// Phase 1: add cards`. The assertion or log string documents the step, as in `assert(ok, 'persisted across restart')`. This applies to every file you produce, including the delegate's diff.
 
 ## Playbooks
 
-Your first checklist actions are the matched playbook's steps, copied verbatim, before any task-specific items and before you reason about the task. The failure mode is reading a playbook then writing a bespoke plan that drops its named steps (`architect`, the throughput checkpoint). A step you choose not to do stays in the list with a one-line `skip: <reason>`; skipping silently is not allowed. Match the task to a playbook below. Open the playbook from this skill's base directory (`playbooks/<name>.md` relative to the loaded skill). If a guessed absolute path is missing, use the loaded skill files. Do not invent `~/.config/amp/plugins/pstack`.
+Open an explicit checklist whose first items are the matched playbook's steps, copied verbatim, before any task-specific items. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below and open it from this skill's base directory. Do not invent plugin paths.
 
 A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead; figure-it-out designs one bespoke run, orchestrate runs the program.
 
@@ -169,7 +172,7 @@ A large or cross-cutting effort (a migration across many call sites, an ambitiou
 - **Autonomous run.** A long task to drive to completion without stopping ("run until done", "keep going until X"). `playbooks/autonomous-run.md`.
 - **Orchestrate.** A standing project handed to one coordinator chat: multi-day, many stacked PRs, dozens to hundreds of subagents, minimal human turns ("run this whole project", "own this migration until it lands"). Distinct from Autonomous run, which drives one task to a predicate; work one agent could finish inside the session's budget routes there, not here, however program-shaped the phrasing sounds. `playbooks/orchestrate.md`.
 - **Autopilot-full.** A queue of independent PRs run to merged with full autonomy: one owner per PR carries build through merge, and the root swarm-verifies each merge-ready head before its owner merges ("autopilot this queue", "full autopilot", one-owner-per-PR programs). `playbooks/autopilot-full.md`.
-- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed base-branch stack the operator lands herself ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `playbooks/autopilot-stack.md`.
+- **Autopilot-stack.** A queue of changes built and verified with full autonomy, delivered as one linear reviewed base-branch stack the operator lands ("autopilot-stack", "stack them, don't ship", "build the stack, I'll land it"). `playbooks/autopilot-stack.md`.
 - **Session pickup.** Resuming or taking over a prior agent's in-flight work from an Amp thread, resume note, or pushed branch. `playbooks/session-pickup.md`.
 - **Pause safely.** Suspending in-flight work cleanly so it can be resumed, on an explicit pause, going offline, an Amp restart, or imminent context compaction. The complement to Session pickup. Full steps: `playbooks/pause-safely.md`.
 - **Multi-phase or multi-PR plan.** Work that spans phases or stacked PRs. `playbooks/multi-phase-plan.md`.
