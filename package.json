@@ -12,7 +12,7 @@
 		"postinstall": "bun install --frozen-lockfile --cwd skills/poteto-mode/scripts",
 		"test": "bun skills/poteto-mode/scripts/with-tools.ts test",
 		"test:tools": "bun skills/poteto-mode/scripts/with-tools.ts test skills/poteto-mode/scripts/orch skills/poteto-mode/scripts/watch-pr skills/poteto-mode/scripts/worktree-audit.test.ts",
-		"typecheck:plugin": "bun skills/poteto-mode/scripts/node_modules/typescript/bin/tsc --ignoreConfig --noEmit --moduleResolution bundler --module esnext --target esnext --types bun --strict amp-plugin-compat.d.ts index.ts workflow-parity.ts runtime-store.ts webhook-runtime.ts poteto-mode.ts index.test.ts runtime-store.test.ts webhook-runtime.test.ts",
+		"typecheck:plugin": "bun skills/poteto-mode/scripts/node_modules/typescript/bin/tsc --ignoreConfig --noEmit --moduleResolution bundler --module esnext --target esnext --types bun --strict amp-plugin-compat.d.ts index.ts workflow-parity.ts runtime-store.ts webhook-runtime.ts poteto-mode.ts poteto-mode.test.ts index.test.ts runtime-store.test.ts webhook-runtime.test.ts",
 		"typecheck:tools": "bun skills/poteto-mode/scripts/typecheck.ts"
 	}
 }
