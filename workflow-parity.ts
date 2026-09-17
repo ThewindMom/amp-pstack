@@ -31,8 +31,9 @@ export const RESEARCH_EXCLUDED_TOOLS = [...WRITE_TOOLS] as const
 
 export const ORB_SIZES = ['a1.tiny', 'a1.small', 'a1.medium', 'a1.large', 'a1.xxlarge'] as const
 export type OrbSize = (typeof ORB_SIZES)[number]
-export type DelegateExecutor = 'local' | 'orb'
-export type ParentExecutorKind = 'local' | 'remote' | 'unknown'
+export type RunnerExecutor = Readonly<{ type: 'runner'; id: string }>
+export type DelegateExecutor = 'local' | 'orb' | RunnerExecutor
+export type ParentExecutorKind = 'local' | 'orb' | 'runner' | 'remote' | 'unknown'
 
 export const ARBITRARY_SHELL_GAP =
 	'Arbitrary shell_command is not classified as a write. filesModifiedByToolCall recognizes editor calls and limited in-place mutations such as sed, not arbitrary shell, other processes, user edits, or unpaired native threads.'
@@ -41,7 +42,7 @@ export const IMPLEMENTATION_BLOCKING_ERROR =
 	'Implementation roles cannot use blocking pstack_run_agent. Use pstack_start_agent with a non-empty scope and a launch target.'
 
 export const REMOTE_LOCAL_EXECUTOR_ERROR =
-	'executor local is unavailable when the parent runs in an orb. Use an orb child, or keep the work in the parent thread when it depends on that orb\'s live filesystem.'
+	'executor local is unavailable when the parent runs in an Amp-managed orb. Keep work that needs the live orb filesystem in the parent, or use a fresh orb with transferred inputs.'
 
 export const REMOTE_CURRENT_CHECKOUT_ERROR =
 	'current-checkout is unavailable when the parent runs in an orb because local targets the current Amp client, not the parent orb filesystem. Use parent-project-orb or native-orb for a fresh orb. Keep the work in the parent thread or transfer/persist its state first when the child needs live parent-orb files.'
@@ -50,6 +51,7 @@ export type LaunchTarget =
 	| { kind: 'current-checkout' }
 	| { kind: 'parent-project-orb' }
 	| { kind: 'repo-independent-orb' }
+	| { kind: 'named-runner'; runnerId: string; workingDirectory?: string }
 	| {
 			kind: 'native-orb'
 			project: string
@@ -69,6 +71,10 @@ export type ImplementationOwner =
 			parentThreadID: string
 			role: string
 			scope: string
+			resourceKey: string
+			logicalKey: string
+			workspaceKey: string
+			scopePaths: string[]
 			expectedNative?: Record<string, unknown>
 			nativeToolUseID?: string
 	  }
@@ -77,8 +83,19 @@ export type ImplementationOwner =
 			parentThreadID: string
 			role: string
 			scope: string
+			resourceKey: string
+			logicalKey: string
+			workspaceKey: string
+			scopePaths: string[]
 			threadID: string
 	  }
+
+export type ImplementationResource = Readonly<{
+	resourceKey: string
+	logicalKey: string
+	workspaceKey: string
+	scopePaths: readonly string[]
+}>
 
 export type DesignRun =
 	| {
@@ -86,6 +103,9 @@ export type DesignRun =
 			parentThreadID: string
 			panel: string
 			candidateThreadIDs: string[]
+			pendingCandidateThreadIDs: string[]
+			completedCandidateThreadIDs: string[]
+			failedCandidateThreadIDs: string[]
 	  }
 	| {
 			state: 'judge-required'
@@ -117,10 +137,14 @@ type StateThread = {
 type GuardedChild = {
 	role: string
 	parentThreadID: string
-	kind: 'implementation' | 'strict-readonly' | 'judge'
+	kind: 'implementation' | 'strict-readonly' | 'candidate' | 'judge'
 	seenActive: boolean
 	subscription: { unsubscribe(): void }
 }
+
+type CandidateNotifier = (parentThreadID: string, message: string) => void
+type OwnerObserver = (resourceKey: string, owner: ImplementationOwner | undefined) => void
+type DesignObserver = (parentThreadID: string, run: DesignRun | undefined) => void
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -180,6 +204,26 @@ export function parseLaunchTarget(value: unknown, required: boolean): LaunchTarg
 	if (kind === 'current-checkout') return { kind: 'current-checkout' }
 	if (kind === 'parent-project-orb') return { kind: 'parent-project-orb' }
 	if (kind === 'repo-independent-orb') return { kind: 'repo-independent-orb' }
+	if (kind === 'named-runner') {
+		if (typeof value.runnerId !== 'string' || !value.runnerId.trim()) {
+			throw new Error('named-runner launchTarget requires a non-empty runnerId.')
+		}
+		if (
+			value.workingDirectory !== undefined &&
+			(typeof value.workingDirectory !== 'string' ||
+				!value.workingDirectory.startsWith('/'))
+		) {
+			throw new Error('named-runner workingDirectory must be an absolute path.')
+		}
+		return {
+			kind: 'named-runner',
+			runnerId: value.runnerId.trim(),
+			workingDirectory:
+				typeof value.workingDirectory === 'string'
+					? value.workingDirectory
+					: undefined,
+		}
+	}
 	if (kind === 'native-orb') {
 		if (typeof value.project !== 'string' || !value.project.trim()) {
 			throw new Error('native-orb launchTarget requires a project.')
@@ -200,23 +244,36 @@ export function parseLaunchTarget(value: unknown, required: boolean): LaunchTarg
 		return target
 	}
 	throw new Error(
-		'launchTarget.kind must be current-checkout, parent-project-orb, repo-independent-orb, or native-orb.',
+		'launchTarget.kind must be current-checkout, parent-project-orb, repo-independent-orb, named-runner, or native-orb.',
 	)
+}
+
+function parseExecutor(value: unknown): DelegateExecutor | undefined {
+	if (value === undefined || value === null || value === '') return undefined
+	if (value === 'local' || value === 'orb') return value
+	if (isRecord(value) && value.type === 'runner') {
+		if (typeof value.id !== 'string' || !value.id.trim()) {
+			throw new Error('runner executor requires a non-empty id.')
+		}
+		return { type: 'runner', id: value.id.trim() }
+	}
+	throw new Error('executor must be local, orb, or { type: "runner", id }.')
 }
 
 export function executorForParent(
 	value: unknown,
 	parentExecutorKind: ParentExecutorKind,
 ): DelegateExecutor {
-	const executor = value === undefined || value === null || value === '' ? undefined : value
-	if (executor !== undefined && executor !== 'local' && executor !== 'orb') {
-		throw new Error('executor must be local or orb.')
-	}
-	if (parentExecutorKind === 'remote') {
+	const executor = parseExecutor(value)
+	if (parentExecutorKind === 'orb') {
 		if (executor === 'local') throw new Error(REMOTE_LOCAL_EXECUTOR_ERROR)
-		return 'orb'
+		return executor ?? 'orb'
 	}
-	return executor ?? 'local'
+	if (executor) return executor
+	if (parentExecutorKind === 'local' || parentExecutorKind === 'runner') return 'local'
+	throw new Error(
+		'Cannot infer an execution target from a remote or unknown parent. Pass an explicit execution target.',
+	)
 }
 
 export function launchTargetForParent(
@@ -230,12 +287,15 @@ export function launchTargetForParent(
 	const executor = executorForParent(options.executor, options.parentExecutorKind)
 	const target = parseLaunchTarget(value, false)
 	if (target) {
-		if (target.kind === 'current-checkout' && options.parentExecutorKind === 'remote') {
+		if (target.kind === 'current-checkout' && options.parentExecutorKind === 'orb') {
 			throw new Error(REMOTE_CURRENT_CHECKOUT_ERROR)
 		}
 		return target
 	}
 	if (executor === 'orb') return { kind: 'parent-project-orb' }
+	if (typeof executor === 'object') {
+		return { kind: 'named-runner', runnerId: executor.id }
+	}
 	return options.implementation ? { kind: 'current-checkout' } : null
 }
 
@@ -286,7 +346,7 @@ export function cloudBaseBranchUnsupported(branch: string): Record<string, unkno
 
 export function ownerConflictMessage(owner: ImplementationOwner): string {
 	const thread = owner.state === 'running' ? owner.threadID : 'not started yet'
-	return `An implementation owner is already live for this parent: role ${owner.role}, scope ${owner.scope}, thread ${thread}.`
+	return `An implementation owner already holds resource ${owner.resourceKey}: role ${owner.role}, scope ${owner.scope}, thread ${thread}.`
 }
 
 export function judgeContinueMessage(run: Extract<DesignRun, { state: 'judge-required' }>): string {
@@ -342,13 +402,46 @@ function isWriteTool(name: string): boolean {
 	return (WRITE_TOOLS as readonly string[]).includes(name)
 }
 
+function normalizeOwnedPath(path: string): string {
+	return path
+		.replace(/^file:\/\//, '')
+		.replaceAll('\\', '/')
+		.replace(/\/+/g, '/')
+		.replace(/\/$/, '')
+}
+
+export function ownedPathsOverlap(left: string, right: string): boolean {
+	const a = normalizeOwnedPath(left)
+	const b = normalizeOwnedPath(right)
+	if (a === b) return true
+	if (a.startsWith(`${b}/`) || b.startsWith(`${a}/`)) return true
+	return a.endsWith(`/${b}`) || b.endsWith(`/${a}`)
+}
+
 export class WorkflowParityPolicy {
 	private owners = new Map<string, ImplementationOwner>()
 	private designs = new Map<string, DesignRun>()
 	private children = new Map<string, GuardedChild>()
+	private candidateNotifier: CandidateNotifier | undefined
+	private ownerObserver: OwnerObserver | undefined
+	private designObserver: DesignObserver | undefined
+
+	constructor(
+		candidateNotifier?: CandidateNotifier,
+		ownerObserver?: OwnerObserver,
+		designObserver?: DesignObserver,
+	) {
+		this.candidateNotifier = candidateNotifier
+		this.ownerObserver = ownerObserver
+		this.designObserver = designObserver
+	}
 
 	owner(parentThreadID: string): ImplementationOwner | undefined {
-		return this.owners.get(parentThreadID)
+		return [...this.owners.values()].find((owner) => owner.parentThreadID === parentThreadID)
+	}
+
+	ownersForParent(parentThreadID: string): ImplementationOwner[] {
+		return [...this.owners.values()].filter((owner) => owner.parentThreadID === parentThreadID)
 	}
 
 	design(parentThreadID: string): DesignRun | undefined {
@@ -363,60 +456,129 @@ export class WorkflowParityPolicy {
 		return this.owners.size + this.designs.size + this.children.size
 	}
 
-	reserveImplementation(parentThreadID: string, role: string, scope: string): ImplementationOwner {
-		const existing = this.owners.get(parentThreadID)
+	reserveImplementation(
+		parentThreadID: string,
+		role: string,
+		scope: string,
+		resource: ImplementationResource,
+	): ImplementationOwner {
+		const existing = [...this.owners.values()].find(
+			(owner) =>
+				owner.resourceKey === resource.resourceKey ||
+				owner.logicalKey === resource.logicalKey ||
+				(owner.workspaceKey === resource.workspaceKey &&
+					owner.scopePaths.some((owned) =>
+						resource.scopePaths.some((requested) => ownedPathsOverlap(owned, requested)),
+					)),
+		)
 		if (existing) throw new Error(ownerConflictMessage(existing))
 		const reserved: ImplementationOwner = {
 			state: 'reserving',
 			parentThreadID,
 			role,
 			scope,
+			resourceKey: resource.resourceKey,
+			logicalKey: resource.logicalKey,
+			workspaceKey: resource.workspaceKey,
+			scopePaths: [...resource.scopePaths],
 		}
-		this.owners.set(parentThreadID, reserved)
+		this.owners.set(resource.resourceKey, reserved)
 		return reserved
 	}
 
-	expectNative(parentThreadID: string, expectedNative: Record<string, unknown>): void {
-		const owner = this.owners.get(parentThreadID)
-		if (!owner || owner.state !== 'reserving') return
-		this.owners.set(parentThreadID, { ...owner, expectedNative })
+	async restoreImplementation(owner: ImplementationOwner, thread?: StateThread): Promise<void> {
+		this.owners.set(owner.resourceKey, owner)
+		if (owner.state === 'running' && thread) {
+			await this.observe(thread, {
+				role: owner.role,
+				parentThreadID: owner.parentThreadID,
+				kind: 'implementation',
+			})
+		}
 	}
 
-	async attachRunning(parentThreadID: string, thread: StateThread): Promise<ImplementationOwner> {
-		const owner = this.owners.get(parentThreadID)
+	async restoreDesign(
+		run: DesignRun,
+		resolveThread: (threadID: string) => StateThread | undefined,
+	): Promise<void> {
+		this.designs.set(run.parentThreadID, run)
+		if (run.state === 'candidates-running') {
+			for (const threadID of run.pendingCandidateThreadIDs) {
+				const thread = resolveThread(threadID)
+				if (thread) {
+					await this.observe(thread, {
+						role: 'arena-candidate',
+						parentThreadID: run.parentThreadID,
+						kind: 'candidate',
+					})
+				}
+			}
+		}
+		if (run.state === 'judging') {
+			const thread = resolveThread(run.judgeThreadID)
+			if (thread) {
+				await this.observe(thread, {
+					role: 'arena-cross-judge',
+					parentThreadID: run.parentThreadID,
+					kind: 'judge',
+				})
+			}
+		}
+	}
+
+	expectNative(resourceKey: string, expectedNative: Record<string, unknown>): void {
+		const owner = this.owners.get(resourceKey)
+		if (!owner || owner.state !== 'reserving') return
+		const updated = { ...owner, expectedNative }
+		this.owners.set(resourceKey, updated)
+		this.ownerObserver?.(resourceKey, updated)
+	}
+
+	async attachRunning(resourceKey: string, thread: StateThread): Promise<ImplementationOwner> {
+		const owner = this.owners.get(resourceKey)
 		if (!owner || owner.state !== 'reserving') {
 			throw new Error('No implementation reservation to attach.')
 		}
 		const running: ImplementationOwner = {
 			state: 'running',
-			parentThreadID,
+			parentThreadID: owner.parentThreadID,
 			role: owner.role,
 			scope: owner.scope,
+			resourceKey: owner.resourceKey,
+			logicalKey: owner.logicalKey,
+			workspaceKey: owner.workspaceKey,
+			scopePaths: owner.scopePaths,
 			threadID: thread.id,
 		}
-		this.owners.set(parentThreadID, running)
+		this.owners.set(resourceKey, running)
+		this.ownerObserver?.(resourceKey, running)
 		try {
 			await this.observe(thread, {
 				role: owner.role,
-				parentThreadID,
+				parentThreadID: owner.parentThreadID,
 				kind: 'implementation',
 			})
 		} catch (error) {
-			this.owners.delete(parentThreadID)
+			this.owners.delete(resourceKey)
+			this.ownerObserver?.(resourceKey, undefined)
 			throw error
 		}
 		return running
 	}
 
-	release(parentThreadID: string): void {
-		const owner = this.owners.get(parentThreadID)
-		this.owners.delete(parentThreadID)
+	release(resourceKey: string): void {
+		const owner = this.owners.get(resourceKey)
+		this.owners.delete(resourceKey)
+		this.ownerObserver?.(resourceKey, undefined)
 		if (owner?.state === 'running') this.unobserve(owner.threadID)
 	}
 
-	releaseIfReserving(parentThreadID: string): void {
-		const owner = this.owners.get(parentThreadID)
-		if (owner?.state === 'reserving') this.owners.delete(parentThreadID)
+	releaseIfReserving(resourceKey: string): void {
+		const owner = this.owners.get(resourceKey)
+		if (owner?.state === 'reserving') {
+			this.owners.delete(resourceKey)
+			this.ownerObserver?.(resourceKey, undefined)
+		}
 	}
 
 	beginDesign(parentThreadID: string, panel: string): DesignRun {
@@ -431,27 +593,61 @@ export class WorkflowParityPolicy {
 			parentThreadID,
 			panel,
 			candidateThreadIDs: [],
+			pendingCandidateThreadIDs: [],
+			completedCandidateThreadIDs: [],
+			failedCandidateThreadIDs: [],
 		}
-		this.designs.set(parentThreadID, run)
+		this.setDesign(run)
 		return run
 	}
 
-	addCandidate(parentThreadID: string, threadID: string): void {
+	async trackCandidate(parentThreadID: string, thread: StateThread, role: string): Promise<void> {
 		const run = this.designs.get(parentThreadID)
 		if (!run || run.state !== 'candidates-running') return
-		run.candidateThreadIDs.push(threadID)
+		if (!run.candidateThreadIDs.includes(thread.id)) {
+			run.candidateThreadIDs.push(thread.id)
+			run.pendingCandidateThreadIDs.push(thread.id)
+		}
+		this.setDesign(run)
+		await this.observe(thread, { role, parentThreadID, kind: 'candidate' })
+	}
+
+	recordCandidateResult(
+		parentThreadID: string,
+		threadID: string,
+		status: 'done' | 'timeout' | 'error',
+	): DesignRun | undefined {
+		if (status === 'timeout') return this.designs.get(parentThreadID)
+		return this.settleCandidate(
+			parentThreadID,
+			threadID,
+			status === 'done' ? 'completed' : 'failed',
+		)
+	}
+
+	finishCandidateLaunch(parentThreadID: string): DesignRun | undefined {
+		const run = this.designs.get(parentThreadID)
+		if (!run || run.state !== 'candidates-running') return run
+		if (run.candidateThreadIDs.length === 0) {
+			this.deleteDesign(parentThreadID)
+			return undefined
+		}
+		return this.advanceCandidateRun(run)
 	}
 
 	markJudgeRequired(parentThreadID: string): DesignRun | undefined {
 		const run = this.designs.get(parentThreadID)
 		if (!run || run.state !== 'candidates-running') return run
+		if (run.pendingCandidateThreadIDs.length > 0 || run.completedCandidateThreadIDs.length === 0) {
+			return run
+		}
 		const next: DesignRun = {
 			state: 'judge-required',
 			parentThreadID,
 			panel: run.panel,
 			candidateThreadIDs: run.candidateThreadIDs,
 		}
-		this.designs.set(parentThreadID, next)
+		this.setDesign(next)
 		return next
 	}
 
@@ -464,7 +660,7 @@ export class WorkflowParityPolicy {
 		if (run.state === 'judging' || run.judgeReserved) {
 			throw new Error('An arena-cross-judge is already reserved or running for this design run.')
 		}
-		this.designs.set(parentThreadID, { ...run, judgeReserved: true })
+		this.setDesign({ ...run, judgeReserved: true })
 		return true
 	}
 
@@ -473,13 +669,13 @@ export class WorkflowParityPolicy {
 		if (!run || run.state !== 'judge-required' || !run.judgeReserved) {
 			throw new Error('No cross-judge reservation to attach to a native create_thread call.')
 		}
-		this.designs.set(parentThreadID, { ...run, expectedNative })
+		this.setDesign({ ...run, expectedNative })
 	}
 
 	cancelJudgeReservation(parentThreadID: string): void {
 		const run = this.designs.get(parentThreadID)
 		if (!run || run.state !== 'judge-required' || !run.judgeReserved) return
-		this.designs.set(parentThreadID, {
+		this.setDesign({
 			state: 'judge-required',
 			parentThreadID,
 			panel: run.panel,
@@ -500,7 +696,7 @@ export class WorkflowParityPolicy {
 			candidateThreadIDs: run.candidateThreadIDs,
 			judgeThreadID: thread.id,
 		}
-		this.designs.set(parentThreadID, next)
+		this.setDesign(next)
 		try {
 			await this.observe(thread, {
 				role: 'arena-cross-judge',
@@ -508,7 +704,7 @@ export class WorkflowParityPolicy {
 				kind: 'judge',
 			})
 		} catch (error) {
-			this.designs.set(parentThreadID, {
+			this.setDesign({
 				state: 'judge-required',
 				parentThreadID,
 				panel: run.panel,
@@ -523,7 +719,7 @@ export class WorkflowParityPolicy {
 		const run = this.designs.get(parentThreadID)
 		if (!run || run.state !== 'judging') return
 		this.unobserve(run.judgeThreadID)
-		this.designs.set(parentThreadID, {
+		this.setDesign({
 			state: 'judge-required',
 			parentThreadID,
 			panel: run.panel,
@@ -533,7 +729,7 @@ export class WorkflowParityPolicy {
 
 	clearDesign(parentThreadID: string): void {
 		const run = this.designs.get(parentThreadID)
-		this.designs.delete(parentThreadID)
+		this.deleteDesign(parentThreadID)
 		if (run?.state === 'judging') this.unobserve(run.judgeThreadID)
 	}
 
@@ -555,15 +751,24 @@ export class WorkflowParityPolicy {
 		filesModified: readonly string[] | null,
 	): { action: 'allow' } | { action: 'reject-and-continue'; message: string } {
 		if (event.tool === 'create_thread') {
-			const owner = this.owners.get(event.thread.id)
+			const ownerEntry = [...this.owners.entries()].find(
+				([, owner]) =>
+					owner.parentThreadID === event.thread.id &&
+					owner.state === 'reserving' &&
+					owner.expectedNative &&
+					!owner.nativeToolUseID &&
+					createThreadInputMatches(event.input, owner.expectedNative),
+			)
+			const owner = ownerEntry?.[1]
 			if (owner?.state === 'reserving' && owner.expectedNative && !owner.nativeToolUseID) {
-				if (createThreadInputMatches(event.input, owner.expectedNative)) {
-					this.owners.set(event.thread.id, {
-						...owner,
-						nativeToolUseID: event.toolUseID,
-					})
-					return { action: 'allow' }
+				const resourceKey = ownerEntry?.[0] ?? owner.resourceKey
+				const updated = {
+					...owner,
+					nativeToolUseID: event.toolUseID,
 				}
+				this.owners.set(resourceKey, updated)
+				this.ownerObserver?.(resourceKey, updated)
+				return { action: 'allow' }
 			}
 			const run = this.designs.get(event.thread.id)
 			if (
@@ -573,21 +778,23 @@ export class WorkflowParityPolicy {
 				!run.nativeToolUseID &&
 				createThreadInputMatches(event.input, run.expectedNative)
 			) {
-				this.designs.set(event.thread.id, { ...run, nativeToolUseID: event.toolUseID })
+				this.setDesign({ ...run, nativeToolUseID: event.toolUseID })
 				return { action: 'allow' }
 			}
 		}
 
 		const child = this.children.get(event.thread.id)
-		if (child?.kind === 'strict-readonly' && this.isRejectedMutation(event.tool, filesModified)) {
+		if (child && isStrictReadonlyRole(child.role) && this.isRejectedMutation(event.tool, filesModified)) {
 			return {
 				action: 'reject-and-continue',
 				message: `Strict read-only role ${child.role} cannot mutate files.`,
 			}
 		}
 
-		const owner = this.owners.get(event.thread.id)
-		if (owner && this.isRejectedMutation(event.tool, filesModified)) {
+		const owner = this.ownersForParent(event.thread.id).find((candidate) =>
+			this.ownerRejectsMutation(candidate, event.tool, filesModified),
+		)
+		if (owner) {
 			return {
 				action: 'reject-and-continue',
 				message: `Parent writes are blocked while an implementation owner is live. ${ownerConflictMessage(owner)} Arbitrary shell_command is an allowed gap. ${ARBITRARY_SHELL_GAP}`,
@@ -608,26 +815,32 @@ export class WorkflowParityPolicy {
 		resolveThread: (threadID: string) => StateThread | undefined,
 	): Promise<void> {
 		if (event.tool !== 'create_thread') return
-		const owner = this.owners.get(event.thread.id)
+		const ownerEntry = [...this.owners.entries()].find(
+			([, owner]) =>
+				owner.parentThreadID === event.thread.id &&
+				owner.state === 'reserving' &&
+				owner.nativeToolUseID === event.toolUseID,
+		)
+		const owner = ownerEntry?.[1]
 		if (
 			owner?.state === 'reserving' &&
 			owner.nativeToolUseID &&
 			owner.nativeToolUseID === event.toolUseID
 		) {
+			const resourceKey = ownerEntry?.[0] ?? owner.resourceKey
 			if (event.status && event.status !== 'done') {
-				this.release(event.thread.id)
+				this.release(resourceKey)
 				return
 			}
 			const threadID = threadIDFromCreateThreadResult(event.output)
 			const handle = threadID ? resolveThread(threadID) : undefined
 			if (!handle?.state?.subscribe) {
-				this.release(event.thread.id)
 				return
 			}
 			try {
-				await this.attachRunning(event.thread.id, handle)
+				await this.attachRunning(resourceKey, handle)
 			} catch {
-				this.release(event.thread.id)
+				this.release(resourceKey)
 			}
 			return
 		}
@@ -663,12 +876,6 @@ export class WorkflowParityPolicy {
 		if (run?.state === 'judge-required') {
 			return { action: 'continue', userMessage: judgeContinueMessage(run) }
 		}
-		if (run?.state === 'judging') {
-			return {
-				action: 'continue',
-				userMessage: `Cross-judge thread ${run.judgeThreadID} is still live. Continue parent-owned candidate review and synthesis without replacing the judge. This design run can finish after that judge reaches terminal idle or error.`,
-			}
-		}
 		return undefined
 	}
 
@@ -681,9 +888,31 @@ export class WorkflowParityPolicy {
 		return { discarded }
 	}
 
+	private setDesign(run: DesignRun): void {
+		this.designs.set(run.parentThreadID, run)
+		this.designObserver?.(run.parentThreadID, run)
+	}
+
+	private deleteDesign(parentThreadID: string): void {
+		this.designs.delete(parentThreadID)
+		this.designObserver?.(parentThreadID, undefined)
+	}
+
 	private isRejectedMutation(tool: string, filesModified: readonly string[] | null): boolean {
 		if (isWriteTool(tool)) return true
 		return Array.isArray(filesModified) && filesModified.length > 0
+	}
+
+	private ownerRejectsMutation(
+		owner: ImplementationOwner,
+		tool: string,
+		filesModified: readonly string[] | null,
+	): boolean {
+		if (!this.isRejectedMutation(tool, filesModified)) return false
+		if (!filesModified || filesModified.length === 0) return true
+		return filesModified.some((modified) =>
+			owner.scopePaths.some((owned) => ownedPathsOverlap(modified, owned)),
+		)
 	}
 
 	private async observe(
@@ -699,9 +928,12 @@ export class WorkflowParityPolicy {
 				if (tracked) tracked.seenActive = true
 				return
 			}
-			if (!seenActive) return
-			if (state !== 'idle' && state !== 'error') return
-			this.releaseObserved(thread.id)
+			if (state === 'error') {
+				this.releaseObserved(thread.id, state)
+				return
+			}
+			if (!seenActive || state !== 'idle') return
+			this.releaseObserved(thread.id, state)
 		}
 		const subscription = thread.state.subscribe(handleState)
 		const child: GuardedChild = {
@@ -719,13 +951,82 @@ export class WorkflowParityPolicy {
 		}
 	}
 
-	private releaseObserved(threadID: string): void {
+	private settleCandidate(
+		parentThreadID: string,
+		threadID: string,
+		outcome: 'completed' | 'failed',
+	): DesignRun | undefined {
+		const run = this.designs.get(parentThreadID)
+		if (!run || run.state !== 'candidates-running') return run
+		if (!run.pendingCandidateThreadIDs.includes(threadID)) return run
+		run.pendingCandidateThreadIDs = run.pendingCandidateThreadIDs.filter((id) => id !== threadID)
+		const destination =
+			outcome === 'completed' ? run.completedCandidateThreadIDs : run.failedCandidateThreadIDs
+		if (!destination.includes(threadID)) destination.push(threadID)
+		return this.advanceCandidateRun(run)
+	}
+
+	private advanceCandidateRun(
+		run: Extract<DesignRun, { state: 'candidates-running' }>,
+	): DesignRun | undefined {
+		if (run.pendingCandidateThreadIDs.length > 0) {
+			this.setDesign(run)
+			return run
+		}
+		if (run.completedCandidateThreadIDs.length === 0) {
+			this.deleteDesign(run.parentThreadID)
+			this.candidateNotifier?.(
+				run.parentThreadID,
+				`Design panel ${run.panel} finished without a completed candidate. Review the failed candidate threads before retrying.`,
+			)
+			return undefined
+		}
+		const next = this.markJudgeRequired(run.parentThreadID)
+		if (next?.state === 'judge-required') {
+			this.candidateNotifier?.(
+				run.parentThreadID,
+				`Design candidates are terminal. Start the required cross-judge for ${run.panel}.`,
+			)
+		}
+		return next
+	}
+
+	private releaseObserved(threadID: string, state?: ThreadState): void {
 		const child = this.children.get(threadID)
 		if (!child) return
 		child.subscription.unsubscribe()
 		this.children.delete(threadID)
-		if (child.kind === 'implementation') this.owners.delete(child.parentThreadID)
-		if (child.kind === 'judge') this.designs.delete(child.parentThreadID)
+		if (child.kind === 'implementation') {
+			const ownerEntry = [...this.owners.entries()].find(
+				([, owner]) => owner.state === 'running' && owner.threadID === threadID,
+			)
+			if (ownerEntry) this.owners.delete(ownerEntry[0])
+			if (ownerEntry) this.ownerObserver?.(ownerEntry[0], undefined)
+		}
+		if (child.kind === 'candidate') {
+			this.settleCandidate(
+				child.parentThreadID,
+				threadID,
+				state === 'error' ? 'failed' : 'completed',
+			)
+		}
+		if (child.kind === 'judge') {
+			const run = this.designs.get(child.parentThreadID)
+			if (state === 'error' && run?.state === 'judging') {
+				this.setDesign({
+					state: 'judge-required',
+					parentThreadID: run.parentThreadID,
+					panel: run.panel,
+					candidateThreadIDs: run.candidateThreadIDs,
+				})
+				this.candidateNotifier?.(
+					child.parentThreadID,
+					`Cross-judge ${threadID} failed. Start one replacement judge for ${run.panel}.`,
+				)
+			} else {
+				this.deleteDesign(child.parentThreadID)
+			}
+		}
 	}
 
 	private unobserve(threadID: string): void {

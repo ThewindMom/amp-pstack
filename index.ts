@@ -12,6 +12,8 @@ import type {
 	ThreadMessage,
 } from '@ampcode/plugin'
 
+import { RuntimeStore } from './runtime-store'
+import { WakeWebhookCoordinator } from './webhook-runtime'
 import {
 	CODE_IMPLEMENTATION_ROLES,
 	IMPLEMENTATION_BLOCKING_ERROR,
@@ -26,6 +28,9 @@ import {
 	launchTargetForParent,
 	nativeRedirect,
 	type DelegateExecutor,
+	type ImplementationOwner,
+	type ImplementationResource,
+	type LaunchTarget,
 	type ParentExecutorKind,
 } from './workflow-parity'
 
@@ -178,6 +183,7 @@ export type ModelProfileName = (typeof MODEL_PROFILES)[number]
 export const WORKSPACE_MODEL_FILE = '.amp/pstack.models.json'
 export const USER_MODEL_FILE = join(homedir(), '.config', 'amp', 'pstack.models.json')
 export const PLUGIN_MODEL_FILE = join(import.meta.dir, 'pstack.models.json')
+export const DEFAULT_STATE_DIRECTORY = join(homedir(), '.config', 'amp', 'pstack')
 
 export function userModelPath(): string {
 	return process.env.PSTACK_USER_MODEL_FILE ?? USER_MODEL_FILE
@@ -187,9 +193,14 @@ export function pluginModelPath(): string {
 	return process.env.PSTACK_PLUGIN_MODEL_FILE ?? PLUGIN_MODEL_FILE
 }
 
+export function runtimeStatePath(ampURL: URL, userID: string | null): string {
+	if (process.env.PSTACK_STATE_FILE) return process.env.PSTACK_STATE_FILE
+	const hasher = new Bun.CryptoHasher('sha256')
+	hasher.update(JSON.stringify([ampURL.origin, userID ?? 'anonymous']))
+	return join(DEFAULT_STATE_DIRECTORY, `runtime-${hasher.digest('hex').slice(0, 16)}.sqlite`)
+}
+
 export const CONFIG_KEY = 'pstack.models'
-export const WEBHOOK_EVENT_IDS_KEY = 'pstack.webhookEventIds'
-export const MAX_WEBHOOK_EVENT_IDS = 500
 export const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 export const MIN_TIMEOUT_MS = 30_000
 export const MAX_TIMEOUT_MS = 60 * 60 * 1000
@@ -215,7 +226,7 @@ export const COMMENT_REVIEWER_EXCLUDED_TOOLS = [
 	'shell_command_kill',
 ] as const
 
-type ModelValue = string | string[]
+type ModelValue = string | readonly string[]
 export type ModelMap = Record<string, ModelValue>
 
 export type ResolvedAgentSpec = Readonly<{
@@ -480,6 +491,18 @@ export function text(value: unknown, name: string): string {
 	return value.trim()
 }
 
+export function scopePathsFrom(value: unknown, fallback: string): string[] {
+	if (value === undefined || value === null) return [fallback]
+	if (
+		!Array.isArray(value) ||
+		value.length === 0 ||
+		!value.every((path) => typeof path === 'string' && path.trim())
+	) {
+		throw new Error('scopePaths must be a non-empty array of paths.')
+	}
+	return [...new Set(value.map((path) => path.trim()))].sort()
+}
+
 export function executorFrom(
 	value: unknown,
 	parentExecutorKind: ParentExecutorKind = 'unknown',
@@ -498,70 +521,30 @@ export function timeoutFrom(value: unknown, options?: { role?: string; floor?: n
 
 export function formatMessage(message: ThreadMessage): Record<string, unknown> {
 	const content = 'content' in message && Array.isArray(message.content) ? message.content : []
+	const formatted: Array<Record<string, unknown>> = []
+	for (const block of content) {
+		if (block.type === 'text') {
+			formatted.push({ type: 'text', text: block.text })
+		} else if (block.type === 'tool_use') {
+			formatted.push({
+				type: 'tool_use',
+				name: block.name,
+				input: block.input,
+			})
+		} else if (block.type === 'tool_result') {
+			formatted.push({
+				type: 'tool_result',
+				toolUseID: block.toolUseID,
+				status: block.status,
+				output: block.output,
+			})
+		}
+	}
 	return {
 		id: message.id,
 		role: message.role,
-		content: content.flatMap((block) => {
-			if (block.type === 'text') return [{ type: 'text', text: block.text }]
-			if (block.type === 'tool_use') {
-				return [{ type: 'tool_use', name: block.name, input: block.input }]
-			}
-			if (block.type === 'tool_result') {
-				return [
-					{
-						type: 'tool_result',
-						toolUseID: block.toolUseID,
-						status: block.status,
-						output: block.output,
-					},
-				]
-			}
-			return []
-		}),
+		content: formatted,
 	}
-}
-
-export function claimedWebhookIds(value: unknown): string[] {
-	if (!Array.isArray(value)) return []
-	return value.filter((item): item is string => typeof item === 'string' && item.length > 0)
-}
-
-export function claimWebhookEvent(
-	seen: unknown,
-	eventId: string,
-): { duplicate: boolean; next: string[] } {
-	const ids = claimedWebhookIds(seen)
-	if (ids.includes(eventId)) return { duplicate: true, next: ids }
-	const next = [...ids, eventId]
-	if (next.length > MAX_WEBHOOK_EVENT_IDS) {
-		next.splice(0, next.length - MAX_WEBHOOK_EVENT_IDS)
-	}
-	return { duplicate: false, next }
-}
-
-export function webhookEventMarker(eventId: string): string {
-	return `Webhook event ID: ${eventId}`
-}
-
-export function messageMentionsWebhookEvent(message: ThreadMessage, eventId: string): boolean {
-	const marker = webhookEventMarker(eventId)
-	const content = 'content' in message && Array.isArray(message.content) ? message.content : []
-	return content.some((block) => block.type === 'text' && block.text.includes(marker))
-}
-
-export type WebhookDeliveryPlan =
-	| { action: 'skip'; reason: 'recorded' | 'already-appended'; next: string[] }
-	| { action: 'append'; next: string[] }
-
-export function planWebhookDelivery(
-	seen: unknown,
-	eventId: string,
-	threadHasEvent: boolean,
-): WebhookDeliveryPlan {
-	const recorded = claimWebhookEvent(seen, eventId)
-	if (recorded.duplicate) return { action: 'skip', reason: 'recorded', next: recorded.next }
-	if (threadHasEvent) return { action: 'skip', reason: 'already-appended', next: recorded.next }
-	return { action: 'append', next: recorded.next }
 }
 
 function toolsFor(role: string) {
@@ -577,8 +560,93 @@ function instructionsFor(role: string): string {
 }
 
 export default async function pstack(amp: PluginAPI) {
-	const policy = new WorkflowParityPolicy()
+	const runtimeStore = new RuntimeStore(
+		runtimeStatePath(amp.system.ampURL, amp.system.user?.id ?? null),
+	)
+	const wakeWebhooks = new WakeWebhookCoordinator(amp, runtimeStore)
+	const policy = new WorkflowParityPolicy(
+		(parentThreadID, message) => {
+			void amp.threads
+				.get(parentThreadID as ThreadID)
+				.appendUserMessage({ type: 'user-message', content: message }, { steer: true })
+				.catch((error: unknown) => {
+					amp.logger.log(`Could not notify parent ${parentThreadID}: ${String(error)}`)
+				})
+		},
+		(resourceKey, owner) => {
+			if (owner) runtimeStore.saveOwner(owner)
+			else runtimeStore.releaseOwner(resourceKey)
+		},
+		(parentThreadID, run) => {
+			if (run) runtimeStore.saveDesignRun(run)
+			else runtimeStore.releaseDesignRun(parentThreadID)
+		},
+	)
+	for (const owner of runtimeStore.listOwners()) {
+		let thread
+		if (owner.state === 'running') {
+			try {
+				thread = amp.threads.get(owner.threadID as ThreadID)
+			} catch (error) {
+				amp.logger.log(`Could not reattach owner ${owner.resourceKey}: ${String(error)}`)
+			}
+		}
+		await policy.restoreImplementation(owner, thread)
+	}
+	for (const run of runtimeStore.listDesignRuns()) {
+		await policy.restoreDesign(run, (threadID) => {
+			try {
+				return amp.threads.get(threadID as ThreadID)
+			} catch {
+				return undefined
+			}
+		})
+	}
+	await wakeWebhooks.restore()
 	await Promise.all(SKILL_PATHS.map((path) => amp.registerSkill({ path })))
+	let detectedParentExecutor: ParentExecutorKind | undefined
+
+	const parentExecutorKind = async (): Promise<ParentExecutorKind> => {
+		if (detectedParentExecutor) return detectedParentExecutor
+		const kind = amp.system.executor.kind
+		if (kind === 'local') {
+			detectedParentExecutor = 'local'
+			return detectedParentExecutor
+		}
+		if (kind === 'unknown') {
+			detectedParentExecutor = 'unknown'
+			return detectedParentExecutor
+		}
+		try {
+			const lease = await amp.system.executor.keepAlive()
+			lease.unsubscribe()
+			detectedParentExecutor = 'orb'
+		} catch {
+			detectedParentExecutor = 'runner'
+		}
+		return detectedParentExecutor
+	}
+
+	const implementationResource = (
+		target: LaunchTarget | null,
+		parentThreadID: string,
+		scope: string,
+		scopePaths: readonly string[],
+	): ImplementationResource => {
+		const workspaceRoot = workspaceRootPath(amp) ?? process.cwd()
+		const workspaceKey =
+			target?.kind === 'named-runner'
+				? `runner:${target.runnerId}:${target.workingDirectory ?? 'default'}`
+				: target?.kind === 'current-checkout' || target === null
+					? `current:${workspaceRoot}`
+					: `isolated:${parentThreadID}:${scope}`
+		return {
+			workspaceKey,
+			scopePaths,
+			logicalKey: JSON.stringify(scopePaths),
+			resourceKey: JSON.stringify([workspaceKey, scopePaths]),
+		}
+	}
 
 	const fileLayers = () => loadFileLayers(workspaceRootPath(amp), userModelPath(), pluginModelPath())
 
@@ -698,7 +766,7 @@ export default async function pstack(amp: PluginAPI) {
 		executor: DelegateExecutor
 	}) => {
 		const agent =
-			input.executor === 'orb'
+			input.executor === 'orb' || typeof input.executor === 'object'
 				? orbAgentFor(input.model, input.role)
 				: agentFor(input.model, input.role)
 		return agent.createThread({
@@ -714,14 +782,23 @@ export default async function pstack(amp: PluginAPI) {
 		parentThreadID: ThreadID
 		executor: ReturnType<typeof executorFrom>
 		timeoutMs: number
-	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' }> => {
+		onThread?: (
+			thread: Awaited<ReturnType<typeof createAgentThread>>,
+		) => Promise<void>
+	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' | 'error' }> => {
 		const thread = await createAgentThread(input)
-		if (isStrictReadonlyRole(input.role)) {
+		if (input.onThread) {
+			await input.onThread(thread)
+		} else if (isStrictReadonlyRole(input.role)) {
 			await policy.trackReadonly(thread, input.role, input.parentThreadID)
 		}
 		try {
 			await thread.appendUserMessage({ type: 'user-message', content: input.prompt })
 		} catch (error) {
+			if (input.onThread) {
+				policy.untrack(thread.id)
+				policy.recordCandidateResult(input.parentThreadID, thread.id, 'error')
+			}
 			if (isStrictReadonlyRole(input.role)) policy.untrack(thread.id)
 			throw error
 		}
@@ -730,6 +807,14 @@ export default async function pstack(amp: PluginAPI) {
 			return { threadID: thread.id, text: lastAssistantText(reply), status: 'done' }
 		} catch (error) {
 			const detail = error instanceof Error ? error.message : String(error)
+			const state = await thread.state.get().catch(() => 'unavailable' as const)
+			if (state !== 'running' && state !== 'awaiting-approval') {
+				return {
+					threadID: thread.id,
+					status: 'error',
+					text: `Agent response failed while child thread ${thread.id} was ${state}. ${detail}`,
+				}
+			}
 			return {
 				threadID: thread.id,
 				status: 'timeout',
@@ -749,7 +834,19 @@ export default async function pstack(amp: PluginAPI) {
 			properties: {
 				role: { type: 'string', description: ROLE_GUIDANCE },
 				prompt: { type: 'string', description: 'Complete standalone task brief.' },
-				executor: { type: 'string', enum: ['local', 'orb'] },
+				executor: {
+					oneOf: [
+						{ type: 'string', enum: ['local', 'orb'] },
+						{
+							type: 'object',
+							properties: {
+								type: { type: 'string', enum: ['runner'] },
+								id: { type: 'string' },
+							},
+							required: ['type', 'id'],
+						},
+					],
+				},
 				timeoutMs: { type: 'number' },
 			},
 			required: ['role', 'prompt'],
@@ -760,12 +857,18 @@ export default async function pstack(amp: PluginAPI) {
 			const prompt = text(input.prompt, 'prompt')
 			const model = await modelFor(role)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS })
+			const executor = executorFrom(input.executor, await parentExecutorKind())
+			if (typeof executor === 'object') {
+				throw new Error(
+					'Named runner delegation cannot use blocking pstack_run_agent because Amp forbids recursive plugin-agent runner creation. Use pstack_start_agent with launchTarget named-runner, then call the returned native create_thread redirect.',
+				)
+			}
 			const result = await runOnThread({
 				model,
 				role,
 				prompt,
 				parentThreadID: ctx.thread.id,
-				executor: executorFrom(input.executor, amp.system.executor.kind),
+				executor,
 				timeoutMs,
 			})
 			return JSON.stringify({ role, model, timeoutMs, ...result })
@@ -783,7 +886,19 @@ export default async function pstack(amp: PluginAPI) {
 			properties: {
 				panel: { type: 'string', description: 'Configured pstack panel.' },
 				prompt: { type: 'string', description: 'Complete standalone task brief.' },
-				executor: { type: 'string', enum: ['local', 'orb'] },
+				executor: {
+					oneOf: [
+						{ type: 'string', enum: ['local', 'orb'] },
+						{
+							type: 'object',
+							properties: {
+								type: { type: 'string', enum: ['runner'] },
+								id: { type: 'string' },
+							},
+							required: ['type', 'id'],
+						},
+					],
+				},
 				timeoutMs: { type: 'number' },
 			},
 			required: ['panel', 'prompt'],
@@ -793,7 +908,12 @@ export default async function pstack(amp: PluginAPI) {
 			const prompt = text(input.prompt, 'prompt')
 			const models = await panelFor(panel)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS })
-			const executor = executorFrom(input.executor, amp.system.executor.kind)
+			const executor = executorFrom(input.executor, await parentExecutorKind())
+			if (typeof executor === 'object') {
+				throw new Error(
+					'Named runner panels cannot use blocking pstack_run_panel because Amp forbids recursive plugin-agent runner creation. Start runner seats with pstack_start_agent named-runner redirects and aggregate their reports in the parent.',
+				)
+			}
 			if (isDesignPanel(panel)) policy.beginDesign(ctx.thread.id, panel)
 			const settled = await Promise.allSettled(
 				models.map(async (model, index) => {
@@ -805,12 +925,17 @@ export default async function pstack(amp: PluginAPI) {
 						parentThreadID: ctx.thread.id,
 						executor,
 						timeoutMs,
+						onThread: isDesignPanel(panel)
+							? (thread) => policy.trackCandidate(ctx.thread.id, thread, role)
+							: undefined,
 					})
-					if (isDesignPanel(panel)) policy.addCandidate(ctx.thread.id, result.threadID)
+					if (isDesignPanel(panel)) {
+						policy.recordCandidateResult(ctx.thread.id, result.threadID, result.status)
+					}
 					return { label: role, model, timeoutMs, ...result }
 				}),
 			)
-			if (isDesignPanel(panel)) policy.markJudgeRequired(ctx.thread.id)
+			if (isDesignPanel(panel)) policy.finishCandidateLaunch(ctx.thread.id)
 			return JSON.stringify(
 				settled.map((result, index) =>
 					result.status === 'fulfilled'
@@ -833,7 +958,24 @@ export default async function pstack(amp: PluginAPI) {
 				role: { type: 'string', description: ROLE_GUIDANCE },
 				prompt: { type: 'string' },
 				scope: { type: 'string' },
-				executor: { type: 'string', enum: ['local', 'orb'] },
+				scopePaths: {
+					type: 'array',
+					items: { type: 'string' },
+					description: 'Concrete paths exclusively owned by this implementation.',
+				},
+				executor: {
+					oneOf: [
+						{ type: 'string', enum: ['local', 'orb'] },
+						{
+							type: 'object',
+							properties: {
+								type: { type: 'string', enum: ['runner'] },
+								id: { type: 'string' },
+							},
+							required: ['type', 'id'],
+						},
+					],
+				},
 				launchTarget: {
 					type: 'object',
 					properties: {
@@ -843,8 +985,15 @@ export default async function pstack(amp: PluginAPI) {
 								'current-checkout',
 								'parent-project-orb',
 								'repo-independent-orb',
+								'named-runner',
 								'native-orb',
 							],
+						},
+						runnerId: { type: 'string', description: 'Required for named-runner.' },
+						workingDirectory: {
+							type: 'string',
+							description:
+								'Optional absolute directory served by the named runner.',
 						},
 						project: { type: 'string', description: 'Required for native-orb.' },
 						orbSize: { type: 'string', enum: ['a1.tiny', 'a1.small', 'a1.medium', 'a1.large', 'a1.xxlarge'] },
@@ -865,6 +1014,7 @@ export default async function pstack(amp: PluginAPI) {
 				: typeof input.scope === 'string'
 					? input.scope.trim()
 					: ''
+			const scopePaths = implementation ? scopePathsFrom(input.scopePaths, scope) : []
 			const launchValue =
 				input.launchTarget && typeof input.launchTarget === 'object' && !Array.isArray(input.launchTarget)
 					? {
@@ -877,7 +1027,7 @@ export default async function pstack(amp: PluginAPI) {
 						: input.launchTarget
 			const launchTarget = launchTargetForParent(launchValue, {
 				implementation,
-				parentExecutorKind: amp.system.executor.kind,
+				parentExecutorKind: await parentExecutorKind(),
 				executor: input.executor,
 			})
 			if (launchTarget?.kind === 'cloud-base-branch') {
@@ -885,29 +1035,77 @@ export default async function pstack(amp: PluginAPI) {
 			}
 			const judgeReserved =
 				role === 'arena-cross-judge' ? policy.reserveJudge(ctx.thread.id) : false
-			if (implementation) policy.reserveImplementation(ctx.thread.id, role, scope)
+			const resource = implementation
+				? implementationResource(launchTarget, ctx.thread.id, scope, scopePaths)
+				: undefined
+			let owner: ImplementationOwner | undefined
+			if (implementation && resource) {
+				const reservation: ImplementationOwner = {
+					state: 'reserving',
+					parentThreadID: ctx.thread.id,
+					role,
+					scope,
+					resourceKey: resource.resourceKey,
+					logicalKey: resource.logicalKey,
+					workspaceKey: resource.workspaceKey,
+					scopePaths: [...resource.scopePaths],
+				}
+				runtimeStore.claimOwner(reservation)
+				try {
+					owner = policy.reserveImplementation(ctx.thread.id, role, scope, resource)
+				} catch (error) {
+					runtimeStore.releaseOwner(resource.resourceKey)
+					throw error
+				}
+			}
 			let judgeStarted = false
 			try {
 				const model = await modelFor(role)
-				if (launchTarget?.kind === 'native-orb') {
-					if (judgeReserved && launchTarget.agentMode) {
+				if (launchTarget?.kind === 'native-orb' || launchTarget?.kind === 'named-runner') {
+					if (
+						launchTarget.kind === 'native-orb' &&
+						judgeReserved &&
+						launchTarget.agentMode
+					) {
 						throw new Error(
 							'The required arena-cross-judge must use its registered pstack mode; omit agentMode.',
 						)
 					}
 					const mode = orbAgentModeFor(role, model)
-					if (!launchTarget.agentMode) orbAgentFor(model, role)
-					const redirect = nativeRedirect({
-						role,
-						model,
-						parentThreadID: ctx.thread.id,
-						prompt: backgroundChildPrompt(prompt, ctx.thread.id),
-						scope,
-						modeKey: mode.key,
-						target: launchTarget,
-					})
+					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id)
+					if (launchTarget.kind === 'named-runner') orbAgentFor(model, role)
+					else if (!launchTarget.agentMode) orbAgentFor(model, role)
+					const redirect =
+						launchTarget.kind === 'native-orb'
+							? nativeRedirect({
+									role,
+									model,
+									parentThreadID: ctx.thread.id,
+									prompt: childPrompt,
+									scope,
+									modeKey: mode.key,
+									target: launchTarget,
+								})
+							: {
+									action: 'use-native-create-thread' as const,
+									role,
+									model,
+									parentThreadID: ctx.thread.id,
+									scope: scope || undefined,
+									launchTarget,
+									create_thread: {
+										executor: 'runner' as const,
+										runner_id: launchTarget.runnerId,
+										working_directory: launchTarget.workingDirectory,
+										agent_mode: mode.key,
+										prompt: childPrompt,
+										intent: 'delegation',
+									},
+									next:
+										'Call native create_thread next with exactly create_thread. Pstack keeps the resource claim until that tool result is paired.',
+								}
 					const nativeInput = redirect.create_thread as Record<string, unknown>
-					if (implementation) policy.expectNative(ctx.thread.id, nativeInput)
+					if (owner) policy.expectNative(owner.resourceKey, nativeInput)
 					else if (judgeReserved) policy.expectNativeJudge(ctx.thread.id, nativeInput)
 					return JSON.stringify(redirect)
 				}
@@ -917,14 +1115,14 @@ export default async function pstack(amp: PluginAPI) {
 						? 'orb'
 						: launchTarget?.kind === 'current-checkout'
 							? 'local'
-							: executorFrom(input.executor, amp.system.executor.kind)
+							: executorFrom(input.executor, await parentExecutorKind())
 				const thread = await createAgentThread({
 					model,
 					role,
 					parentThreadID: ctx.thread.id,
 					executor,
 				})
-				if (implementation) await policy.attachRunning(ctx.thread.id, thread)
+				if (owner) await policy.attachRunning(owner.resourceKey, thread)
 				else if (judgeReserved) {
 					await policy.startJudge(ctx.thread.id, thread)
 					judgeStarted = true
@@ -937,8 +1135,14 @@ export default async function pstack(amp: PluginAPI) {
 						content: backgroundChildPrompt(prompt, ctx.thread.id),
 					})
 				} catch (error) {
-					if (implementation) policy.release(ctx.thread.id)
-					else if (judgeStarted) policy.failJudgeStart(ctx.thread.id)
+					if (owner) {
+						const detail = error instanceof Error ? error.message : String(error)
+						throw new Error(
+							`Child thread ${thread.id} was created but prompt delivery is uncertain; ownership remains reserved for reconciliation. ${detail}`,
+							{ cause: error },
+						)
+					}
+					if (judgeStarted) policy.failJudgeStart(ctx.thread.id)
 					else if (isStrictReadonlyRole(role)) policy.untrack(thread.id)
 					throw error
 				}
@@ -948,6 +1152,7 @@ export default async function pstack(amp: PluginAPI) {
 					threadID: thread.id,
 					parentThreadID: ctx.thread.id,
 					scope: scope || undefined,
+					scopePaths: scopePaths.length > 0 ? scopePaths : undefined,
 					executor,
 					launchTarget,
 					next:
@@ -959,7 +1164,7 @@ export default async function pstack(amp: PluginAPI) {
 				})
 			} catch (error) {
 				if (judgeReserved && !judgeStarted) policy.cancelJudgeReservation(ctx.thread.id)
-				policy.releaseIfReserving(ctx.thread.id)
+				if (owner) policy.releaseIfReserving(owner.resourceKey)
 				throw error
 			}
 		},
@@ -1076,54 +1281,30 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Create pstack wake webhook',
 		transcriptGroup: { active: 'Creating wake webhook', complete: 'Created wake webhook' },
 		description:
-			'Create a durable capability webhook for the owning orb thread. Each event ID is claimed in plugin configuration before a wake message is appended, so retries do not duplicate work.',
+			'Create an orb-owned wake webhook. Registration intent and event receipts persist on the current executor; delivery is serialized and recovered from structural transcript envelopes.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				key: { type: 'string', description: 'Stable webhook key within this thread.' },
+				key: { type: 'string', description: 'User-facing key namespaced to the owner thread.' },
 				instruction: { type: 'string', description: 'Trusted instruction prepended to each event.' },
 			},
 			required: ['key', 'instruction'],
 		},
-		async execute(input) {
+		async execute(input, ctx) {
 			const key = text(input.key, 'key')
 			const instruction = text(input.instruction, 'instruction')
-			const registration = await amp.createWebhook({
-				key,
-				handler: async (event, ctx) => {
-					const configuration = await amp.configuration.get()
-					const seen = configuration[WEBHOOK_EVENT_IDS_KEY]
-					let threadHasEvent = false
-					if (!claimWebhookEvent(seen, event.id).duplicate) {
-						const page = await ctx.thread.messages({
-							full: true,
-							from: 'end',
-							limit: 50,
-						})
-						threadHasEvent = page.some((message) =>
-							messageMentionsWebhookEvent(message, event.id),
-						)
-					}
-					const plan = planWebhookDelivery(seen, event.id, threadHasEvent)
-					if (plan.action === 'skip') {
-						if (plan.reason === 'already-appended') {
-							await amp.configuration.update(
-								{ [WEBHOOK_EVENT_IDS_KEY]: plan.next },
-								'global',
-							)
-						}
-						ctx.logger.log(`Skipping duplicate webhook event ${event.id}`)
-						return
-					}
-					const body = new TextDecoder().decode(event.body)
-					await ctx.thread.appendUserMessage({
-						type: 'user-message',
-						content: `${instruction}\n\n${webhookEventMarker(event.id)}. Duplicate deliveries are dropped after this append is visible in the thread.\nReceived: ${event.receivedAt}\nPayload:\n${body}`,
-					})
-					await amp.configuration.update({ [WEBHOOK_EVENT_IDS_KEY]: plan.next }, 'global')
-				},
+			const result = await wakeWebhooks.register({
+				ownerThreadID: ctx.thread.id,
+				userKey: key,
+				instruction,
 			})
-			return `Webhook created. Treat this URL as a credential: ${registration.url}`
+			await ctx.ui.notify(`Wake webhook URL (credential): ${result.remote.url}`)
+			return JSON.stringify({
+				ampKey: result.registration.ampKey,
+				ownerThreadID: result.registration.ownerThreadID,
+				userKey: result.registration.userKey,
+				urlShownInUI: true,
+			})
 		},
 	})
 
@@ -1161,7 +1342,8 @@ export default async function pstack(amp: PluginAPI) {
 
 	if (typeof amp.on === 'function') {
 		amp.on('tool.call', (event) => {
-			const files = amp.helpers?.filesModifiedByToolCall?.(event) ?? null
+			const modified = amp.helpers?.filesModifiedByToolCall?.(event) ?? null
+			const files = modified?.map((uri) => amp.helpers.filePathFromURI(uri)) ?? null
 			return policy.onToolCall(event, files)
 		})
 		amp.on('tool.result', (event) => {
@@ -1177,14 +1359,16 @@ export default async function pstack(amp: PluginAPI) {
 			return policy.onAgentEnd(ctx.thread.id)
 		})
 	}
-	amp.onDispose(() => {
+	amp.onDispose(async () => {
+		await wakeWebhooks.close()
 		for (const registration of orbAgents.values()) registration.subscription.unsubscribe()
 		orbAgents.clear()
 		const { discarded } = policy.dispose()
 		if (discarded > 0) {
 			amp.logger.log(
-				`Discarding ${discarded} process-local workflow guards on plugin reload. They are not persisted.`,
+				`Discarding ${discarded} process-local subscriptions on plugin reload; durable owner and design state remains in the runtime journal.`,
 			)
 		}
+		runtimeStore.close()
 	})
 }

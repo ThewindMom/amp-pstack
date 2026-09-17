@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "amp-pstack",
+      "devDependencies": {
+        "@ampcode/plugin": "0.0.0-20260917001655-g68a7530",
+      },
+    },
+  },
+  "packages": {
+    "@ampcode/plugin": ["@ampcode/plugin@0.0.0-20260917001655-g68a7530", "", {}, "sha512-aG8zcl/Czl3dJQG8Oxyr6hWO9g7v7CpXGTh1UQnvj8iFEiJsTRmJ+moVbW00rbejG/cTSnmARHNa7/8eyWYbiQ=="],
+  }
+}

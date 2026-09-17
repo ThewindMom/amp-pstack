@@ -39,11 +39,11 @@ When candidates must run in orbs, size them from the **poteto-mode** Agents and 
 
 The rationale is mandatory. Without it, the parent cannot tell whether a candidate's structure is principled or accidental, which makes Phase E grafting unreliable. Each rationale names the alternatives the candidate considered and what it rejected.
 
-If a candidate returns `status: timeout`, read its `threadID` before calling it a dropout. Proceed with N-1 only after that child has no report. Do not redo a timed-out candidate in the parent.
+If a candidate returns `status: timeout`, its seat remains pending and the runtime keeps the judge gate closed. Read its `threadID`; proceed with N-1 only after an explicit evidenced dropout or terminal failure. Do not redo a timed-out candidate in the parent.
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates complete, start one background agent with `pstack_start_agent`, role `arena-cross-judge`. The plugin requires this call at runtime: if the parent ends the turn first, it continues until that judge starts. It sees the rubric and completed candidates by label, scores each criterion, and recommends a base with rationale. While it runs, read every candidate for Phase D. Join only when its verdict is needed to finish the pick. Never start it while candidates are still producing output.
+After all Phase B candidates are terminal and at least one completed, start one background agent with `pstack_start_agent`, role `arena-cross-judge`. If the parent ends before starting it, one continuation requests the missing judge. Once live, the parent idles and the judge's steered report wakes it. A failed judge restores one replacement gate; it never satisfies the design run. The judge sees the rubric and completed candidates by label, scores each criterion, and recommends a base with rationale. Never start it while candidates are still producing output.
 
 ## Phase D: Pick a base
 
