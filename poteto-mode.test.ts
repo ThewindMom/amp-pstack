@@ -27,4 +27,19 @@ describe('poteto mode', () => {
 		expect(description).toContain('builtin medium parent')
 		expect(registered[0]?.description).toContain('Builtin medium')
 	})
+
+	test('keeps the skill and watcher instructions aligned with the runtime', async () => {
+		const [skill, babysit, shipping, readme] = await Promise.all([
+			Bun.file(new URL('skills/poteto-mode/SKILL.md', import.meta.url)).text(),
+			Bun.file(new URL('skills/poteto-mode/playbooks/babysit.md', import.meta.url)).text(),
+			Bun.file(new URL('skills/poteto-mode/playbooks/shipping.md', import.meta.url)).text(),
+			Bun.file(new URL('README.md', import.meta.url)).text(),
+		])
+
+		expect(skill).toContain('parent is Amp builtin `medium`')
+		expect(skill).toContain('Raw Grok delegates request `reasoningEffort: high`')
+		expect(readme).toContain('Raw `xai/grok-4.6` explicitly requests `reasoningEffort: high`')
+		expect(babysit).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
+		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
+	})
 })

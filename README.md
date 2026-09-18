@@ -58,7 +58,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 - **Thread-native memory.** Reflection reads the current transcript directly. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and capability webhooks instead of editor polling commands.
 - **External wakeups.** `pstack_create_wake_webhook` persists registration intent, restores its handler on plugin reload, and serializes at-least-once delivery to its owning orb thread. The capability URL is shown through Amp UI, not written into the transcript.
-- **Existing tools.** The legacy orchestration ledger and GitHub PR watcher remain executable Bun tools. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
+- **Existing tools.** The legacy orchestration ledger and GitHub PR watcher remain Bun tools. The playbooks invoke the watcher through Bun because synced plugin caches do not preserve executable bits. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
 
 ## Agent and panel defaults
 
@@ -75,7 +75,7 @@ The bundled file follows Cursor pstack 0.15.2 without Fable or Opus. Amp `ultra`
 | Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer, reflect-tooling, arena-cross-judge | `builtin:high` |
 | Panels | high, medium, Grok |
 
-Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` does not pass `reasoningEffort`; Amp lists Grok with an empty efforts array, and xAI then defaults to high. Raw `openai/gpt-5.6-sol` also has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
+Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` explicitly requests `reasoningEffort: high`. Raw `openai/gpt-5.6-sol` has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
 
 Later wins:
 
