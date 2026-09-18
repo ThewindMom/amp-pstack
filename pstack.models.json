@@ -6,8 +6,10 @@
 		"why-synthesizer": "builtin:high",
 		"reflect-tooling": "builtin:high",
 		"reflect-judgment": "builtin:high",
+		"reflect-divergent": "builtin:high",
+		"reflect-synthesizer": "builtin:high",
 		"comment-reviewer": "builtin:high",
-		"arena-cross-judge": ["builtin:high"],
+		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"arena-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"architect-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
 		"interrogate-reviewers": ["builtin:high", "builtin:medium", "xai/grok-4.6"]

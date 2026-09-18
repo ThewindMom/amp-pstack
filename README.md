@@ -71,9 +71,10 @@ The bundled file follows Cursor pstack 0.15.2 without Fable or Opus. Amp `ultra`
 | Seat | Bundled map |
 |---|---|
 | Parent `poteto` | `extends: medium` (Amp-selected model and reasoning effort) |
-| Feature, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
-| Judgment, how-explainer, why-synthesizer, reflect-judgment, comment-reviewer, reflect-tooling, arena-cross-judge | `builtin:high` |
+| Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.6` |
+| Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer, reflect-tooling | `builtin:high` |
 | Panels | high, medium, Grok |
+| Arena cross-judge pool | high, medium, Grok; one judge runs, preferring a known family different from the parent |
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.6-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.6` explicitly requests `reasoningEffort: high`. Raw `openai/gpt-5.6-sol` has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
 

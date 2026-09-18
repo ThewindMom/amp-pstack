@@ -37,7 +37,6 @@ import pstack, {
 	ORB_MODE_RELOAD_ERROR,
 	POTETO_DELEGATE_INSTRUCTIONS,
 	REPORTING_READONLY_TOOLS,
-	ROLE_ALIASES,
 	SKILL_PATHS,
 	STRICT_READONLY_TOOLS,
 	WRITE_TOOLS,
@@ -49,12 +48,13 @@ import pstack, {
 	formatMessage,
 	loadFileLayers,
 	mergeModels,
+	modelFamily,
 	orbAgentModeFor,
 	orbAgentSpecsFor,
 	profileModels,
 	readJsonFile,
 	resolveModels,
-	resolveRole,
+	selectPoolModel,
 	steerFrom,
 	storedModelMap,
 	timeoutFrom,
@@ -114,9 +114,9 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS.hillclimb).toBe('xai/grok-4.6')
 		expect(DEFAULT_MODELS.judgment).toBe('anthropic/claude-fable-5-1')
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(4)
+		expect(DEFAULT_MODELS.feature).toBe('xai/grok-4.6')
+		expect(DEFAULT_MODELS.refactoring).toBe('xai/grok-4.6')
 		expect(description.length).toBeLessThanOrEqual(300)
-		expect(ROLE_ALIASES.feature).toBe('feature-refactoring')
-		expect(ROLE_ALIASES.refactoring).toBe('feature-refactoring')
 	})
 
 	test('registers skills, startup orb modes, tools, and setup command', async () => {
@@ -239,8 +239,16 @@ describe('model configuration', () => {
 	})
 
 	test('rejects unknown roles and invalid models on set', () => {
-		expect(() => validateOverrides({ feature: 'xai/grok-4.6' })).toThrow('Unknown pstack role')
+		expect(validateOverrides({ feature: 'xai/grok-4.6' })).toEqual({ feature: 'xai/grok-4.6' })
+		expect(() => validateOverrides({ 'feature-refactoring': 'xai/grok-4.6' })).toThrow(
+			'replaced by separate feature and refactoring roles',
+		)
 		expect(() => validateOverrides({ 'bug-fix': 'not-a-model' })).toThrow('Invalid model')
+		expect(() =>
+			validateOverrides({ 'bug-fix': 'xai/grok-4.6', mystery: [] }),
+		).toThrow('Unknown pstack role')
+		expect(() => validateOverrides({ feature: ['xai/grok-4.6'] })).toThrow('Invalid model')
+		expect(() => validateOverrides({ 'arena-runners': [] })).toThrow('Invalid model')
 		expect(() => validateOverrides(undefined)).toThrow('Missing overrides')
 		expect(validateOverrides({ 'bug-fix': 'openai/gpt-5.6-sol' })).toEqual({
 			'bug-fix': 'openai/gpt-5.6-sol',
@@ -263,16 +271,23 @@ describe('model configuration', () => {
 		)
 	})
 
-	test('feature and refactoring resolve to one runtime role', () => {
-		expect(resolveRole('feature')).toBe('feature-refactoring')
-		expect(resolveRole('refactoring')).toBe('feature-refactoring')
-		expect(resolveRole('bug-fix')).toBe('bug-fix')
+	test('legacy feature-refactoring config migrates without overriding canonical keys', () => {
+		expect(storedModelMap({ 'feature-refactoring': 'builtin:high' })).toEqual({
+			feature: 'builtin:high',
+			refactoring: 'builtin:high',
+		})
+		expect(
+			storedModelMap({
+				refactoring: 'xai/grok-4.6',
+				'feature-refactoring': ['builtin:medium', 'builtin:low'],
+			}),
+		).toEqual({ feature: 'builtin:medium', refactoring: 'xai/grok-4.6' })
 	})
 
 	test('orb agent mode names are deterministic, distinct, and Amp-safe', () => {
-		const feature = orbAgentModeFor('feature-refactoring', 'xai/grok-4.6')
-		expect(orbAgentModeFor('feature-refactoring', 'xai/grok-4.6')).toEqual(feature)
-		expect(orbAgentModeFor('feature-refactoring', 'builtin:high')).not.toEqual(feature)
+		const feature = orbAgentModeFor('feature', 'xai/grok-4.6')
+		expect(orbAgentModeFor('feature', 'xai/grok-4.6')).toEqual(feature)
+		expect(orbAgentModeFor('feature', 'builtin:high')).not.toEqual(feature)
 		expect(orbAgentModeFor('architect-runners-1', 'builtin:high')).not.toEqual(
 			orbAgentModeFor('architect-runners-2', 'builtin:high'),
 		)
@@ -285,19 +300,38 @@ describe('model configuration', () => {
 		expect(feature.key).not.toBe('poteto')
 	})
 
-	test('orb startup specs include singular roles and every panel seat', () => {
+	test('orb startup specs include singular roles, every panel seat, and every unique pool model', () => {
 		expect(
 			orbAgentSpecsFor({
 				'bug-fix': 'builtin:high',
 				'interrogate-reviewers': ['builtin:high', 'builtin:medium'],
-				'arena-cross-judge': ['builtin:high'],
+				'arena-cross-judge': ['builtin:high', 'builtin:medium', 'builtin:high'],
 			}),
 		).toEqual([
 			{ role: 'bug-fix', model: 'builtin:high' },
 			{ role: 'interrogate-reviewers-1', model: 'builtin:high' },
 			{ role: 'interrogate-reviewers-2', model: 'builtin:medium' },
 			{ role: 'arena-cross-judge', model: 'builtin:high' },
+			{ role: 'arena-cross-judge', model: 'builtin:medium' },
 		])
+	})
+
+	test('cross-judge pools prefer a known different family and otherwise preserve order', () => {
+		expect(modelFamily('anthropic/claude-opus-5')).toBe('claude')
+		expect(modelFamily('openai/gpt-5.6-sol')).toBe('gpt')
+		expect(modelFamily('xai/grok-4.6')).toBe('grok')
+		expect(modelFamily('builtin:high')).toBeUndefined()
+		expect(
+			selectPoolModel(
+				['xai/grok-4.6', 'builtin:high', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5'],
+				'xai/grok-4.5',
+			),
+		).toBe('openai/gpt-5.6-sol')
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.6'], 'xai/grok-4.5')).toBe(
+			'builtin:high',
+		)
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.6'])).toBe('builtin:high')
+		expect(() => selectPoolModel([])).toThrow('cannot be empty')
 	})
 
 	test('rejects unknown executors instead of coercing them', () => {
@@ -320,7 +354,7 @@ describe('model configuration', () => {
 		expect(timeoutFrom(120_000, { role: 'how-explainer', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
 			RUN_AGENT_MIN_TIMEOUT_MS,
 		)
-		expect(timeoutFrom(240_000, { role: 'feature-refactoring', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
+		expect(timeoutFrom(240_000, { role: 'feature', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
 			RUN_AGENT_MIN_TIMEOUT_MS,
 		)
 		expect(timeoutFrom(20 * 60 * 1000, { floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(20 * 60 * 1000)
@@ -366,7 +400,8 @@ describe('model configuration', () => {
 			judgment: 'anthropic/claude-fable-5',
 			'bug-fix': 'xai/grok-4.6',
 			hillclimb: 'builtin:high',
-			'feature-refactoring': 'xai/grok-4.6',
+			feature: 'xai/grok-4.6',
+			refactoring: 'xai/grok-4.6',
 			'comment-reviewer': 'xai/grok-4.6',
 		})
 		expect(
@@ -385,7 +420,8 @@ describe('model configuration', () => {
 	test('bundled plugin json uses Grok for code and high for Fable and Sol seats', async () => {
 		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
 		const mapped = fileModelMap(bundled)
-		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
+		expect(mapped.feature).toBe('xai/grok-4.6')
+		expect(mapped.refactoring).toBe('xai/grok-4.6')
 		expect(mapped['bug-fix']).toBe('xai/grok-4.6')
 		expect(mapped['perf-issue']).toBe('xai/grok-4.6')
 		expect(mapped.hillclimb).toBe('xai/grok-4.6')
@@ -394,8 +430,14 @@ describe('model configuration', () => {
 		expect(mapped['how-explainer']).toBe('builtin:high')
 		expect(mapped['why-synthesizer']).toBe('builtin:high')
 		expect(mapped['reflect-judgment']).toBe('builtin:high')
+		expect(mapped['reflect-divergent']).toBe('builtin:high')
+		expect(mapped['reflect-synthesizer']).toBe('builtin:high')
 		expect(mapped['comment-reviewer']).toBe('builtin:high')
-		expect(mapped['arena-cross-judge']).toEqual(['builtin:high'])
+		expect(mapped['arena-cross-judge']).toEqual([
+			'builtin:high',
+			'builtin:medium',
+			'xai/grok-4.6',
+		])
 		expect(mapped['interrogate-reviewers']).toEqual([
 			'builtin:high',
 			'builtin:medium',
@@ -409,7 +451,8 @@ describe('model configuration', () => {
 		const example = JSON.parse(await Bun.file('.amp/pstack.models.example.json').text())
 		const mapped = fileModelMap(example)
 		expect(mapped.judgment).toBe('builtin:high')
-		expect(mapped['feature-refactoring']).toBe('xai/grok-4.6')
+		expect(mapped.feature).toBe('xai/grok-4.6')
+		expect(mapped.refactoring).toBe('xai/grok-4.6')
 		expect(mapped['interrogate-reviewers']).toEqual([
 			'xai/grok-4.6',
 			'openai/gpt-5.6-sol',
@@ -787,7 +830,7 @@ describe('runtime tool behavior', () => {
 	}
 
 	const implStart = {
-		role: 'feature-refactoring',
+		role: 'feature',
 		prompt: 'implement fixture',
 		scope: 'index.ts WorkflowParityPolicy',
 		scopePaths: ['index.ts'],
@@ -861,7 +904,7 @@ describe('runtime tool behavior', () => {
 			expect(String(amp.created.at(-1)?.instructions)).toContain(POTETO_DELEGATE_INSTRUCTIONS)
 		}
 		expect(CODE_IMPLEMENTATION_ROLES).toEqual(
-			new Set(['feature-refactoring', 'bug-fix', 'perf-issue', 'hillclimb']),
+			new Set(['feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb']),
 		)
 	})
 
@@ -875,6 +918,8 @@ describe('runtime tool behavior', () => {
 			'swarm-worker',
 			'reflect-tooling',
 			'reflect-judgment',
+			'reflect-divergent',
+			'reflect-synthesizer',
 		]) {
 			await tool(amp, 'pstack_run_agent').execute(
 				{ role, prompt: 'inspect it' },
@@ -917,7 +962,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
 		await expect(
 			tool(amp, 'pstack_run_agent').execute(
-				{ role: 'feature-refactoring', prompt: 'implement it', timeoutMs: 240_000 },
+				{ role: 'feature', prompt: 'implement it', timeoutMs: 240_000 },
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
@@ -962,6 +1007,42 @@ describe('runtime tool behavior', () => {
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(String(amp.created.at(-1)?.instructions)).not.toContain(POTETO_DELEGATE_INSTRUCTIONS)
+	})
+
+	test('cross-judge selects one known different-family pool model from the parent', async () => {
+		const amp = await loadPlugin({
+			initialConfig: {
+				[CONFIG_KEY]: {
+					'arena-cross-judge': ['xai/grok-4.6', 'builtin:high', 'openai/gpt-5.6-sol'],
+				},
+			},
+		})
+		const result = JSON.parse(
+			await tool(amp, 'pstack_start_agent').execute(
+				{ role: 'arena-cross-judge', prompt: 'judge it' },
+				{
+					thread: {
+						id: 'T-parent',
+						agent: async () => ({
+							definition: {
+								kind: 'agent-definition',
+								model: 'xai/grok-4.5',
+								instructions: '',
+							},
+						}),
+					},
+				},
+			),
+		)
+		expect(result.model).toBe('openai/gpt-5.6-sol')
+		expect(amp.started).toHaveLength(1)
+		expect(amp.created.at(-1)).toMatchObject({ model: 'openai/gpt-5.6-sol' })
+		await expect(
+			tool(amp, 'pstack_run_panel').execute(
+				{ panel: 'arena-cross-judge', prompt: 'run all judges' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('Unknown pstack panel')
 	})
 
 	test('run_agent timeout keeps the child thread as owner', async () => {
@@ -1033,8 +1114,8 @@ describe('runtime tool behavior', () => {
 			),
 		)
 		expect(result).toMatchObject({
-			role: 'feature-refactoring',
-			model: DEFAULT_MODELS['feature-refactoring'],
+			role: 'feature',
+			model: DEFAULT_MODELS.feature,
 			threadID: 'T-child',
 			parentThreadID: 'T-parent',
 			scope: implStart.scope,
@@ -1063,13 +1144,13 @@ describe('runtime tool behavior', () => {
 		expect(amp.registeredModes.length).toBeGreaterThan(0)
 		expect(amp.publishedModes).toEqual(amp.registeredModes)
 		const expectedMode = orbAgentModeFor(
-			'feature-refactoring',
-			DEFAULT_MODELS['feature-refactoring'],
+			'feature',
+			DEFAULT_MODELS.feature,
 		)
 		const result = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'implement fixture',
 					scope: 'index.ts',
 					launchTarget: { kind: 'repo-independent-orb' },
@@ -1134,7 +1215,7 @@ describe('runtime tool behavior', () => {
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'implement fixture',
 					scope: 'index.ts',
 					launchTarget: { kind: 'repo-independent-orb' },
@@ -1143,7 +1224,7 @@ describe('runtime tool behavior', () => {
 			),
 		).rejects.toThrow('create failed')
 		expect(amp.started).toHaveLength(0)
-		const expected = orbAgentModeFor('feature-refactoring', DEFAULT_MODELS['feature-refactoring'])
+		const expected = orbAgentModeFor('feature', DEFAULT_MODELS.feature)
 		const registration = amp.registeredModes.find(({ key }) => key === expected.key)
 		expect(registration?.active).toBe(true)
 		expect(amp.publishedModes).toContain(registration as TestMode)
@@ -1155,7 +1236,7 @@ describe('runtime tool behavior', () => {
 			['first', 'second'].map((prompt) =>
 				tool(amp, 'pstack_start_agent').execute(
 					{
-						role: 'feature-refactoring',
+						role: 'feature',
 						prompt,
 						scope: `scope-${prompt}`,
 						launchTarget: { kind: 'repo-independent-orb' },
@@ -1270,7 +1351,10 @@ describe('runtime tool behavior', () => {
 			profile: 'cheap',
 		})
 		expect(JSON.parse(profiled).judgment).toBe('xai/grok-4.6')
-		expect(JSON.parse(profiled)['arena-cross-judge']).toEqual(['openai/gpt-5.6-sol'])
+		expect(JSON.parse(profiled)['arena-cross-judge']).toEqual([
+			'xai/grok-4.6',
+			'openai/gpt-5.6-sol',
+		])
 		await tool(amp, 'pstack_configure_models').execute({ action: 'reset' })
 	})
 
@@ -1280,11 +1364,12 @@ describe('runtime tool behavior', () => {
 		const updated = JSON.parse(
 			await tool(amp, 'pstack_configure_models').execute({
 				action: 'set',
-				overrides: { 'feature-refactoring': 'builtin:low' },
+				overrides: { feature: 'builtin:low', refactoring: 'builtin:high' },
 			}),
 		)
-		expect(updated['feature-refactoring']).toBe('builtin:low')
-		expect(amp.config[CONFIG_KEY]).toEqual({ 'feature-refactoring': 'builtin:low' })
+		expect(updated.feature).toBe('builtin:low')
+		expect(updated.refactoring).toBe('builtin:high')
+		expect(amp.config[CONFIG_KEY]).toEqual({ feature: 'builtin:low', refactoring: 'builtin:high' })
 	})
 
 	test('configure show lets workspace json beat stored Amp config', async () => {
@@ -1569,7 +1654,10 @@ describe('runtime tool behavior', () => {
 			tools: { exclude: [...WRITE_TOOLS] },
 		})
 		expect(capabilityFor('reflect-judgment').kind).toBe('research')
-		expect(capabilityFor('feature-refactoring')).toEqual({ kind: 'implementation', tools: 'all' })
+		expect(capabilityFor('reflect-divergent').kind).toBe('research')
+		expect(capabilityFor('reflect-synthesizer').kind).toBe('research')
+		expect(capabilityFor('feature')).toEqual({ kind: 'implementation', tools: 'all' })
+		expect(capabilityFor('refactoring')).toEqual({ kind: 'implementation', tools: 'all' })
 		expect(capabilityFor('architect-runners-1')).toEqual({ kind: 'implementation', tools: 'all' })
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_run_agent').execute(
@@ -1588,7 +1676,7 @@ describe('runtime tool behavior', () => {
 		const amp = await loadPlugin()
 		await expect(
 			tool(amp, 'pstack_run_agent').execute(
-				{ role: 'feature-refactoring', prompt: 'implement it' },
+				{ role: 'feature', prompt: 'implement it' },
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
@@ -1627,7 +1715,7 @@ describe('runtime tool behavior', () => {
 		const first = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'implement alpha',
 					scope: 'alpha',
 					scopePaths: ['src/alpha.ts'],
@@ -1656,7 +1744,7 @@ describe('runtime tool behavior', () => {
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_start_agent').execute(
 			{
-				role: 'feature-refactoring',
+				role: 'feature',
 				prompt: 'own the source tree',
 				scope: 'source tree',
 				scopePaths: ['src'],
@@ -1682,7 +1770,7 @@ describe('runtime tool behavior', () => {
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_start_agent').execute(
 			{
-				role: 'feature-refactoring',
+				role: 'feature',
 				prompt: 'own one source file',
 				scope: 'alpha',
 				scopePaths: ['src/alpha.ts'],
@@ -1714,7 +1802,7 @@ describe('runtime tool behavior', () => {
 			const first = await loadPlugin({ runtimeStateFile })
 			await tool(first, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'own alpha across reload',
 					scope: 'alpha',
 					scopePaths: ['src/alpha.ts'],
@@ -1868,7 +1956,7 @@ describe('runtime tool behavior', () => {
 		const implementation = JSON.parse(
 			await tool(background, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'implement from the parent project base',
 					scope: 'index.ts routing',
 				},
@@ -1941,7 +2029,7 @@ describe('runtime tool behavior', () => {
 		const started = JSON.parse(
 			await tool(background, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'implement on the hardware runner',
 					scope: 'src/hardware.ts',
 					launchTarget: { kind: 'named-runner', runnerId: runner.id },
@@ -1950,8 +2038,8 @@ describe('runtime tool behavior', () => {
 			),
 		)
 		const expectedMode = orbAgentModeFor(
-			'feature-refactoring',
-			DEFAULT_MODELS['feature-refactoring'],
+			'feature',
+			DEFAULT_MODELS.feature,
 		)
 		expect(started).toMatchObject({
 			action: 'use-native-create-thread',
@@ -1998,7 +2086,7 @@ describe('runtime tool behavior', () => {
 		const runnerChild = JSON.parse(
 			await tool(runnerParent, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'stay on the current runner checkout',
 					scope: 'src/runner.ts',
 				},
@@ -2015,7 +2103,7 @@ describe('runtime tool behavior', () => {
 		const orbChild = JSON.parse(
 			await tool(orbParent, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'use a fresh child orb',
 					scope: 'src/orb.ts',
 				},
@@ -2033,7 +2121,7 @@ describe('runtime tool behavior', () => {
 		await expect(
 			tool(unknownParent, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'ambiguous placement',
 					scope: 'src/unknown.ts',
 				},
@@ -2046,7 +2134,7 @@ describe('runtime tool behavior', () => {
 		const local = await loadPlugin({ executorKind: 'local' })
 		const implementation = JSON.parse(
 			await tool(local, 'pstack_start_agent').execute(
-				{ role: 'feature-refactoring', prompt: 'local work', scope: 'index.ts routing' },
+				{ role: 'feature', prompt: 'local work', scope: 'index.ts routing' },
 				{ thread: { id: 'T-local-parent' } },
 			),
 		)
@@ -2080,7 +2168,7 @@ describe('runtime tool behavior', () => {
 		const local = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'local work',
 					scope: 'index.ts',
 					executor: 'orb',
@@ -2096,7 +2184,7 @@ describe('runtime tool behavior', () => {
 		const orb = JSON.parse(
 			await tool(other, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'independent',
 					scope: 'index.ts',
 					launchTarget: { kind: 'repo-independent-orb' },
@@ -2112,7 +2200,7 @@ describe('runtime tool behavior', () => {
 		const native = JSON.parse(
 			await tool(redirected, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'sized orb',
 					scope: 'index.ts',
 					launchTarget: { kind: 'native-orb', orbSize: 'a1.large', project: 'amp/pstack' },
@@ -2121,8 +2209,8 @@ describe('runtime tool behavior', () => {
 			),
 		)
 		const expectedMode = orbAgentModeFor(
-			'feature-refactoring',
-			DEFAULT_MODELS['feature-refactoring'],
+			'feature',
+			DEFAULT_MODELS.feature,
 		)
 		expect(native).toMatchObject({
 			action: 'use-native-create-thread',
@@ -2148,7 +2236,7 @@ describe('runtime tool behavior', () => {
 		const unsupported = JSON.parse(
 			await tool(await loadPlugin(), 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'branch',
 					scope: 'index.ts',
 					cloudBaseBranch: 'origin/main',
@@ -2164,7 +2252,7 @@ describe('runtime tool behavior', () => {
 		await expect(
 			tool(await loadPlugin(), 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'missing project',
 					scope: 'index.ts',
 					launchTarget: { kind: 'native-orb', orbSize: 'a1.small' },
@@ -2177,7 +2265,7 @@ describe('runtime tool behavior', () => {
 		const custom = JSON.parse(
 			await tool(overridden, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'custom mode',
 					scope: 'index.ts',
 					launchTarget: {
@@ -2199,7 +2287,7 @@ describe('runtime tool behavior', () => {
 		const native = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
 				{
-					role: 'feature-refactoring',
+					role: 'feature',
 					prompt: 'native',
 					scope: 'index.ts',
 					launchTarget: { kind: 'native-orb', orbSize: 'a1.medium', project: 'amp/pstack' },

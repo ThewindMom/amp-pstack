@@ -1,7 +1,8 @@
 export const WRITE_TOOLS = ['apply_patch', 'create_file', 'edit_file'] as const
 
 export const CODE_IMPLEMENTATION_ROLES = new Set([
-	'feature-refactoring',
+	'feature',
+	'refactoring',
 	'bug-fix',
 	'perf-issue',
 	'hillclimb',

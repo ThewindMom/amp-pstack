@@ -29,13 +29,13 @@ Launch three `pstack_start_agent` calls concurrently. Keep each `threadID` and j
 |---|---|---|
 | Judgment | `reflect-judgment` | `references/judgment-reviewer.md` |
 | Tooling | `reflect-tooling` | `references/tooling-reviewer.md` |
-| Divergent | `reflect-judgment` | `references/divergent-reviewer.md` |
+| Divergent | `reflect-divergent` | `references/divergent-reviewer.md` |
 
 Pass each template verbatim, substituting the transcript JSON or digest where marked. Reviewers return findings in their result text.
 
 ### 3. Synthesize
 
-Run one `pstack_start_agent` call with role `reflect-judgment`. Join on the report. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+Run one `pstack_start_agent` call with role `reflect-synthesizer`. Join on the report. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 

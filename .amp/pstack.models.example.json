@@ -6,6 +6,9 @@
 		"how-explainer": "builtin:high",
 		"why-synthesizer": "builtin:high",
 		"reflect-judgment": "builtin:high",
-		"comment-reviewer": "builtin:high"
+		"reflect-divergent": "builtin:high",
+		"reflect-synthesizer": "builtin:high",
+		"comment-reviewer": "builtin:high",
+		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.6"]
 	}
 }

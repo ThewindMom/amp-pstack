@@ -7,6 +7,7 @@ import type {
 	BuiltinAgentMode,
 	PluginAgentModel,
 	PluginAPI,
+	PluginThread,
 	Subscription,
 	ThreadID,
 	ThreadMessage,
@@ -111,7 +112,8 @@ export const SKILL_PATHS = [
 ] as const
 
 export const DEFAULT_MODELS = {
-	'feature-refactoring': 'xai/grok-4.6',
+	feature: 'xai/grok-4.6',
+	refactoring: 'xai/grok-4.6',
 	'bug-fix': 'xai/grok-4.6',
 	'perf-issue': 'xai/grok-4.6',
 	hillclimb: 'xai/grok-4.6',
@@ -122,6 +124,8 @@ export const DEFAULT_MODELS = {
 	'why-synthesizer': 'anthropic/claude-fable-5-1',
 	'reflect-tooling': 'openai/gpt-5.6-sol',
 	'reflect-judgment': 'anthropic/claude-fable-5-1',
+	'reflect-divergent': 'anthropic/claude-fable-5-1',
+	'reflect-synthesizer': 'anthropic/claude-fable-5-1',
 	'swarm-worker': 'xai/grok-4.6',
 	'comment-reviewer': 'anthropic/claude-fable-5-1',
 	'arena-runners': [
@@ -130,7 +134,12 @@ export const DEFAULT_MODELS = {
 		'xai/grok-4.6',
 		'anthropic/claude-opus-5',
 	],
-	'arena-cross-judge': ['anthropic/claude-opus-5'],
+	'arena-cross-judge': [
+		'anthropic/claude-fable-5-1',
+		'openai/gpt-5.6-sol',
+		'xai/grok-4.6',
+		'anthropic/claude-opus-5',
+	],
 	'architect-runners': [
 		'anthropic/claude-fable-5-1',
 		'openai/gpt-5.6-sol',
@@ -145,15 +154,11 @@ export const DEFAULT_MODELS = {
 	],
 } as const
 
-export const ROLE_ALIASES = {
-	feature: 'feature-refactoring',
-	refactoring: 'feature-refactoring',
-} as const
-
-const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. Aliases: feature, refactoring. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
+const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
 
 export const CHEAP_MODELS = {
-	'feature-refactoring': 'xai/grok-4.6',
+	feature: 'xai/grok-4.6',
+	refactoring: 'xai/grok-4.6',
 	'bug-fix': 'xai/grok-4.6',
 	'perf-issue': 'xai/grok-4.6',
 	hillclimb: 'xai/grok-4.6',
@@ -164,10 +169,12 @@ export const CHEAP_MODELS = {
 	'why-synthesizer': 'xai/grok-4.6',
 	'reflect-tooling': 'openai/gpt-5.6-sol',
 	'reflect-judgment': 'xai/grok-4.6',
+	'reflect-divergent': 'xai/grok-4.6',
+	'reflect-synthesizer': 'xai/grok-4.6',
 	'swarm-worker': 'xai/grok-4.6',
 	'comment-reviewer': 'xai/grok-4.6',
 	'arena-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
-	'arena-cross-judge': ['openai/gpt-5.6-sol'],
+	'arena-cross-judge': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
 	'architect-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
 	'interrogate-reviewers': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
 } as const
@@ -237,6 +244,7 @@ const PANEL_ROLES = new Set([
 	'architect-runners',
 	'interrogate-reviewers',
 ])
+const POOL_ROLES = new Set(['arena-cross-judge'])
 
 export const ORB_MODE_RELOAD_ERROR =
 	'Orb agents use the role/model map captured when pstack loaded. Reload plugins, then retry this orb launch. Local launches use configuration changes immediately.'
@@ -261,11 +269,16 @@ export function orbAgentModeFor(role: string, model: string): { key: string; lab
 
 export function orbAgentSpecsFor(models: ModelMap): ResolvedAgentSpec[] {
 	return Object.entries(models).flatMap(([role, value]) => {
-		if (typeof value === 'string') return [{ role, model: value }]
 		if (PANEL_ROLES.has(role)) {
-			return value.map((model, index) => ({ role: `${role}-${index + 1}`, model }))
+			const seats = typeof value === 'string' ? [value] : value
+			return seats.map((model, index) => ({ role: `${role}-${index + 1}`, model }))
 		}
-		return [{ role, model: value[0] }]
+		if (POOL_ROLES.has(role)) {
+			const pool = typeof value === 'string' ? [value] : value
+			return [...new Set(pool)].map((model) => ({ role, model }))
+		}
+		if (typeof value === 'string') return [{ role, model: value }]
+		throw new Error(`Single pstack role ${role} must configure one model.`)
 	})
 }
 
@@ -349,21 +362,60 @@ export function validateModel(value: string): boolean {
 	return BUILTIN_MODE.test(value) || MODEL_ID.test(value)
 }
 
+export function modelFamily(model: string): 'claude' | 'gpt' | 'grok' | undefined {
+	if (/^anthropic\/claude-/i.test(model)) return 'claude'
+	if (/^openai\/gpt-/i.test(model)) return 'gpt'
+	if (/^xai\/grok-/i.test(model)) return 'grok'
+	return undefined
+}
+
+export function selectPoolModel(models: readonly string[], parentModel?: string): string {
+	if (models.length === 0) throw new Error('A pstack model pool cannot be empty.')
+	const parentFamily = parentModel ? modelFamily(parentModel) : undefined
+	if (parentFamily) {
+		const differentFamily = models.find((model) => {
+			const family = modelFamily(model)
+			return family !== undefined && family !== parentFamily
+		})
+		if (differentFamily) return differentFamily
+	}
+	return models[0]
+}
+
 export function isKnownRole(role: string): boolean {
 	return KNOWN_ROLES.has(role)
 }
 
-export function resolveRole(role: string): string {
-	return ROLE_ALIASES[role as keyof typeof ROLE_ALIASES] ?? role
+function isValidRoleModel(role: string, value: unknown): value is ModelValue {
+	if (typeof value === 'string') return validateModel(value)
+	return (
+		(PANEL_ROLES.has(role) || POOL_ROLES.has(role)) &&
+		Array.isArray(value) &&
+		value.length > 0 &&
+		value.every((model) => typeof model === 'string' && validateModel(model))
+	)
 }
 
 export function storedModelMap(value: unknown): ModelMap {
-	const raw = modelMapFrom(value)
+	if (!isRecord(value)) return {}
 	const result: ModelMap = {}
-	for (const [role, model] of Object.entries(raw)) {
+	const legacy = value['feature-refactoring']
+	const legacyModel =
+		typeof legacy === 'string' && validateModel(legacy)
+			? legacy
+			: Array.isArray(legacy) &&
+				legacy.length > 0 &&
+				typeof legacy[0] === 'string' &&
+				validateModel(legacy[0])
+				? legacy[0]
+				: undefined
+	if (legacyModel) {
+		result.feature = legacyModel
+		result.refactoring = legacyModel
+	}
+	for (const [role, model] of Object.entries(value)) {
 		if (!isKnownRole(role)) continue
-		const values = Array.isArray(model) ? model : [model]
-		if (values.every(validateModel)) result[role] = model
+		if (isValidRoleModel(role, model)) result[role] = model
 	}
 	return result
 }
@@ -375,21 +427,21 @@ export function validateOverrides(value: unknown): ModelMap {
 	if (!isRecord(value)) {
 		throw new Error('overrides must be an object of known pstack roles.')
 	}
-	const overrides = modelMapFrom(value)
-	if (Object.keys(overrides).length === 0) {
+	if (Object.keys(value).length === 0) {
 		throw new Error('overrides must include at least one known pstack role.')
 	}
-	for (const [role, model] of Object.entries(overrides)) {
+	const overrides: ModelMap = {}
+	for (const [role, model] of Object.entries(value)) {
 		if (!isKnownRole(role)) {
+			if (role === 'feature-refactoring') {
+				throw new Error('feature-refactoring was replaced by separate feature and refactoring roles.')
+			}
 			throw new Error(`Unknown pstack role: ${role}.`)
 		}
-		const values = Array.isArray(model) ? model : [model]
-		if (!values.every(validateModel)) {
+		if (!isValidRoleModel(role, model)) {
 			throw new Error(`Invalid model for ${role}. Use provider/model or builtin:<mode>.`)
 		}
-	}
-	for (const key of Object.keys(value)) {
-		if (!isKnownRole(key)) throw new Error(`Unknown pstack role: ${key}.`)
+		overrides[role] = model
 	}
 	return overrides
 }
@@ -507,8 +559,7 @@ export function executorFrom(
 export function timeoutFrom(value: unknown, options?: { role?: string; floor?: number }): number {
 	const parsed = typeof value === 'number' && Number.isFinite(value) ? value : DEFAULT_TIMEOUT_MS
 	const clamped = Math.max(MIN_TIMEOUT_MS, Math.min(parsed, MAX_TIMEOUT_MS))
-	const roleFloor =
-		resolveRole(options?.role ?? '') === 'comment-reviewer' ? COMMENT_REVIEWER_MIN_TIMEOUT_MS : 0
+	const roleFloor = options?.role === 'comment-reviewer' ? COMMENT_REVIEWER_MIN_TIMEOUT_MS : 0
 	const floor = Math.max(options?.floor ?? 0, roleFloor)
 	return Math.max(floor, clamped)
 }
@@ -658,15 +709,25 @@ export default async function pstack(amp: PluginAPI) {
 		return storedModelMap(configuration[CONFIG_KEY])
 	}
 
-	const modelFor = async (role: string): Promise<string> => {
-		const resolved = resolveRole(role)
-		const value = (await configuredModels())[resolved]
-		if (typeof value === 'string') return value
-		if (Array.isArray(value) && value.length > 0) return value[0]
+	const modelFor = async (role: string, parentThread?: Pick<PluginThread, 'agent'>): Promise<string> => {
+		const value = (await configuredModels())[role]
+		if (POOL_ROLES.has(role) && value !== undefined) {
+			const pool = typeof value === 'string' ? [value] : value
+			let parentModel: string | undefined
+			try {
+				const parentAgent = await parentThread?.agent()
+				if (parentAgent?.definition.kind === 'agent-definition') {
+					parentModel = parentAgent.definition.model
+				}
+			} catch {}
+			return selectPoolModel(pool, parentModel)
+		}
+		if (!PANEL_ROLES.has(role) && typeof value === 'string') return value
 		throw new Error(`Unknown pstack role: ${role}. ${ROLE_GUIDANCE}`)
 	}
 
 	const panelFor = async (panel: string): Promise<string[]> => {
+		if (!PANEL_ROLES.has(panel)) throw new Error(`Unknown pstack panel: ${panel}`)
 		const value = (await configuredModels())[panel]
 		if (Array.isArray(value) && value.length > 0) return value
 		if (typeof value === 'string') return [value]
@@ -698,22 +759,21 @@ export default async function pstack(amp: PluginAPI) {
 
 	const agentFor = (model: string, role: string): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
-		const resolved = resolveRole(role)
 		if (builtin) {
 			return amp.createAgent({
 				extends: builtin[1] as BuiltinAgentMode,
-				instructions: instructionsFor(resolved),
-				tools: toolsFor(resolved),
-				display: { label: resolved.slice(0, 24) },
+				instructions: instructionsFor(role),
+				tools: toolsFor(role),
+				display: { label: role.slice(0, 24) },
 			})
 		}
 		return amp.createAgent({
 			extends: 'medium',
 			model: model as PluginAgentModel,
-			instructions: instructionsFor(resolved),
-			tools: toolsFor(resolved),
+			instructions: instructionsFor(role),
+			tools: toolsFor(role),
 			reasoningEffort: reasoningFor(model),
-			display: { label: resolved.slice(0, 24) },
+			display: { label: role.slice(0, 24) },
 		})
 	}
 
@@ -721,17 +781,15 @@ export default async function pstack(amp: PluginAPI) {
 	const orbAgents = new Map<string, RegisteredOrbAgent>()
 
 	const orbAgentIdentity = (model: string, role: string): string => {
-		const resolved = resolveRole(role)
-		return JSON.stringify([resolved, model])
+		return JSON.stringify([role, model])
 	}
 
 	const registerOrbAgent = (model: string, role: string): Agent => {
-		const resolved = resolveRole(role)
-		const identity = orbAgentIdentity(model, resolved)
+		const identity = orbAgentIdentity(model, role)
 		const registered = orbAgents.get(identity)
 		if (registered) return registered.agent
-		const agent = agentFor(model, resolved)
-		const mode = orbAgentModeFor(resolved, model)
+		const agent = agentFor(model, role)
+		const mode = orbAgentModeFor(role, model)
 		const subscription = amp.registerAgentMode({ ...mode, agent: agent.definition })
 		orbAgents.set(identity, { agent, subscription })
 		return agent
@@ -822,7 +880,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack delegate',
 		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
 		description:
-			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Prefer pstack_start_agent for feature, how, bug-fix, and other long work. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature-refactoring, bug-fix, and comment-reviewer. feature and refactoring resolve to feature-refactoring.',
+			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Prefer pstack_start_agent for feature, how, bug-fix, and other long work. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature, refactoring, bug-fix, and comment-reviewer.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -846,10 +904,10 @@ export default async function pstack(amp: PluginAPI) {
 			required: ['role', 'prompt'],
 		},
 		async execute(input, ctx) {
-			const role = resolveRole(text(input.role, 'role'))
+			const role = text(input.role, 'role')
 			if (isImplementationRole(role)) throw new Error(IMPLEMENTATION_BLOCKING_ERROR)
 			const prompt = text(input.prompt, 'prompt')
-			const model = await modelFor(role)
+			const model = await modelFor(role, ctx.thread)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS })
 			const executor = executorFrom(input.executor, await parentExecutorKind())
 			if (typeof executor === 'object') {
@@ -1000,7 +1058,7 @@ export default async function pstack(amp: PluginAPI) {
 			required: ['role', 'prompt'],
 		},
 		async execute(input, ctx) {
-			const role = resolveRole(text(input.role, 'role'))
+			const role = text(input.role, 'role')
 			const prompt = text(input.prompt, 'prompt')
 			const implementation = isImplementationRole(role)
 			const scope = implementation
@@ -1054,7 +1112,7 @@ export default async function pstack(amp: PluginAPI) {
 			}
 			let judgeStarted = false
 			try {
-				const model = await modelFor(role)
+				const model = await modelFor(role, ctx.thread)
 				if (launchTarget?.kind === 'native-orb' || launchTarget?.kind === 'named-runner') {
 					if (
 						launchTarget.kind === 'native-orb' &&

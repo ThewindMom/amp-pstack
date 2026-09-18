@@ -32,7 +32,7 @@ Amp has no Cursor thinking slugs (`-thinking-max`, `-fast-xhigh`). Effort lives 
 
 **(b) Apply it.** Build the working table from the skill defaults, then the live `show` map. On a re-run, keep any role the user already changed by family or list. Then apply the budget rewrite from (a).
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any ID not in the detected set as needing a choice. Ask whether to accept as-is or change specific roles. For panel roles, the value is a list and one agent runs per entry, so list length sets panel size. `arena-cross-judge` may contain one or more judge models. `swarm-worker` is the default for workers unless a race explicitly uses a panel.
+**(c) Show the roles and confirm.** Show every role with its model, marking any ID not in the detected set as needing a choice. Ask whether to accept as-is or change specific roles. For panel roles, the value is a list and one agent runs per entry, so list length sets panel size. `arena-cross-judge` is a pool: one judge runs, preferring a known model family different from the parent and otherwise using the first entry. `swarm-worker` is the default for workers unless a race explicitly uses a panel.
 
 ### 4. Validate
 
@@ -54,7 +54,8 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
 
 ```json
 {
-  "feature-refactoring": "xai/grok-4.6",
+  "feature": "xai/grok-4.6",
+  "refactoring": "xai/grok-4.6",
   "bug-fix": "xai/grok-4.6",
   "perf-issue": "xai/grok-4.6",
   "hillclimb": "xai/grok-4.6",
@@ -65,10 +66,12 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
   "why-synthesizer": "anthropic/claude-fable-5-1",
   "reflect-tooling": "openai/gpt-5.6-sol",
   "reflect-judgment": "anthropic/claude-fable-5-1",
+  "reflect-divergent": "anthropic/claude-fable-5-1",
+  "reflect-synthesizer": "anthropic/claude-fable-5-1",
   "swarm-worker": "xai/grok-4.6",
   "comment-reviewer": "anthropic/claude-fable-5-1",
   "arena-runners": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"],
-  "arena-cross-judge": ["anthropic/claude-opus-5"],
+  "arena-cross-judge": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"],
   "architect-runners": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"],
   "interrogate-reviewers": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.6", "anthropic/claude-opus-5"]
 }

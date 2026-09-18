@@ -16,7 +16,7 @@ function owner(
 	return {
 		state: 'running',
 		parentThreadID: 'T-parent',
-		role: 'feature-refactoring',
+		role: 'feature',
 		scope: logicalKey,
 		resourceKey,
 		logicalKey,
