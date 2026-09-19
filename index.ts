@@ -735,7 +735,7 @@ export default async function pstack(amp: PluginAPI) {
 	}
 
 	const reasoningFor = (model: string): AgentReasoningEffort | undefined => {
-		if (model.startsWith('xai/grok-4.6')) return 'high'
+		if (model.startsWith('xai/grok-4.6')) return 'xhigh'
 		return undefined
 	}
 

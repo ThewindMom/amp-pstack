@@ -37,8 +37,8 @@ describe('poteto mode', () => {
 		])
 
 		expect(skill).toContain('parent is Amp builtin `medium`')
-		expect(skill).toContain('Raw Grok delegates request `reasoningEffort: high`')
-		expect(readme).toContain('Raw `xai/grok-4.6` explicitly requests `reasoningEffort: high`')
+		expect(skill).toContain('Raw Grok delegates request `reasoningEffort: xhigh`')
+		expect(readme).toContain('Raw `xai/grok-4.6` explicitly requests `reasoningEffort: xhigh`')
 		expect(babysit).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 	})
