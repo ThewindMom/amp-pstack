@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import potetoMode, { description } from './poteto-mode'
 
 describe('poteto mode', () => {
-	test('uses builtin medium for coordination', () => {
+	test('uses builtin high for coordination', () => {
 		const created: Array<Record<string, unknown>> = []
 		const registered: Array<Record<string, unknown>> = []
 		const amp = {
@@ -20,12 +20,12 @@ describe('poteto mode', () => {
 		potetoMode(amp)
 
 		expect(created).toHaveLength(1)
-		expect(created[0]?.extends).toBe('medium')
+		expect(created[0]?.extends).toBe('high')
 		expect(registered).toHaveLength(1)
 		expect(registered[0]?.key).toBe('poteto')
 		expect(registered[0]?.agent).toEqual(created[0])
-		expect(description).toContain('builtin medium parent')
-		expect(registered[0]?.description).toContain('Builtin medium')
+		expect(description).toContain('builtin high parent')
+		expect(registered[0]?.description).toContain('Builtin high')
 	})
 
 	test('keeps the skill and watcher instructions aligned with the runtime', async () => {
@@ -36,7 +36,7 @@ describe('poteto mode', () => {
 			Bun.file(new URL('README.md', import.meta.url)).text(),
 		])
 
-		expect(skill).toContain('parent is Amp builtin `medium`')
+		expect(skill).toContain('parent is Amp builtin `high`')
 		expect(skill).toContain('Raw Grok delegates request `reasoningEffort: xhigh`')
 		expect(readme).toContain('Raw `xai/grok-4.6` explicitly requests `reasoningEffort: xhigh`')
 		expect(babysit).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
