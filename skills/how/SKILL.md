@@ -21,21 +21,19 @@ When in doubt, take the simple path.
 
 ## Step 2a. Explore (complex questions only)
 
-Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem.
-
-Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer`. Route from the parent executor first. An orb parent defaults each explorer to `parent-project-orb`. From a local parent, use `current-checkout` when the explanation needs local or uncommitted state and `parent-project-orb` for the clean project remote. If the question depends on live changes inside a parent orb, keep the inspection in that parent or transfer a bounded fixture. A fresh child orb cannot read those files. Give each explorer a distinct angle and a read-only brief. Keep each `threadID`. Each child exclusively owns its slice. Continue independent parent work, then end the turn when the reports block further progress. Do not call `wait_for_threads` to judge startup. Join on each child's `pstack_send_to_thread` report. Do not call `pstack_run_agent` for explorers. Never re-trace or replace a live child's slice in the parent. The plugin resolves the configured model.
+Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer`. Follow `../poteto-mode/references/amp-adapter.md`. Give each explorer a distinct angle and a read-only brief.
 
 Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in. Then go to Step 3.
 
 ## Step 2b. Direct Explain (simple questions)
 
-Run one `pstack_start_agent` call with role `how-explainer` and a read-only brief that explores and explains in one pass. Use the same parent-executor routing as Step 2a. Keep the `threadID`. Join on the report. Do not call `pstack_run_agent` for this step. Do not write the architecture trace in the parent unless live parent-orb files make a child inaccurate and cannot be transferred.
+Run one `pstack_start_agent` call with role `how-explainer` and a read-only brief that explores and explains in one pass. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
 
 Build its prompt from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
 
 ## Step 3. Synthesize (complex questions only)
 
-Once all explorers return, run one `pstack_start_agent` call with role `how-explainer` to synthesize their findings into one coherent explanation. Join on that report. Do not write the architecture trace in the parent.
+Once all explorers have returned, run one `pstack_start_agent` call with role `how-explainer` to synthesize their findings into one explanation. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
 
 Build its prompt from `references/explainer-prompt.md` with every explorer's findings filled in.
 

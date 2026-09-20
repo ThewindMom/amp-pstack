@@ -67,7 +67,7 @@ Fix the log, not the story. If the work diverged from what a row claims, the row
 
 ## Cross-model review of the trail
 
-Before handing back, run `pstack_run_agent` on a configured role from a different model family than the one that did the work. Self-review is not a substitute; the point is fresh eyes you cannot bring yourself. The agent reads the audit trail and the relevant Amp thread content, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before handing back, run `pstack_run_agent` on a configured role from a different model family than the one that did the work. Follow `../poteto-mode/references/amp-adapter.md`. Self-review is not a substitute. The agent reads the audit trail and the relevant Amp thread content, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.

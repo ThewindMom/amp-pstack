@@ -26,12 +26,12 @@ Remaining triggers:
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
 - Nontrivial multi-step → write the throughput checkpoint (Feature step 3).
-- Any prose surface → the **unslop** skill. Your reply is a prose surface; write it per **Writing the reply**. Agent-facing prose also follows Amp's **building-skills** skill.
+- Any prose surface → the **unslop** skill. Your reply is a prose surface. Write it per **Writing the reply**. Agent-facing prose also follows Amp's **building-skills** skill.
 - Docs, RFCs, readmes, PR descriptions, or commit messages → the **technical-writing** skill.
 - Before commit → inspect the diff for generated boilerplate, needless wrappers, narration, and scope creep; then apply **unslop** to prose.
 - Before review → the **no-comments** skill.
-- Shipping UI / IDE / CLI → load the available Amp skill that drives the real surface, such as a browser, accessibility, UI review, or project verification skill. For bug fixes, reproduce first on the same surface yourself; hand to the user only under the narrow Bug fix step 1 exception.
-- Any PR-status request → the **Babysit** playbook (`playbooks/babysit.md`). That includes "babysit this", "get it green", "address the review comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling; the playbook's step 1 owns the request-to-mode mapping.
+- Shipping UI / IDE / CLI → the matching control skill (repository verification skill, or an Amp browser / PTY / accessibility skill). For bug fixes, reproduce first on the same surface yourself. Hand to the user only under the narrow Bug fix step 1 exception.
+- Any PR-status request → the **Babysit** playbook (`playbooks/babysit.md`). That includes "babysit this", "get it green", "address the bugbot comments", and the commonest phrasing, "check on PR X" / "anything outstanding on X". Never triggered by merely opening a PR. Declare its mode before polling. The playbook's step 1 owns the request-to-mode mapping. Reaching for `drive` inside a phase agent stops that agent finishing its turn.
 - Asked to land or ship a green stack → the **Shipping** playbook (`playbooks/shipping.md`). Green is not safe. Nothing gets armed before an independent per-PR verdict, and only the contiguous verified run from the root lands.
 - Bugbot or the agentic security review commented → skeptical posture. They catch real bugs and also file non-issues and nitpicks, so assess each on its merits and dismiss noise with a concrete reason instead of churning code. Triage fix / dismiss / ask per `references/bugbot-triage.md`.
 - Broken skill mid-task → fix it in its own PR. Don't block. Don't silently work around it.
@@ -52,7 +52,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 - **Outcome-Oriented Execution** (**principle-outcome-oriented-execution**). Planned rewrites and migrations with explicit phase boundaries. Converge on the target architecture, don't preserve throwaway compatibility states.
 - **Experience First** (**principle-experience-first**). Product, UX, or feature-scope tradeoffs. Choose user delight over implementation convenience.
 - **Exhaust the Design Space** (**principle-exhaust-the-design-space**). A novel interaction or architectural decision with no precedent. Build 2-3 competing prototypes and compare before committing.
-- **Build the Lever** (**principle-build-the-lever**). Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand; the tool is the artifact a reviewer reruns.
+- **Build the Lever** (**principle-build-the-lever**). Any non-trivial work. Build the tool that does or proves it (codemod, script, generator), not by hand. The tool is the artifact a reviewer reruns.
 
 **Architecture**
 
@@ -91,43 +91,9 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Agents and threads
 
-Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait.
+Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait. Read `references/amp-adapter.md` before spawning. It owns join, blocking wait, never-redo, steer, files, launch targets, size, briefs, models, schedules, and who writes the code.
 
-**Join.** Default to `pstack_start_agent`. It returns `threadID` immediately. Writable roles require a human-readable `scope` and concrete `scopePaths`. Route from the actual executor, not the word `remote`: local and runner parents default to `current-checkout`; an Amp-managed orb parent defaults to a fresh `parent-project-orb`; unknown placement requires an explicit target. Use `named-runner` with `runnerId` for hardware, credentials, private networks, or machine-bound tools. Use `repo-independent-orb` only when the brief does not depend on a checkout. Use `native-orb` with a required `project` when project, orb size, or a custom mode matters. The child exclusively owns its declared paths and reports with `pstack_send_to_thread` (steer defaults on). Continue parent work that is independent of those paths, then end the turn when blocked. Never call `wait_for_threads` to judge startup. Amp can return `unknown` or `settled` with an empty transcript while the child is still starting. That is not failure. Do not spawn a second owner for equal or prefix-overlapping paths. Disjoint paths may run concurrently.
-
-**Blocking wait.** `pstack_run_agent` and `pstack_run_panel` wait. Use them only when this turn cannot proceed without one result, such as comment-reviewer or a panel you must rank now. Omit `timeoutMs`. The plugin floors waits at ten minutes. They always return `threadID`. Timeout is `status: timeout` plus that ID and leaves the child live. Terminal failure is `status: error`; never describe it as a timeout. A timed-out panel candidate remains pending until its thread becomes terminal.
-
-**Never redo.** A timeout, a late report, `wait_for_threads` `unknown`, or a live child is not a signal to implement that scope in the parent or to spawn a replacement owner. Durable claims survive plugin reload on the same executor. A terminal error requires reconciliation before replacement. Never redo or replace a live owner.
-
-**Steer.** The parent may message a live child with `pstack_send_to_thread` or Amp `send_thread_message` (`steer: true`) to tighten scope, share a sibling finding, or stop a wrong path. Do not spawn a second child for the same scope. Children do not chat with siblings. They report to the parent. The parent relays. Sibling-to-sibling messages hide spend and duplicate work.
-
-**Files.** Threads do not share a filesystem. A steer message does not move files. Only a same-machine local parent and local child share the checkout; cite paths, do not copy. A child orb inherits the parent project, not the parent orb's live files. Keep dependent work in the parent thread, or transfer uncommitted fixtures, screenshots, dumps, store files, and anything the brief cannot point at in git. Parent to child: `upload_thread_file` (4 MiB, destination parent directory must exist). Child to parent: child writes, cites the path, parent `download_thread_file`. Need a URL: `thread_file_url` (expires). Two orbs do not share a disk. Do not paste a file body into a brief when a transfer can carry it. Do not push only to make an orb see a file unless the user authorized that push.
-
-**Briefs.** Compact: paths, named data shape, success criteria, how to report. No file dumps. Playbooks live with this skill. After load, Amp names the skill base directory. Open `playbooks/<name>.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
-
-Plugin agent tools accept `executor: local | orb | { type: "runner", id }`. `pstack_start_agent` also accepts `launchTarget.kind: "current-checkout" | "parent-project-orb" | "repo-independent-orb" | "named-runner" | "native-orb"`. `named-runner` requires `runnerId`, accepts optional absolute `workingDirectory`, and returns a guarded native `create_thread` redirect with `executor: "runner"`, `runner_id`, and `working_directory`. Amp forbids recursive custom-agent runner creation from a plugin tool, so blocking `pstack_run_agent` and `pstack_run_panel` reject runner executors; use one `pstack_start_agent` redirect per seat and aggregate reports in the parent. `current-checkout` means the current local CLI or runner; it is unavailable from an Amp-managed orb. When project, orb size, or an arbitrary mode matters, `native-orb` returns a native redirect. Amp has no `cloudBaseBranch`. Arbitrary native threads outside pstack redirects bypass ownership guards.
-
-Pick size from this table unless the user named one. The user-named size always wins. Changing a project default does not resize a running orb. From a local parent, keep dirty or machine-bound work local and send clean independent work to an orb. From an orb parent, use child orbs unless the work must stay in that parent thread's live filesystem.
-
-| Work | Size | How to spawn |
-|---|---|---|
-| Read-only local inspection | n/a | `pstack_start_agent` with `launchTarget.kind: "current-checkout"` |
-| Read-only fan-out that needs a tiny orb | `a1.tiny` | `launchTarget.kind: "native-orb"`, then the returned `create_thread` |
-| Small scripts, focused edits, light checks, recall/reflect miners | `a1.small` | `native-orb` `create_thread`, or `repo-independent-orb` if the project default is already small and the brief needs no checkout |
-| Ordinary feature, bug, refactor, or hillclimb on the current checkout | n/a | `pstack_start_agent` with `launchTarget.kind: "current-checkout"` |
-| Named machine, simulator, device, private network, or machine-only credentials | runner capacity | `pstack_start_agent` with `launchTarget.kind: "named-runner"` and `runnerId` |
-| Clean work from the parent project remote | project default (`a1.small` or `a1.medium`) | `pstack_start_agent` with `launchTarget.kind: "parent-project-orb"` |
-| Work that needs no checkout | project default (`a1.small` or `a1.medium`) | `pstack_start_agent` with `launchTarget.kind: "repo-independent-orb"` |
-| Moderate builds, local services, test suites | `a1.medium` | `native-orb` when the default is smaller |
-| Monorepos, several services, browsers, CPU-heavy tests, live visual lanes | `a1.large` | `native-orb` |
-| Unusually large builds and wide parallel workloads | `a1.xxlarge` | `native-orb` |
-| User named a size or mode | that size or mode | `native-orb` only |
-
-Start small when unsure. A later thread can be larger. Never resize in place.
-
-The `poteto` parent is Amp builtin `high` plus this skill. Amp selects its model and reasoning effort. It does not pin Grok or copy ultra tools. Grok stays on code and explorer workers. Do not start pstack work in official `grok46`; that mode does not load this skill. Never call `public_artifact_url` except for an image or video the user asked to share. Never call `painter` unless the user asked for an image. Model selection for delegates is role-based and configurable through the **setup-pstack** skill, `pstack_configure_models`, the plugin file `pstack.models.json`, `.amp/pstack.models.json`, or `~/.config/amp/pstack.models.json`. Code delegates (feature, refactoring, bug-fix, perf, hillclimb) default to `xai/grok-4.6`. The hardest changes, prose, and judgment default to `anthropic/claude-fable-5-1`. Panels are Fable 5.1, Sol, Grok, and Opus 5. The bundled plugin JSON drops Fable and Opus. Feature and refactoring are independently configurable roles. A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate: the plugin extends that Amp mode and keeps the pstack instructions. Raw Grok delegates request `reasoningEffort: xhigh`.
-
-For background work, include the parent thread ID and require the child to call `pstack_send_to_thread` with a compact report. For work that must wake later, explicitly use an Amp schedule. For an outside system that must wake an orb thread, use `pstack_create_wake_webhook`; Amp shows the capability URL through UI rather than transcript output. Webhooks are orb-only, at least once, and recover on the same persistent executor. Validate payload domains and make downstream actions idempotent.
+**Use a playbook role for any child you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own roles for diverse-model review. Respect what the skill prescribes, don't override to `feature`.
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary. A second opinion is the same prompt against a different model. Agreement is high-signal.
 
@@ -151,9 +117,9 @@ Comments follow the same rule as the reply. Write them clean as you go. Keep a c
 
 ## Playbooks
 
-Open an explicit checklist whose first items are the matched playbook's steps, copied verbatim, before any task-specific items. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below and open it from this skill's base directory. Do not invent plugin paths.
+Open an explicit checklist whose first items are the matched playbook's steps, copied in verbatim, before any task-specific items. A step you choose not to do stays in the list with a one-line `skip: <reason>`. Match the task to a playbook below, open its file from this skill's base directory, and copy its steps in verbatim.
 
-A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead; figure-it-out designs one bespoke run, orchestrate runs the program.
+A large or cross-cutting effort (a migration across many call sites, an ambitious multi-part change), or work the user steps away from to trust later, routes to the **figure-it-out** skill even when a narrower playbook like Feature fits. Use **figure-it-out** whenever no bundled playbook fits. It designs a bespoke, rigorous playbook for the task. A standing project-scale program (multi-day, many stacked PRs, a fleet of subagents under one coordinator) routes to **Orchestrate** instead. figure-it-out designs one bespoke run, orchestrate runs the program.
 
 - **Investigation.** Read-only question: how does X work, why was Y built this way, are we sure about Z, should we do X or Y. `playbooks/investigation.md`.
 - **Bug fix.** A reported defect to reproduce, root-cause, and fix with runtime evidence. `playbooks/bug-fix.md`.

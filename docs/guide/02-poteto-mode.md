@@ -35,7 +35,7 @@ You don't write a spec. You say what's wrong or what you want, plus anything you
 Use pstack:poteto-mode. Users get two notifications after a retry. Repro first, then fix and verify.
 ```
 
-That's a Bug fix prompt. "Repro first" is a real constraint, not politeness, and the playbook honors it. Watch the checklist fill with the Bug fix steps. A skipped step stays visible with `skip: <reason>`.
+That's a Bug fix prompt. "Repro first" is a real constraint, not politeness, and the playbook requires it. Watch the checklist fill with the Bug fix steps. A permitted skip stays visible with `skip: <reason>`. This does not make mandatory implementation delegation optional.
 
 When the conversation already carries the context, the prompt shrinks to almost nothing. All of these are enough:
 
@@ -56,6 +56,8 @@ The parent executor decides the safe default. A local parent runs implementation
 
 The parent can steer a live child with `pstack_send_to_thread`. Children report only to the parent. Do not let siblings message each other. Only a same-machine local parent and local child share the checkout, so cite paths. A child orb inherits the parent project, not the parent orb's files. If either thread is an orb, transfer files with `upload_thread_file` (4 MiB) or `download_thread_file`. Do not paste file bodies into briefs when a transfer can carry them.
 
-Never let two writing agents share a worktree. Give each one a branch or worktree.
+Independent writers need disjoint owned paths or separate worktrees. Never assign overlapping paths to live writers. A local parent and child can share the current checkout when their write scopes are disjoint; a child orb has a separate checkout and needs explicit file transfer for unpushed work.
+
+The [Amp adapter](../../skills/poteto-mode/references/amp-adapter.md) defines these execution mechanics. The playbook still owns the workflow. Parents plan, reproduce, review, and verify; implementation owners write the code and its follow-up fixes. Before shipping, require an independent verdict on the whole PR. A comment-only review is not that verdict.
 
 Next: [Understand the code](./03-understand.md).

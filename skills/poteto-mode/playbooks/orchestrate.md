@@ -14,9 +14,9 @@ Open an explicit checklist with the steps below copied verbatim. A step you skip
 
 #### Roles and placement
 
-- **Coordinator (this thread).** Local. Frames, authors briefs, drains the inbox, owns the human report, and makes judgment calls. It never authors code. Conflicted merges, restacks, and code changes are agent units. Agents are spawned through `pstack_start_agent` or Amp's native `create_thread` when a specific orb size or mode matters. State reads and writes go through `scripts/orch/orch.ts` at drain points. The CLI never spawns, waits, or wakes anything.
+- **Coordinator (this thread).** Local. Frames, authors briefs, drains the inbox, owns the human report, makes judgment calls. It never authors or edits code. Conflicted merges, restacks, and code changes are always tasks. Mechanically landing a verified unit (fast-forward or clean cherry-pick of a worker's commit, then push) is bookkeeping the coordinator may do itself on repos where local git is cheap, and only with explicit authorization. Queueing finished work behind an idle stacker is how a deadline harvests nothing. The loop is agentic end to end. Agents are spawned, resumed, and drained only through `pstack_start_agent` following `references/amp-adapter.md`. State reads and writes go through `scripts/orch/orch.ts` at drain points, one command in and one line out. The CLI never spawns, waits, or wakes anything.
 - **Sub-coordinator.** A durable Amp child thread, one per track, only when the program exceeds what one coordinator can drain. It owns its track's units and boards, authors worker briefs, spawns workers and verifiers, and sends compact rollups to the parent with `pstack_send_to_thread`. Cap in-flight children at what one drain can process, roughly ten.
-- **Worker / verifier.** Use an orb for independent work from the remote project base. Use local execution for uncommitted checkout state, local app control, simulators, or machine-only auth. Size orbs from the **poteto-mode** Agents and threads table. Cheap verify slices are `a1.tiny` or `a1.small`. Builds, browsers, and live lanes are `a1.large`. Use native `create_thread` when that size differs from the project default. Orb agents cannot read the coordinator's local store, so briefs inline what they need, point at committed repo paths, or receive files through the transfer rule below. Prefer fewer, broader workers and one writer per worktree or branch. Run a unit's verifier on a different model family from its worker.
+- **Worker / verifier.** Use an orb for independent work from the remote project base. Use local execution for uncommitted checkout state, local app control, simulators, or machine-only auth. Size orbs from `references/amp-adapter.md`. Cheap verify slices are `a1.tiny` or `a1.small`. Builds, browsers, and live lanes are `a1.large`. Use `native-orb` when that size differs from the project default. Orb agents cannot read the coordinator's local store, so briefs inline what they need, point at committed repo paths, or receive files through the adapter transfer rule. Prefer fewer, broader workers and one writer per worktree or branch. Run a unit's verifier on a different model family from its worker.
 
 Depth stays at coordinator, track, worker. Author the track decomposition per project (build, landing, and verification are common cuts, not a required shape); hard-coded swarm trees were tried and parked as too rigid.
 
@@ -55,13 +55,7 @@ Size the brief to the unit. A one-command unit gets the template collapsed to a 
 
 #### File transfer
 
-Threads do not share a filesystem. A `pstack_send_to_thread` message does not move files or commits. Only a same-machine local coordinator and local worker share the checkout. If either is an orb, transfer. When a worker needs an uncommitted artifact, a screenshot, a schema, or a store file the brief cannot point at in git, transfer it explicitly.
-
-- Coordinator to child: `upload_thread_file` with the child thread ID, the local path, and a destination under that child's workspace. Parent directory on the child must already exist. Cap is 4 MiB.
-- Child to coordinator: the child writes the file in its workspace and reports the path. The coordinator pulls it with `download_thread_file`.
-- A tool that needs a URL rather than a copy uses `thread_file_url` for that thread's executor-local path. Those URLs expire.
-
-Do not paste file bodies into briefs when a transfer can carry them. Do not assume an orb sees the coordinator's `orchestrate/` store. Push to a remote branch only when the user authorized that push and the file belongs in git.
+Follow `references/amp-adapter.md`. Do not assume an orb sees the coordinator's `orchestrate/` store.
 
 A sub-coordinator brief adds its track boundary and unit list, its spawn budget with the cloud default and the local exception list, the drain protocol, and the rollup format (per child: name, status, PR, head SHA, verdict, one line; plus track status and frontier delta).
 

@@ -13,7 +13,7 @@ Fan out N parallel attempts at the same task. Read every candidate end to end. P
 
 ## Start
 
-Open an explicit checklist with one entry per phase before launching anything. The arena runs autonomously and the list keeps phases from silently disappearing.
+Open an explicit checklist with one entry per phase before launching anything.
 
 1. Frame
 2. Fan out
@@ -35,7 +35,7 @@ The N candidates will receive the same prompt, so the prompt is the contract.
 
 Call `pstack_run_panel` once with the selected runner panel and a complete shared brief. Each agent receives a unique role label. Tell candidates to return the artifact in their response or write only to a path derived from that unique label. For custom runners, launch `pstack_run_agent` calls concurrently.
 
-When candidates must run in orbs, size them from the **poteto-mode** Agents and threads table. Design sketches and cross-judges are `a1.tiny` or `a1.small` via `create_thread` unless the project default is already that small. Implementation bakeoffs that build or drive the app follow the feature/bug row. Plugin panels cannot set `orb_size`.
+When candidates must run in orbs, size them from `../poteto-mode/references/amp-adapter.md`. Design sketches and cross-judges are `a1.tiny` or `a1.small` unless the project default is already that small. Implementation bakeoffs that build or drive the app follow the feature/bug row. Plugin panels cannot set `orb_size`.
 
 Each rationale names the alternatives the candidate considered and what it rejected.
 
@@ -43,7 +43,7 @@ If a candidate returns `status: timeout`, its seat remains pending and the runti
 
 ## Phase C: Cross-judge
 
-After all Phase B candidates are terminal and at least one completed, start one background agent with `pstack_start_agent`, role `arena-cross-judge`. If the parent ends before starting it, one continuation requests the missing judge. Once live, the parent idles and the judge's steered report wakes it. A failed judge restores one replacement gate; it never satisfies the design run. The judge sees the rubric and completed candidates by label, scores each criterion, and recommends a base with rationale. Never start it while candidates are still producing output.
+After all Phase B candidates are terminal and at least one completed, start one background agent with `pstack_start_agent`, role `arena-cross-judge`. Follow `../poteto-mode/references/amp-adapter.md`. If the parent ends before starting it, one continuation requests the missing judge. Once live, the parent idles and the judge's steered report wakes it. A failed judge restores one replacement gate; it never satisfies the design run. The judge sees the rubric and completed candidates by label, scores each criterion, and recommends a base with rationale. Never start it while candidates are still producing output.
 
 ## Phase D: Pick a base
 
@@ -51,7 +51,7 @@ Read every candidate end to end before picking.
 
 Score each candidate against the rubric criterion by criterion, not on holistic feel. Compare against the cross-judge. Agreement on the base confirms the pick. Disagreement means one of you is biased or the rubric was ambiguous. Read both rationales before deciding.
 
-Pick the base on which candidate a future maintainer can extend most easily without breaking invariants. Prefer the cleaner boundary or smaller surface area when two feel tied, per the Laziness Protocol.
+Pick the base on which candidate a future maintainer can extend most easily without breaking invariants. Prefer the cleaner boundary or smaller API when two feel tied, per the Laziness Protocol.
 
 Record the pick and the reason in a short synthesis note alongside the base artifact, including the cross-judge's verdict.
 

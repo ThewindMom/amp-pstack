@@ -2,6 +2,14 @@
 
 An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.2. It keeps pstack's 47 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
+## Porting contract
+
+The workflow source is [Cursor pstack 0.15.2 at the pinned revision](https://github.com/cursor/plugins/tree/032be146865d973682535de75f2287da438550bf/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow.
+
+The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
+
+Amp permissions and higher-priority instructions still apply. The mode supplies instructions, not a sandbox that prevents every workflow violation. The regression tests check the port's instruction contracts and runtime wiring; they do not prove that every future agent run complies. Inspect actual delegate calls and verification evidence when evaluating behavior. Loading the skill does not establish which mode was selected in the Dial.
+
 ## Install
 
 pstack is a directory plugin. Amp's URL installer (`amp plugins add`) only accepts a single `.ts` file, so do not use it here.
@@ -66,7 +74,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
-The bundled file follows Cursor pstack 0.15.2 without Fable or Opus. Amp `ultra` is Fable, so the cheap file uses `builtin:high` (Sol at xhigh) for every Fable or Sol seat. `builtin:medium` is only the second panel seat.
+The bundled file is a cost-oriented departure from Cursor's model defaults. It uses `builtin:high` for judgment and synthesis instead of explicit Fable or Sol model IDs, and `builtin:medium` as the second panel seat. Amp controls the models behind builtin modes; they are not stable aliases for particular providers.
 
 | Seat | Bundled map |
 |---|---|

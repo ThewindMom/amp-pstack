@@ -34,7 +34,7 @@ Write one clear paragraph. If you're unsure about the intent, ask the user befor
 
 ## Step 3, Spawn Reviewers
 
-Call `pstack_run_panel` once with panel `interrogate-reviewers` and the completed reviewer prompt. Reviewers are strict read-only. The plugin runs one reviewer per configured model and labels each result.
+Call `pstack_run_panel` once with panel `interrogate-reviewers` and the completed reviewer prompt. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers are strict read-only. The plugin runs one reviewer per configured model and labels each result.
 
 | Reviewer | Default model |
 |----------|---------------|

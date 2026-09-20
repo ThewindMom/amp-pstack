@@ -4,9 +4,9 @@
 
 1. When the change is one or two files with an obvious approach, skip the plan. Say so and stop.
 2. Settle open questions by prototype before you write. For a question about layout, timing, behavior, or whether an API works, run `playbooks/prototype.md`. Keep the branch, the SHA, and the screenshots for Appendix A. Ask the operator only about a product or preference call that no run can settle. Give options (the **never-block-on-the-human** principle skill).
-3. Explore with `pstack_start_agent` using the relevant configured roles, or native Amp child threads when an orb size or custom mode matters (the **guard-the-context-window** principle skill). Keep each `threadID` and join on the reports. Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
+3. Explore with `pstack_start_agent` using the relevant configured roles (the **guard-the-context-window** principle skill). Follow `references/amp-adapter.md`. Each returns file pointers, conventions, test commands, and entry points. No inlined dumps.
 4. Copy the skeleton below into the plan file and fill every placeholder. Unless the operator names a path, write the file under the agent store's `docs/`. Keep every heading and every sub-block in the order shown. One section per PR. One PR is one change with its own evidence (the **sequence-verifiable-units** principle skill). Name the execution playbook in **How to read this**. Pick between `playbooks/autopilot-full.md` and `playbooks/autopilot-stack.md` per the rule at the end of `playbooks/autopilot-stack.md`. A standing program takes `playbooks/orchestrate.md`.
-5. Write under **technical-writing** in full, then **unslop**. The body is one Diátaxis mode, how-to. Appendices hold explanation and reference. Two rules apply verbatim. "i dont want any abstract metaphors" and "write like hemingway". Each heading states the task or the finding. No long dashes. No mid-sentence colons.
+5. Write under **technical-writing** in full, then **unslop**. The body is one Diátaxis mode, how-to. Appendices hold explanation and reference. Each heading states the task or the finding. No long dashes. No mid-sentence colons.
 6. Run `bun skills/poteto-mode/scripts/check-plan.mjs <plan.md>` from this plugin root, or the equivalent path in the consuming repo, and fix every line it prints (the **encode-lessons-in-structure** principle skill). It enforces the skeleton's shape, the verification rule in every verification block, and the punctuation rules.
 7. Hand back. Post the plan path and the script's output, then stop. Execution starts on the operator's explicit go, under the execution playbook the plan names.
 
@@ -33,14 +33,14 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
 
 - [ ] State the protocol and this plan to the operator, then stop. Start execution only on the operator's explicit go.
 - [ ] On approval, store this durable objective in the root thread and decision trail. "<The plan path, the PR ids in order, the verification rule, who merges, and the done condition.>"
-- [ ] Read these from trunk at program start. Re-read them at every tick.
-  - [ ] `git show origin/main:skills/poteto-mode/playbooks/<execution playbook>.md`
-  - [ ] `git show origin/main:skills/swarm/SKILL.md`
-  - [ ] `git show origin/main:<control skill path>`
-  - [ ] `git show origin/main:skills/poteto-mode/playbooks/opening-a-pr.md`
-  - [ ] `git show origin/main:skills/<each other leaf skill the program uses>`
+- [ ] Read these at program start. Re-read them at every tick from the loaded skill path Amp names after load, or from an explicitly pinned plugin source. Do not `git show origin/main:skills/...` in the user's target repo.
+  - [ ] the named execution playbook
+  - [ ] `skills/swarm/SKILL.md`
+  - [ ] `<control skill path>`
+  - [ ] `skills/poteto-mode/playbooks/opening-a-pr.md`
+  - [ ] each other leaf skill the program uses
 - [ ] If the operator requested an ongoing run, arm a 30-minute Amp schedule for the root thread. Never leave the cadence to memory.
-- [ ] Use this tick prompt verbatim. "Re-read the execution playbook from trunk and the durable objective. Audit the operation against both and fix drift in this tick. Check every active Amp child thread and judge progress by side effects only. Stand down a stuck lane and dispatch its replacement now. Then post a status message to the operator in chat, whether or not anything changed, with the queue table of PR, owner, state, and head SHA, the verdicts since the last tick, what merged, open operator gates, and blockers."
+- [ ] Use this tick prompt verbatim. "Re-read the execution playbook from the loaded skill path or pinned plugin source and the durable objective. Audit the operation against both and fix drift in this tick. Check every active Amp child thread and judge progress by side effects only. A stuck lane gets a stop steer. A zero-writes steer is not proof it stopped. Confirm the prior owner has stopped or reached a terminal state. Reconcile its ownership claim before spawning a replacement. Never two live owners for the same PR. Then post a status message to the operator in chat, whether or not anything changed, with the queue table of PR, owner, state, and head SHA, the verdicts since the last tick, what merged, open operator gates, and blockers."
 - [ ] On the operator's hold or stand-down, send every owner a zero-writes order at once.
 
 ### Spawn owners
