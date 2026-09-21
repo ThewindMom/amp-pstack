@@ -902,7 +902,7 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: `T-parent-${index}` } },
 			)
 			expect(String(amp.created.at(-1)?.instructions)).toContain(POTETO_DELEGATE_INSTRUCTIONS)
-			expect(amp.created.at(-1)?.reasoningEffort).toBe('xhigh')
+			expect(amp.created.at(-1)?.reasoningEffort).toBe('medium')
 		}
 		expect(CODE_IMPLEMENTATION_ROLES).toEqual(
 			new Set(['feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb']),

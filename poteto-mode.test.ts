@@ -45,7 +45,7 @@ describe('poteto mode', () => {
 		const modelProse = `${skill}\n${adapter}`
 
 		expect(modelProse).toContain('parent is Amp builtin `high`')
-		expect(modelProse).toContain('Raw Grok delegates request `reasoningEffort: xhigh`')
+		expect(modelProse).toContain('Raw Grok 4.7 pstack delegates request `reasoningEffort: medium`')
 		expect(babysit).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 	})

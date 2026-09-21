@@ -24,7 +24,7 @@ You can also call `pstack_configure_models` with `action: "profile"` and `balanc
 
 The next local delegate resolves the changed map immediately. Reload plugins before using a changed role/model pair in an orb because Amp publishes those custom agent definitions when the plugin loads.
 
-A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate. The plugin extends that Amp mode and keeps the pstack instructions. Feature and refactoring are independently configurable roles. Cursor `inherit-parent` is not an Amp value. Raw `xai/grok-4.7` delegates explicitly request xhigh reasoning.
+A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate. The plugin extends that Amp mode and keeps the pstack instructions. Feature and refactoring are independently configurable roles. Cursor `inherit-parent` is not an Amp value. Raw `xai/grok-4.7` pstack delegates explicitly request medium reasoning; the standalone `grok47-xhigh` mode remains xhigh.
 
 ## Accept the verification offer, or don't
 

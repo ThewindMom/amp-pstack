@@ -48,7 +48,7 @@ Resolution order, later wins:
 4. Amp user config from `pstack_configure_models` `set` or `profile`.
 5. Workspace file `.amp/pstack.models.json`.
 
-The bundled plugin file is cheap plus high builtins and contains no Fable or Opus. It uses `builtin:medium` for reflect tooling, comment review, and the second panel seat. Edit that file when the change should follow the plugin. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Raw Grok delegates request xhigh reasoning; raw Sol has no effort override.
+The bundled plugin file is cheap plus high builtins and contains no Fable or Opus. It uses `builtin:medium` for reflect tooling, comment review, and the second panel seat. Edit that file when the change should follow the plugin. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Raw Grok 4.7 pstack delegates request medium reasoning; raw Sol has no effort override.
 
 Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed, including any budget rewrite of `builtin:*` seats. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
