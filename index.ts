@@ -112,44 +112,44 @@ export const SKILL_PATHS = [
 ] as const
 
 export const DEFAULT_MODELS = {
-	feature: 'xai/grok-4.6',
-	refactoring: 'xai/grok-4.6',
-	'bug-fix': 'xai/grok-4.6',
-	'perf-issue': 'xai/grok-4.6',
-	hillclimb: 'xai/grok-4.6',
+	feature: 'xai/grok-4.7',
+	refactoring: 'xai/grok-4.7',
+	'bug-fix': 'xai/grok-4.7',
+	'perf-issue': 'xai/grok-4.7',
+	hillclimb: 'xai/grok-4.7',
 	judgment: 'anthropic/claude-fable-5-1',
-	'how-explorer': 'xai/grok-4.6',
+	'how-explorer': 'xai/grok-4.7',
 	'how-explainer': 'anthropic/claude-fable-5-1',
-	'why-investigator': 'xai/grok-4.6',
+	'why-investigator': 'xai/grok-4.7',
 	'why-synthesizer': 'anthropic/claude-fable-5-1',
 	'reflect-tooling': 'openai/gpt-5.6-sol',
 	'reflect-judgment': 'anthropic/claude-fable-5-1',
 	'reflect-divergent': 'anthropic/claude-fable-5-1',
 	'reflect-synthesizer': 'anthropic/claude-fable-5-1',
-	'swarm-worker': 'xai/grok-4.6',
+	'swarm-worker': 'xai/grok-4.7',
 	'comment-reviewer': 'anthropic/claude-fable-5-1',
 	'arena-runners': [
 		'anthropic/claude-fable-5-1',
 		'openai/gpt-5.6-sol',
-		'xai/grok-4.6',
+		'xai/grok-4.7',
 		'anthropic/claude-opus-5',
 	],
 	'arena-cross-judge': [
 		'anthropic/claude-fable-5-1',
 		'openai/gpt-5.6-sol',
-		'xai/grok-4.6',
+		'xai/grok-4.7',
 		'anthropic/claude-opus-5',
 	],
 	'architect-runners': [
 		'anthropic/claude-fable-5-1',
 		'openai/gpt-5.6-sol',
-		'xai/grok-4.6',
+		'xai/grok-4.7',
 		'anthropic/claude-opus-5',
 	],
 	'interrogate-reviewers': [
 		'anthropic/claude-fable-5-1',
 		'openai/gpt-5.6-sol',
-		'xai/grok-4.6',
+		'xai/grok-4.7',
 		'anthropic/claude-opus-5',
 	],
 } as const
@@ -157,26 +157,26 @@ export const DEFAULT_MODELS = {
 const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
 
 export const CHEAP_MODELS = {
-	feature: 'xai/grok-4.6',
-	refactoring: 'xai/grok-4.6',
-	'bug-fix': 'xai/grok-4.6',
-	'perf-issue': 'xai/grok-4.6',
-	hillclimb: 'xai/grok-4.6',
-	judgment: 'xai/grok-4.6',
-	'how-explorer': 'xai/grok-4.6',
-	'how-explainer': 'xai/grok-4.6',
-	'why-investigator': 'xai/grok-4.6',
-	'why-synthesizer': 'xai/grok-4.6',
+	feature: 'xai/grok-4.7',
+	refactoring: 'xai/grok-4.7',
+	'bug-fix': 'xai/grok-4.7',
+	'perf-issue': 'xai/grok-4.7',
+	hillclimb: 'xai/grok-4.7',
+	judgment: 'xai/grok-4.7',
+	'how-explorer': 'xai/grok-4.7',
+	'how-explainer': 'xai/grok-4.7',
+	'why-investigator': 'xai/grok-4.7',
+	'why-synthesizer': 'xai/grok-4.7',
 	'reflect-tooling': 'openai/gpt-5.6-sol',
-	'reflect-judgment': 'xai/grok-4.6',
-	'reflect-divergent': 'xai/grok-4.6',
-	'reflect-synthesizer': 'xai/grok-4.6',
-	'swarm-worker': 'xai/grok-4.6',
-	'comment-reviewer': 'xai/grok-4.6',
-	'arena-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
-	'arena-cross-judge': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
-	'architect-runners': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
-	'interrogate-reviewers': ['xai/grok-4.6', 'openai/gpt-5.6-sol'],
+	'reflect-judgment': 'xai/grok-4.7',
+	'reflect-divergent': 'xai/grok-4.7',
+	'reflect-synthesizer': 'xai/grok-4.7',
+	'swarm-worker': 'xai/grok-4.7',
+	'comment-reviewer': 'xai/grok-4.7',
+	'arena-runners': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
+	'arena-cross-judge': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
+	'architect-runners': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
+	'interrogate-reviewers': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
 } as const
 
 export const MODEL_PROFILES = ['balanced', 'cheap', 'builtin', 'reset'] as const
@@ -735,7 +735,7 @@ export default async function pstack(amp: PluginAPI) {
 	}
 
 	const reasoningFor = (model: string): AgentReasoningEffort | undefined => {
-		if (model.startsWith('xai/grok-4.6')) return 'xhigh'
+		if (model.startsWith('xai/grok-4.7')) return 'xhigh'
 		return undefined
 	}
 

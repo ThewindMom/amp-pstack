@@ -4,14 +4,14 @@
 		"judgment": "builtin:high",
 		"how-explainer": "builtin:high",
 		"why-synthesizer": "builtin:high",
-		"reflect-tooling": "builtin:high",
+		"reflect-tooling": "builtin:medium",
 		"reflect-judgment": "builtin:high",
 		"reflect-divergent": "builtin:high",
 		"reflect-synthesizer": "builtin:high",
-		"comment-reviewer": "builtin:high",
-		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
-		"arena-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
-		"architect-runners": ["builtin:high", "builtin:medium", "xai/grok-4.6"],
-		"interrogate-reviewers": ["builtin:high", "builtin:medium", "xai/grok-4.6"]
+		"comment-reviewer": "builtin:medium",
+		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.7"],
+		"arena-runners": ["builtin:high", "builtin:medium", "xai/grok-4.7"],
+		"architect-runners": ["builtin:high", "builtin:medium", "xai/grok-4.7"],
+		"interrogate-reviewers": ["builtin:high", "builtin:medium", "xai/grok-4.7"]
 	}
 }

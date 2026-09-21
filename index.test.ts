@@ -109,13 +109,13 @@ describe('amp-pstack plugin', () => {
 	})
 
 	test('has multi-model role and panel defaults', () => {
-		expect(DEFAULT_MODELS['bug-fix']).toBe('xai/grok-4.6')
-		expect(DEFAULT_MODELS['perf-issue']).toBe('xai/grok-4.6')
-		expect(DEFAULT_MODELS.hillclimb).toBe('xai/grok-4.6')
+		expect(DEFAULT_MODELS['bug-fix']).toBe('xai/grok-4.7')
+		expect(DEFAULT_MODELS['perf-issue']).toBe('xai/grok-4.7')
+		expect(DEFAULT_MODELS.hillclimb).toBe('xai/grok-4.7')
 		expect(DEFAULT_MODELS.judgment).toBe('anthropic/claude-fable-5-1')
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(4)
-		expect(DEFAULT_MODELS.feature).toBe('xai/grok-4.6')
-		expect(DEFAULT_MODELS.refactoring).toBe('xai/grok-4.6')
+		expect(DEFAULT_MODELS.feature).toBe('xai/grok-4.7')
+		expect(DEFAULT_MODELS.refactoring).toBe('xai/grok-4.7')
 		expect(description.length).toBeLessThanOrEqual(300)
 	})
 
@@ -232,22 +232,22 @@ describe('transcript formatting', () => {
 describe('model configuration', () => {
 	test('accepts builtin modes and provider ids', () => {
 		expect(validateModel('builtin:medium')).toBe(true)
-		expect(validateModel('xai/grok-4.6')).toBe(true)
+		expect(validateModel('xai/grok-4.7')).toBe(true)
 		expect(validateModel('fireworks-ai/accounts/fireworks/models/kimi-k3')).toBe(true)
 		expect(validateModel('not-a-model')).toBe(false)
 		expect(validateModel('inherit-parent')).toBe(false)
 	})
 
 	test('rejects unknown roles and invalid models on set', () => {
-		expect(validateOverrides({ feature: 'xai/grok-4.6' })).toEqual({ feature: 'xai/grok-4.6' })
-		expect(() => validateOverrides({ 'feature-refactoring': 'xai/grok-4.6' })).toThrow(
+		expect(validateOverrides({ feature: 'xai/grok-4.7' })).toEqual({ feature: 'xai/grok-4.7' })
+		expect(() => validateOverrides({ 'feature-refactoring': 'xai/grok-4.7' })).toThrow(
 			'replaced by separate feature and refactoring roles',
 		)
 		expect(() => validateOverrides({ 'bug-fix': 'not-a-model' })).toThrow('Invalid model')
 		expect(() =>
-			validateOverrides({ 'bug-fix': 'xai/grok-4.6', mystery: [] }),
+			validateOverrides({ 'bug-fix': 'xai/grok-4.7', mystery: [] }),
 		).toThrow('Unknown pstack role')
-		expect(() => validateOverrides({ feature: ['xai/grok-4.6'] })).toThrow('Invalid model')
+		expect(() => validateOverrides({ feature: ['xai/grok-4.7'] })).toThrow('Invalid model')
 		expect(() => validateOverrides({ 'arena-runners': [] })).toThrow('Invalid model')
 		expect(() => validateOverrides(undefined)).toThrow('Missing overrides')
 		expect(validateOverrides({ 'bug-fix': 'openai/gpt-5.6-sol' })).toEqual({
@@ -259,7 +259,7 @@ describe('model configuration', () => {
 		expect(
 			storedModelMap({
 				'bug-fix': 'openai/gpt-5.6-sol',
-				mystery: 'xai/grok-4.6',
+				mystery: 'xai/grok-4.7',
 				hillclimb: 'nope',
 			}),
 		).toEqual({ 'bug-fix': 'openai/gpt-5.6-sol' })
@@ -278,15 +278,15 @@ describe('model configuration', () => {
 		})
 		expect(
 			storedModelMap({
-				refactoring: 'xai/grok-4.6',
+				refactoring: 'xai/grok-4.7',
 				'feature-refactoring': ['builtin:medium', 'builtin:low'],
 			}),
-		).toEqual({ feature: 'builtin:medium', refactoring: 'xai/grok-4.6' })
+		).toEqual({ feature: 'builtin:medium', refactoring: 'xai/grok-4.7' })
 	})
 
 	test('orb agent mode names are deterministic, distinct, and Amp-safe', () => {
-		const feature = orbAgentModeFor('feature', 'xai/grok-4.6')
-		expect(orbAgentModeFor('feature', 'xai/grok-4.6')).toEqual(feature)
+		const feature = orbAgentModeFor('feature', 'xai/grok-4.7')
+		expect(orbAgentModeFor('feature', 'xai/grok-4.7')).toEqual(feature)
 		expect(orbAgentModeFor('feature', 'builtin:high')).not.toEqual(feature)
 		expect(orbAgentModeFor('architect-runners-1', 'builtin:high')).not.toEqual(
 			orbAgentModeFor('architect-runners-2', 'builtin:high'),
@@ -319,18 +319,18 @@ describe('model configuration', () => {
 	test('cross-judge pools prefer a known different family and otherwise preserve order', () => {
 		expect(modelFamily('anthropic/claude-opus-5')).toBe('claude')
 		expect(modelFamily('openai/gpt-5.6-sol')).toBe('gpt')
-		expect(modelFamily('xai/grok-4.6')).toBe('grok')
+		expect(modelFamily('xai/grok-4.7')).toBe('grok')
 		expect(modelFamily('builtin:high')).toBeUndefined()
 		expect(
 			selectPoolModel(
-				['xai/grok-4.6', 'builtin:high', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5'],
+				['xai/grok-4.7', 'builtin:high', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5'],
 				'xai/grok-4.5',
 			),
 		).toBe('openai/gpt-5.6-sol')
-		expect(selectPoolModel(['builtin:high', 'xai/grok-4.6'], 'xai/grok-4.5')).toBe(
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toBe(
 			'builtin:high',
 		)
-		expect(selectPoolModel(['builtin:high', 'xai/grok-4.6'])).toBe('builtin:high')
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'])).toBe('builtin:high')
 		expect(() => selectPoolModel([])).toThrow('cannot be empty')
 	})
 
@@ -362,7 +362,7 @@ describe('model configuration', () => {
 
 	test('cheap profile has no Fable or Opus', () => {
 		const cheap = profileModels('cheap')
-		expect(cheap.judgment).toBe('xai/grok-4.6')
+		expect(cheap.judgment).toBe('xai/grok-4.7')
 		expect(JSON.stringify(cheap)).not.toContain('claude-fable')
 		expect(JSON.stringify(cheap)).not.toContain('claude-opus')
 		expect(profileModels('balanced').judgment).toBe(DEFAULT_MODELS.judgment)
@@ -370,15 +370,15 @@ describe('model configuration', () => {
 	})
 
 	test('workspace json accepts a models wrapper or a bare role map', () => {
-		expect(fileModelMap({ models: { 'bug-fix': 'xai/grok-4.6' } })).toEqual({
-			'bug-fix': 'xai/grok-4.6',
+		expect(fileModelMap({ models: { 'bug-fix': 'xai/grok-4.7' } })).toEqual({
+			'bug-fix': 'xai/grok-4.7',
 		})
-		expect(fileModelMap({ 'bug-fix': 'xai/grok-4.6' })).toEqual({ 'bug-fix': 'xai/grok-4.6' })
-		expect(fileModelMap({ models: { mystery: 'xai/grok-4.6' } })).toEqual({})
+		expect(fileModelMap({ 'bug-fix': 'xai/grok-4.7' })).toEqual({ 'bug-fix': 'xai/grok-4.7' })
+		expect(fileModelMap({ models: { mystery: 'xai/grok-4.7' } })).toEqual({})
 	})
 
 	test('workspace json profile expands then overlays models', () => {
-		expect(fileModelMap({ profile: 'cheap' }).judgment).toBe('xai/grok-4.6')
+		expect(fileModelMap({ profile: 'cheap' }).judgment).toBe('xai/grok-4.7')
 		expect(
 			fileModelMap({
 				profile: 'cheap',
@@ -394,15 +394,15 @@ describe('model configuration', () => {
 				pluginFile: { profile: 'cheap', models: { judgment: 'builtin:high' } },
 				userFile: { profile: 'cheap' },
 				stored: { hillclimb: 'builtin:high', judgment: 'anthropic/claude-fable-5' },
-				workspaceFile: { 'bug-fix': 'xai/grok-4.6' },
+				workspaceFile: { 'bug-fix': 'xai/grok-4.7' },
 			}),
 		).toMatchObject({
 			judgment: 'anthropic/claude-fable-5',
-			'bug-fix': 'xai/grok-4.6',
+			'bug-fix': 'xai/grok-4.7',
 			hillclimb: 'builtin:high',
-			feature: 'xai/grok-4.6',
-			refactoring: 'xai/grok-4.6',
-			'comment-reviewer': 'xai/grok-4.6',
+			feature: 'xai/grok-4.7',
+			refactoring: 'xai/grok-4.7',
+			'comment-reviewer': 'xai/grok-4.7',
 		})
 		expect(
 			resolveModels({
@@ -414,34 +414,34 @@ describe('model configuration', () => {
 				stored: { judgment: 'anthropic/claude-fable-5' },
 				workspaceFile: { profile: 'cheap' },
 			}).judgment,
-		).toBe('xai/grok-4.6')
+		).toBe('xai/grok-4.7')
 	})
 
-	test('bundled plugin json uses Grok for code and high for Fable and Sol seats', async () => {
+	test('bundled plugin json uses Grok for code, high for judgment, and medium for tooling', async () => {
 		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
 		const mapped = fileModelMap(bundled)
-		expect(mapped.feature).toBe('xai/grok-4.6')
-		expect(mapped.refactoring).toBe('xai/grok-4.6')
-		expect(mapped['bug-fix']).toBe('xai/grok-4.6')
-		expect(mapped['perf-issue']).toBe('xai/grok-4.6')
-		expect(mapped.hillclimb).toBe('xai/grok-4.6')
-		expect(mapped['reflect-tooling']).toBe('builtin:high')
+		expect(mapped.feature).toBe('xai/grok-4.7')
+		expect(mapped.refactoring).toBe('xai/grok-4.7')
+		expect(mapped['bug-fix']).toBe('xai/grok-4.7')
+		expect(mapped['perf-issue']).toBe('xai/grok-4.7')
+		expect(mapped.hillclimb).toBe('xai/grok-4.7')
+		expect(mapped['reflect-tooling']).toBe('builtin:medium')
 		expect(mapped.judgment).toBe('builtin:high')
 		expect(mapped['how-explainer']).toBe('builtin:high')
 		expect(mapped['why-synthesizer']).toBe('builtin:high')
 		expect(mapped['reflect-judgment']).toBe('builtin:high')
 		expect(mapped['reflect-divergent']).toBe('builtin:high')
 		expect(mapped['reflect-synthesizer']).toBe('builtin:high')
-		expect(mapped['comment-reviewer']).toBe('builtin:high')
+		expect(mapped['comment-reviewer']).toBe('builtin:medium')
 		expect(mapped['arena-cross-judge']).toEqual([
 			'builtin:high',
 			'builtin:medium',
-			'xai/grok-4.6',
+			'xai/grok-4.7',
 		])
 		expect(mapped['interrogate-reviewers']).toEqual([
 			'builtin:high',
 			'builtin:medium',
-			'xai/grok-4.6',
+			'xai/grok-4.7',
 		])
 		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
 		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
@@ -451,10 +451,10 @@ describe('model configuration', () => {
 		const example = JSON.parse(await Bun.file('.amp/pstack.models.example.json').text())
 		const mapped = fileModelMap(example)
 		expect(mapped.judgment).toBe('builtin:high')
-		expect(mapped.feature).toBe('xai/grok-4.6')
-		expect(mapped.refactoring).toBe('xai/grok-4.6')
+		expect(mapped.feature).toBe('xai/grok-4.7')
+		expect(mapped.refactoring).toBe('xai/grok-4.7')
 		expect(mapped['interrogate-reviewers']).toEqual([
-			'xai/grok-4.6',
+			'xai/grok-4.7',
 			'openai/gpt-5.6-sol',
 		])
 		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
@@ -467,8 +467,8 @@ describe('model configuration', () => {
 			expect(await readJsonFile(join(root, 'missing.json'))).toBeUndefined()
 			await writeFile(join(root, 'bad.json'), '{')
 			expect(await readJsonFile(join(root, 'bad.json'))).toBeUndefined()
-			await writeFile(join(root, 'ok.json'), '{"bug-fix":"xai/grok-4.6"}')
-			expect(await readJsonFile(join(root, 'ok.json'))).toEqual({ 'bug-fix': 'xai/grok-4.6' })
+			await writeFile(join(root, 'ok.json'), '{"bug-fix":"xai/grok-4.7"}')
+			expect(await readJsonFile(join(root, 'ok.json'))).toEqual({ 'bug-fix': 'xai/grok-4.7' })
 		} finally {
 			await rm(root, { recursive: true, force: true })
 		}
@@ -483,7 +483,7 @@ describe('model configuration', () => {
 				JSON.stringify({ profile: 'cheap' }),
 			)
 			const layers = await loadFileLayers(root, join(root, 'user.json'), join(root, 'plugin.json'))
-			expect(fileModelMap(layers.workspaceFile).judgment).toBe('xai/grok-4.6')
+			expect(fileModelMap(layers.workspaceFile).judgment).toBe('xai/grok-4.7')
 			expect(layers.pluginFile).toBeUndefined()
 			expect((await loadFileLayers(null, join(root, 'user.json'))).workspaceFile).toBeUndefined()
 			expect(workspaceRootPath({ system: { workspaceRoot: null } } as never)).toBeNull()
@@ -1014,7 +1014,7 @@ describe('runtime tool behavior', () => {
 		const amp = await loadPlugin({
 			initialConfig: {
 				[CONFIG_KEY]: {
-					'arena-cross-judge': ['xai/grok-4.6', 'builtin:high', 'openai/gpt-5.6-sol'],
+					'arena-cross-judge': ['xai/grok-4.7', 'builtin:high', 'openai/gpt-5.6-sol'],
 				},
 			},
 		})
@@ -1351,9 +1351,9 @@ describe('runtime tool behavior', () => {
 			action: 'profile',
 			profile: 'cheap',
 		})
-		expect(JSON.parse(profiled).judgment).toBe('xai/grok-4.6')
+		expect(JSON.parse(profiled).judgment).toBe('xai/grok-4.7')
 		expect(JSON.parse(profiled)['arena-cross-judge']).toEqual([
-			'xai/grok-4.6',
+			'xai/grok-4.7',
 			'openai/gpt-5.6-sol',
 		])
 		await tool(amp, 'pstack_configure_models').execute({ action: 'reset' })
@@ -1386,7 +1386,7 @@ describe('runtime tool behavior', () => {
 			amp.system.workspaceRoot = root
 			amp.helpers.filePathFromURI = () => root
 			const shown = JSON.parse(await tool(amp, 'pstack_configure_models').execute({ action: 'show' }))
-			expect(shown.judgment).toBe('xai/grok-4.6')
+			expect(shown.judgment).toBe('xai/grok-4.7')
 			expect(shown.hillclimb).toBe('builtin:low')
 			expect(JSON.stringify(shown)).not.toContain('claude-fable')
 		} finally {

@@ -9,6 +9,6 @@
 		"reflect-divergent": "builtin:high",
 		"reflect-synthesizer": "builtin:high",
 		"comment-reviewer": "builtin:high",
-		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.6"]
+		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.7"]
 	}
 }
