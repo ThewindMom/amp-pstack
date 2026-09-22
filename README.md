@@ -41,7 +41,7 @@ Confirm with `amp plugins list`. A personal copy shows as `amp-global-plugin:pst
 
 ## Start
 
-Select `poteto` from the mode picker after it is on your Dial. If the picker still only shows builtins and official-modes, start in `high` and load the skill:
+Select `poteto` from the mode picker after it is on your Dial. If the picker still only shows builtins and official-modes, start in `medium` and load the skill:
 
 ```text
 Load pstack:poteto-mode. Then <task>.
@@ -57,7 +57,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'high'`: Amp's high-mode parent, Amp tools, and pstack routing. Grok at medium reasoning handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'`: Amp's medium-mode parent, Amp tools, and pstack routing. Grok at medium reasoning handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns `threadID` immediately. The child exclusively owns its paths and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits only when this turn cannot proceed without one result. Timeout preserves the live `threadID`; terminal failure returns `status: "error"`.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now.
@@ -70,18 +70,18 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` is builtin high plus pstack. Amp selects the parent model and reasoning effort; pstack supplies playbook routing. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. High coordinates and judges; Grok at medium reasoning handles implementation and exploration delegates.
+`poteto` is builtin medium plus pstack. Amp selects the parent model and reasoning effort; pstack supplies playbook routing. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. Medium coordinates. High judges. Grok at medium reasoning handles implementation and exploration delegates.
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
-The bundled file is a cost-oriented departure from Cursor's model defaults. It uses `builtin:high` for judgment and synthesis instead of explicit Fable model IDs, and `builtin:medium` for tooling, comment review, and the second panel seat. Amp controls the models behind builtin modes; they are not stable aliases for particular providers.
+The bundled file is a cost-oriented departure from Cursor's model defaults. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats, instead of explicit Fable model IDs. Amp controls the models behind builtin modes; they are not stable aliases for particular providers.
 
 | Seat | Bundled map |
 |---|---|
-| Parent `poteto` | `extends: high` (Amp-selected model and reasoning effort) |
+| Parent `poteto` | `extends: medium` (Amp-selected model and reasoning effort) |
 | Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` |
-| Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer | `builtin:high` |
-| Reflect-tooling, comment-reviewer | `builtin:medium` |
+| Judgment | `builtin:high` |
+| How-explainer, why-synthesizer, reflect-tooling, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `builtin:medium` |
 | Panels | high, medium, Grok |
 | Arena cross-judge pool | high, medium, Grok; one judge runs, preferring a known family different from the parent |
 

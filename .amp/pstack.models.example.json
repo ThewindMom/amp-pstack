@@ -1,14 +1,6 @@
 {
 	"profile": "cheap",
 	"models": {
-		"arena-cross-judge": ["builtin:high"],
-		"judgment": "builtin:high",
-		"how-explainer": "builtin:high",
-		"why-synthesizer": "builtin:high",
-		"reflect-judgment": "builtin:high",
-		"reflect-divergent": "builtin:high",
-		"reflect-synthesizer": "builtin:high",
-		"comment-reviewer": "builtin:high",
-		"arena-cross-judge": ["builtin:high", "builtin:medium", "xai/grok-4.7"]
+		"judgment": "builtin:high"
 	}
 }

@@ -3,7 +3,7 @@
 import type { PluginAPI } from '@ampcode/plugin'
 
 export const description =
-	'Poteto mode for Amp: builtin high parent with Amp tools, plus pstack coordinator routing. Pair with the pstack directory plugin for skills and tools.'
+	'Poteto mode for Amp: builtin medium parent with Amp tools, plus pstack coordinator routing. Pair with the pstack directory plugin for skills and tools.'
 
 export const COORDINATOR_INSTRUCTIONS = `Playbook match or rigor needed: load pstack:poteto-mode and follow its matched playbook. Casual turn or user opts out: do not. After load, read references/amp-adapter.md from the loaded skill for Amp executors, ownership, transfers, models, schedules, and blocking-tool exceptions.
 
@@ -20,7 +20,7 @@ Use Amp child threads, orbs, named runners, and schedules for durable work. Deta
 export default function (amp: PluginAPI) {
 	const agent = amp.createAgent({
 		name: 'poteto',
-		extends: 'high',
+		extends: 'medium',
 		instructions: COORDINATOR_INSTRUCTIONS,
 		display: { label: 'poteto', color: '#eab308' },
 	})
@@ -29,7 +29,7 @@ export default function (amp: PluginAPI) {
 		key: 'poteto',
 		label: 'poteto',
 		description:
-			'Builtin high with Amp tools, then pstack playbooks. The parent coordinates. It does not pin a model.',
+			'Builtin medium with Amp tools, then pstack playbooks. The parent coordinates. It does not pin a model.',
 		color: '#eab308',
 		agent: agent.definition,
 	})

@@ -22,13 +22,13 @@
 		{
 			"id": "runtime-mode-advisory",
 			"from": "Cursor custom mode with disable-model-invocation: true",
-			"to": "Amp poteto extends builtin high. Mode instructions are advisory and do not strip write tools or invent tool gates.",
+			"to": "Amp poteto extends builtin medium. Mode instructions are advisory and do not strip write tools or invent tool gates.",
 			"why": "Amp plugin modes cannot sandbox the coordinator or enforce the playbook."
 		},
 		{
-			"id": "parent-high",
+			"id": "parent-medium",
 			"from": "Cursor parent uses the user's chat model",
-			"to": "Amp poteto extends builtin high with no model pin on the parent agent.",
+			"to": "Amp poteto extends builtin medium with no model pin on the parent agent.",
 			"why": "Requested Amp parent. Models stay unchanged by this wrapper."
 		}
 	]

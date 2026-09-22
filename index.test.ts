@@ -417,7 +417,7 @@ describe('model configuration', () => {
 		).toBe('xai/grok-4.7')
 	})
 
-	test('bundled plugin json uses Grok for code, high for judgment, and medium for tooling', async () => {
+	test('bundled plugin json uses Grok for code, high only for judgment, and medium for other builtin seats', async () => {
 		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
 		const mapped = fileModelMap(bundled)
 		expect(mapped.feature).toBe('xai/grok-4.7')
@@ -427,11 +427,11 @@ describe('model configuration', () => {
 		expect(mapped.hillclimb).toBe('xai/grok-4.7')
 		expect(mapped['reflect-tooling']).toBe('builtin:medium')
 		expect(mapped.judgment).toBe('builtin:high')
-		expect(mapped['how-explainer']).toBe('builtin:high')
-		expect(mapped['why-synthesizer']).toBe('builtin:high')
-		expect(mapped['reflect-judgment']).toBe('builtin:high')
-		expect(mapped['reflect-divergent']).toBe('builtin:high')
-		expect(mapped['reflect-synthesizer']).toBe('builtin:high')
+		expect(mapped['how-explainer']).toBe('builtin:medium')
+		expect(mapped['why-synthesizer']).toBe('builtin:medium')
+		expect(mapped['reflect-judgment']).toBe('builtin:medium')
+		expect(mapped['reflect-divergent']).toBe('builtin:medium')
+		expect(mapped['reflect-synthesizer']).toBe('builtin:medium')
 		expect(mapped['comment-reviewer']).toBe('builtin:medium')
 		expect(mapped['arena-cross-judge']).toEqual([
 			'builtin:high',
@@ -865,7 +865,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.started).toHaveLength(0)
 	})
 
-	test('poteto-mode.ts registers a builtin high parent without a model pin', async () => {
+	test('poteto-mode.ts registers a builtin medium parent without a model pin', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -883,7 +883,7 @@ describe('runtime tool behavior', () => {
 		expect(modes).toEqual(['poteto'])
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
-			extends: 'high',
+			extends: 'medium',
 		})
 		expect(created[0]).not.toHaveProperty('model')
 		expect(created[0]).not.toHaveProperty('tools')
