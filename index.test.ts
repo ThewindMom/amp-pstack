@@ -865,7 +865,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.started).toHaveLength(0)
 	})
 
-	test('poteto-mode.ts registers a builtin medium parent without a model pin', async () => {
+	test('poteto-mode.ts registers GPT-6 Sol at medium reasoning on a medium parent', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -884,8 +884,9 @@ describe('runtime tool behavior', () => {
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
 			extends: 'medium',
+			model: 'openai/gpt-6-sol',
+			reasoningEffort: 'medium',
 		})
-		expect(created[0]).not.toHaveProperty('model')
 		expect(created[0]).not.toHaveProperty('tools')
 	})
 

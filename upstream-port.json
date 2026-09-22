@@ -28,8 +28,8 @@
 		{
 			"id": "parent-medium",
 			"from": "Cursor parent uses the user's chat model",
-			"to": "Amp poteto extends builtin medium with no model pin on the parent agent.",
-			"why": "Requested Amp parent. Models stay unchanged by this wrapper."
+			"to": "Amp poteto extends builtin medium and pins openai/gpt-6-sol at medium reasoning.",
+			"why": "Requested Amp parent on GPT-6 Sol medium. Builtin medium still maps to GPT-5.6 Sol, and official gpt6s is high effort."
 		}
 	]
 }

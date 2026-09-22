@@ -57,7 +57,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'`: Amp's medium-mode parent, Amp tools, and pstack routing. Grok at medium reasoning handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'` and pins `openai/gpt-6-sol` at medium reasoning. Amp medium tools stay. Grok at medium reasoning handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns `threadID` immediately. The child exclusively owns its paths and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits only when this turn cannot proceed without one result. Timeout preserves the live `threadID`; terminal failure returns `status: "error"`.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now.
@@ -70,7 +70,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` is builtin medium plus pstack. Amp selects the parent model and reasoning effort; pstack supplies playbook routing. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. Medium coordinates. High judges. Grok at medium reasoning handles implementation and exploration delegates.
+`poteto` is Amp medium tools plus GPT-6 Sol at medium reasoning, then pstack playbooks. Builtin `medium` still maps to GPT-5.6 Sol on Amp's Dial, so the parent pins `openai/gpt-6-sol` instead of inheriting that Dial model. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. Medium coordinates. High judges. Grok at medium reasoning handles implementation and exploration delegates.
 
 Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
@@ -78,7 +78,7 @@ The bundled file is a cost-oriented departure from Cursor's model defaults. It u
 
 | Seat | Bundled map |
 |---|---|
-| Parent `poteto` | `extends: medium` (Amp-selected model and reasoning effort) |
+| Parent `poteto` | `extends: medium`, model `openai/gpt-6-sol`, `reasoningEffort: medium` |
 | Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` |
 | Judgment | `builtin:high` |
 | How-explainer, why-synthesizer, reflect-tooling, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `builtin:medium` |
