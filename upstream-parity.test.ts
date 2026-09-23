@@ -78,11 +78,39 @@ describe('pinned upstream decision contracts', () => {
 		expect(full).toContain('A defect that a lane filed as a note is a finding.')
 		expect(full).toContain('CI must pass on that head before the merge')
 		expect(full).toContain('A stall never proves or drops the work.')
+		expect(full).toContain('Record each stuck child as stuck whether or not the stop works.')
+		expect(full).toContain(
+			'Replace it only after that child has stopped or reached a terminal state and its ownership claim is reconciled',
+		)
+		expect(full).not.toContain('Whether or not a stop works, the root has the owner record')
 		expect(full).not.toContain('The rebase always precedes babysit')
+		expect(stack).toContain('Probe stuck children and end the tick per Autopilot-full step 6.')
 		expect(stack).toContain('children.tsv')
 		expect(stack).toContain('Verify each round')
 		expect(stack).toContain('keyed by that exact head SHA')
 		expect(stack).not.toContain('Verify at STACK-READY')
+	})
+
+	test('audit ticks report only new tracked changes and still log a row', async () => {
+		const plan = await repoFile('skills/poteto-mode/playbooks/multi-phase-plan.md')
+		const prompt = plan.slice(plan.indexOf('Use this tick prompt verbatim.'))
+		expect(prompt).toContain('only when the audit found a tracked change that no earlier status message reported')
+		expect(prompt).toContain('Do not repeat a table, the merged list, or an unchanged blocker.')
+		expect(prompt).toContain('If the audit found none, end the turn with no reply text.')
+		expect(prompt).toContain("log this tick's row in your decision trail")
+		expect(prompt).toContain('Record the lane as stuck whether or not the stop works.')
+		expect(prompt).toContain('Replace it only after the prior owner has stopped or reached a terminal state')
+		expect(prompt).not.toContain('whether or not anything changed, with the queue table')
+	})
+
+	test('persisted model overrides stay until the user changes them', async () => {
+		const setup = await repoFile('skills/setup-pstack/SKILL.md')
+		const guide = await repoFile('docs/guide/01-setup.md')
+		for (const text of [setup, guide]) {
+			expect(text).toContain('A persisted override stays until')
+			expect(text).not.toContain('is stale')
+			expect(text).not.toContain('Delete those role lines')
+		}
 	})
 
 	test('swarm drops a result that omits the named SHA and method', async () => {
