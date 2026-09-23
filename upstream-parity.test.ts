@@ -3,8 +3,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '032be146865d973682535de75f2287da438550bf'
-const PINNED_VERSION = '0.15.2'
+const PINNED_COMMIT = 'b42effe0aa50f59c693d7e2924714e015e00bf7c'
+const PINNED_VERSION = '0.15.3'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -12,7 +12,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.2 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.3 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -62,6 +62,36 @@ describe('pinned upstream decision contracts', () => {
 		const shipping = await repoFile('skills/poteto-mode/playbooks/shipping.md')
 		expect(shipping).toContain('Safe means a verdict from an agent that did not write the code.')
 		expect(shipping).toContain('CI green is not a verdict, and an approving bot review is not a verdict.')
+		expect(shipping).toContain('differ only in tests, docs, or lint config')
+		expect(shipping).toContain('Build it twice at the verdict SHA and once at the current head.')
+		expect(shipping).toContain('Do not reuse a lane result from a dev server')
+		expect(shipping).toContain('Re-verify anything else when the patch changed.')
+	})
+
+	test('autopilot rounds are keyed by exact head SHA and children by thread ID', async () => {
+		const full = await repoFile('skills/poteto-mode/playbooks/autopilot-full.md')
+		const stack = await repoFile('skills/poteto-mode/playbooks/autopilot-stack.md')
+		expect(full).toContain('keyed by that child\'s thread ID')
+		expect(full).toContain('A verification round is keyed by the exact head SHA.')
+		expect(full).toContain('code-ready head SHA and at each later push that changes the PR\'s patch')
+		expect(full).toContain('two or more review lanes')
+		expect(full).toContain('A defect that a lane filed as a note is a finding.')
+		expect(full).toContain('CI must pass on that head before the merge')
+		expect(full).toContain('A stall never proves or drops the work.')
+		expect(full).not.toContain('The rebase always precedes babysit')
+		expect(stack).toContain('children.tsv')
+		expect(stack).toContain('Verify each round')
+		expect(stack).toContain('keyed by that exact head SHA')
+		expect(stack).not.toContain('Verify at STACK-READY')
+	})
+
+	test('swarm drops a result that omits the named SHA and method', async () => {
+		const swarm = await repoFile('skills/swarm/SKILL.md')
+		expect(swarm).toContain('each brief names the exact SHAs')
+		expect(swarm).toContain('A measurement brief also names the method')
+		expect(swarm).toContain('lists every issue it can prove, not only the first')
+		expect(swarm).toContain('rerun that worker once')
+		expect(swarm).toContain('A gap does not count as a pass.')
 	})
 
 	test('why still launches one background source reader per evidence category', async () => {
