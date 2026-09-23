@@ -17,7 +17,7 @@ Run `amp plugins show-agent-options --json` and use its model IDs. Never configu
 
 ### 2. Load current state
 
-Call `pstack_configure_models` with `action: "show"`. Treat the returned map as the current choices.
+Call `pstack_configure_models` with `action: "show"`. Treat the returned map as the current choices. The runtime already ignores unknown role keys, and `show` does not return them. Setup does not enumerate those keys and does not read raw config to find them. Do not delete a stored Fable ID that is still a current role. That may be a chosen model.
 
 ### 3. Budget, map, and confirm
 
@@ -32,7 +32,7 @@ Amp has no Cursor thinking slugs (`-thinking-max`, `-fast-xhigh`). Effort lives 
 
 **(b) Apply it.** Build the working table from the skill defaults, then the live `show` map. On a re-run, keep any role the user already changed by family or list. Then apply the budget rewrite from (a).
 
-**(c) Show the roles and confirm.** Show every role with its model, marking any ID not in the detected set as needing a choice. Ask whether to accept as-is or change specific roles. For panel roles, the value is a list and one agent runs per entry, so list length sets panel size. `arena-cross-judge` is a pool: one judge runs, preferring a known model family different from the parent and otherwise using the first entry. `swarm-worker` is the default for workers unless a race explicitly uses a panel.
+**(c) Show the roles and confirm.** Show every role `show` returned, with its model, marking any ID not in the detected set as needing a choice. Do not list retired keys. `show` already omitted them. Ask whether to accept as-is or change specific roles. Prefer a structured choice when the client supports one. Offer the detected models plus the built-in aliases. For panel roles, the value is a list and one agent runs per entry, so list length sets panel size. `arena-cross-judge` is a pool: one judge runs, preferring a known model family different from the parent and otherwise using the first entry. `swarm-worker` is the default for workers unless a race explicitly uses a panel.
 
 ### 4. Validate
 

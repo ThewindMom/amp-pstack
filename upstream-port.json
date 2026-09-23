@@ -2,9 +2,9 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "b42effe0aa50f59c693d7e2924714e015e00bf7c",
-		"version": "0.15.3",
-		"tree": "https://github.com/cursor/plugins/tree/b42effe0aa50f59c693d7e2924714e015e00bf7c/pstack"
+		"commit": "12d587dfb20741cafc376c42c696c5f6e2a64487",
+		"version": "0.15.5",
+		"tree": "https://github.com/cursor/plugins/tree/12d587dfb20741cafc376c42c696c5f6e2a64487/pstack"
 	},
 	"intentionalDepartures": [
 		{
@@ -30,6 +30,24 @@
 			"from": "Cursor parent uses the user's chat model",
 			"to": "Amp poteto extends builtin medium and pins anthropic/claude-opus-5-5 at medium reasoning.",
 			"why": "Requested Amp parent on Opus 5.5 medium. Builtin medium still maps to GPT-5.6 Sol, builtin high is GPT-6 Astra medium, and official gpt6s is high effort."
+		},
+		{
+			"id": "feature-nested-spawn-sentence",
+			"from": "You can spawn a subagent even though you are one. \"The app is small\" and \"a subagent cannot spawn one\" are both wrong.",
+			"to": "Feature keeps the Amp sentence that a child can spawn a child, and that a small app is not a reason to skip delegation.",
+			"why": "0.15.5 removed that Cursor sentence. Amp still needs it so an owner does not treat nested spawn as impossible."
+		},
+		{
+			"id": "check-plan-nonblank-model",
+			"from": "Ten lanes on `[^`<>]+` at the PR head",
+			"to": "The Amp checker also rejects a whitespace-only model inside the backticks.",
+			"why": "Upstream 0.15.5 rejects angle brackets and empty ticks. A blank model is not a filled model, so the Amp checker tightens that boundary."
+		},
+		{
+			"id": "no-cursor-model-aliases",
+			"from": "A role line of inherit-parent or auto omits Task model. A rejected slug falls back to the same family on that Task call.",
+			"to": "Amp roles resolve through the plugin. inherit-parent and auto stay invalid. A rejected single-role spawn stops. A rejected panel seat is one dropout. A replacement config write happens only when the user asks, then reload before the next orb spawn. There is no per-call model argument.",
+			"why": "pstack_start_agent and pstack_run_panel take a role or panel. modelFor and panelFor resolve the map. Orb agents are registered at plugin load."
 		}
 	]
 }

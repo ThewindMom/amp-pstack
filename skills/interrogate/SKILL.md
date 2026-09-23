@@ -34,7 +34,7 @@ Write one clear paragraph. If you're unsure about the intent, ask the user befor
 
 ## Step 3, Spawn Reviewers
 
-Call `pstack_run_panel` once with panel `interrogate-reviewers` and the completed reviewer prompt. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers are strict read-only. The plugin runs one reviewer per configured model and labels each result.
+Call `pstack_run_panel` once with panel `interrogate-reviewers` and the completed reviewer prompt. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers are strict read-only. The plugin runs one reviewer per configured model and labels each result. If the panel is missing, use the table defaults.
 
 | Reviewer | Default model |
 |----------|---------------|
@@ -42,7 +42,7 @@ Call `pstack_run_panel` once with panel `interrogate-reviewers` and the complete
 | Reviewer B | `openai/gpt-6-sol` |
 | Reviewer C | `xai/grok-4.7` |
 
-If a configured model is rejected, run `amp plugins show-agent-options --json`, choose the closest available model in the same family, complete the review, and report the stale configuration. Do not alter shared configuration without the user's request.
+If Amp rejects one configured entry, that seat is a terminal dropout. Complete the remaining reviewers and note the dropout. Do not stop the panel. Do not retry that seat with another model on that call. A replacement is a persistent config write. Do it only when the user asks, through `pstack_configure_models` or **setup-pstack**, using an ID from `amp plugins show-agent-options --json`. Reload plugins before the next orb spawn. Cursor `inherit-parent` and `auto` are not Amp values.
 
 Read `references/reviewer-prompt.md` and fill in the template with:
 1. The stated intent

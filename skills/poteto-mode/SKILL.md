@@ -93,7 +93,7 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait. Read `references/amp-adapter.md` before spawning. It owns join, blocking wait, never-redo, steer, files, launch targets, size, briefs, models, schedules, and who writes the code.
 
-**Use a playbook role for any child you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own roles for diverse-model review. Respect what the skill prescribes, don't override to `feature`.
+**Use a playbook role for any child you spawn inside a playbook step** (code-writing delegates, ad-hoc helpers). Routed workflow skills (`how`, `why`, `interrogate`, `reflect`, `swarm`) set their own roles for diverse-model review. Respect what the skill prescribes, don't override to `feature`. Each code playbook's model comes from its role (`feature`, `refactoring`, `bug-fix`, `perf-issue`, or `hillclimb`). The hardest changes and prose or judgment read `judgment`. A missing role uses `DEFAULT_MODELS`. If Amp rejects a configured model, follow `references/amp-adapter.md`. A single-role spawn stops. A panel seat is one dropout. There is no per-call model fallback. A config write needs the user's request.
 
 You own every subagent's work. Review the diff and write your own summary, don't pass through what it said. Interrupt-chained resumes silently drop directives, so fire a fresh subagent with consolidated scope rather than trusting a "done" summary. A second opinion is the same prompt against a different model. Agreement is high-signal.
 

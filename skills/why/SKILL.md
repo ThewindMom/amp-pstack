@@ -13,6 +13,8 @@ Investigate the motivation and intent behind code.
 
 Companion to the `how` skill. `how` answers what the code does and how it works. `why` answers what forces led to its shape.
 
+Each spawn below names an Amp role. The plugin resolves its model. `why-investigator` defaults to `xai/grok-4.7`. `why-synthesizer` defaults to `anthropic/claude-opus-5-5`. A missing role uses that default. If Amp rejects a configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn.
+
 ## Operating Posture
 
 Operate as a **careful, cautious, and precise investigator**. Be honest about what you know vs what you're inferring. Read `references/epistemics.md` for the full confidence framework and phrasing guide. The synthesizer must follow it.
@@ -78,7 +80,7 @@ Source control is always available through git and `gh`. For the other six, clas
 
 Aim for a complete **coverage map**, not a minimal one. Document the null, don't skip the search.
 
-Launch one `pstack_start_agent` call per matching category concurrently, using role `why-investigator`. Follow `../poteto-mode/references/amp-adapter.md`. Non-source-control investigators can use `repo-independent-orb` when their evidence comes entirely from MCPs. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs. The brief forbids writes even though the agent has tools, because MCP access is required.
+Launch one `pstack_start_agent` call per matching category concurrently, using role `why-investigator` (default `xai/grok-4.7`). Follow `../poteto-mode/references/amp-adapter.md`. Non-source-control investigators can use `repo-independent-orb` when their evidence comes entirely from MCPs. One investigator per category lets each specialize in one tool's query vocabulary and result shape. Don't ask one agent to cover multiple MCPs. The brief forbids writes even though the agent has tools, because MCP access is required.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -118,7 +120,7 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 
 ## Step 4. Synthesize
 
-Run one `pstack_start_agent` call with role `why-synthesizer` and the full synthesis brief. Follow `../poteto-mode/references/amp-adapter.md`. The synthesizer can use `repo-independent-orb` when all evidence is in its brief or available through MCPs. Do not write the synthesis in the parent. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
+Run one `pstack_start_agent` call with role `why-synthesizer` (default `anthropic/claude-opus-5-5`) and the full synthesis brief. Follow `../poteto-mode/references/amp-adapter.md`. The synthesizer can use `repo-independent-orb` when all evidence is in its brief or available through MCPs. Do not write the synthesis in the parent. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification

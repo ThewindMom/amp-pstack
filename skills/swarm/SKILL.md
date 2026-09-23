@@ -25,12 +25,12 @@ Open an explicit checklist with one entry per phase before launching anything.
 1. State the done predicate and the artifact or report the swarm must return.
 2. Choose the shape. Partition into slices, race N workers on identical briefs, or mix both. For a race or mixed shape, declare `first pass`, `rank all`, or `best-of` before spawning.
 3. Set N from the user or derive it from the shape. N is total workers, not the cloud concurrency limit.
-4. Use role `swarm-worker` for ordinary workers. For a model race, use a configured panel and name each arm up front.
+4. Use role `swarm-worker` for ordinary workers. The plugin resolves that role (default `xai/grok-4.7`). A missing role uses that default. If Amp rejects the configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn. For a model race, use a configured panel and name each arm up front.
 5. Give each worker its own writable output when it writes. Use a worktree, branch, or `/tmp/swarm-<slug>/worker-<n>/`. When workers verify or measure commits, each brief names the exact SHAs. A measurement brief also names the method (sample count, what one sample is, order). The worker records both in its result.
 
 ## Phase B: Fan out
 
-Launch all workers concurrently with `pstack_start_agent`, role `swarm-worker`. Follow `../poteto-mode/references/amp-adapter.md` for routing, files, size, and never-redo. A missing report is a dropout only after you read that child and confirm it has none.
+Launch all workers concurrently with `pstack_start_agent`, role `swarm-worker`. The plugin resolves the model. Follow `../poteto-mode/references/amp-adapter.md` for routing, files, size, and never-redo. A missing report is a dropout only after you read that child and confirm it has none.
 
 Coverage slices that only read and report use `a1.tiny` or `a1.small`. Live visual lanes, browsers, or CPU-heavy tests use `a1.large`.
 

@@ -36,7 +36,7 @@ Load pstack:create-verification-skill
 
 ## Open the PR, then babysit only when asked
 
-Opening a PR does not start a babysit. Post the URL and keep building. Finish the phase or stack first. Run [Babysit](../../skills/poteto-mode/playbooks/babysit.md) only when you ask for merge-ready after the whole stack exists. [Shipping](../../skills/poteto-mode/playbooks/shipping.md) is a separate request. Green is not safe, and nothing merges without explicit authorization.
+Opening a PR does not start a babysit. Post the URL and keep building. Finish the phase or stack first. Run [Babysit](../../skills/poteto-mode/playbooks/babysit.md) only when you ask for merge-ready after the whole stack exists. An Autopilot-full or Autopilot-stack owner is the exception. Its brief already assigned the babysit loop, so it starts that loop after the code-ready report. [Shipping](../../skills/poteto-mode/playbooks/shipping.md) is a separate request. Green is not safe, and nothing merges without explicit authorization.
 
 The bundled watcher is `skills/poteto-mode/scripts/watch-pr/watch-pr`. Run it through Bun because synced plugin caches do not preserve executable bits. It covers GitHub. Resolve the forge once, use `gh` by default or Origin when its CLI can resolve the repository, and keep independent verification. Graphite is not required.
 

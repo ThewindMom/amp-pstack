@@ -25,17 +25,19 @@ Call `pstack_read_current_thread` with the largest useful limit. It reads this A
 
 Launch three `pstack_start_agent` calls concurrently. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers need the available tools for context lookups, but each prompt forbids writes. The parent applies edits.
 
-| Lens | `model` | Prompt template |
-|---|---|---|
-| Judgment | `reflect-judgment` | `references/judgment-reviewer.md` |
-| Tooling | `reflect-tooling` | `references/tooling-reviewer.md` |
-| Divergent | `reflect-divergent` | `references/divergent-reviewer.md` |
+Each reviewer and the synthesizer name an Amp role. The plugin resolves its model. A missing role uses the default below. If Amp rejects a configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn.
+
+| Lens | Role | Default model | Prompt template |
+|---|---|---|---|
+| Judgment | `reflect-judgment` | `anthropic/claude-opus-5-5` | `references/judgment-reviewer.md` |
+| Tooling | `reflect-tooling` | `openai/gpt-6-sol` | `references/tooling-reviewer.md` |
+| Divergent | `reflect-divergent` | `anthropic/claude-opus-5-5` | `references/divergent-reviewer.md` |
 
 Pass each template verbatim, substituting the transcript JSON or digest where marked. Reviewers return findings in their result text.
 
 ### 3. Synthesize
 
-Run one `pstack_start_agent` call with role `reflect-synthesizer`. Follow `../poteto-mode/references/amp-adapter.md`. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+Run one `pstack_start_agent` call with role `reflect-synthesizer` (default `anthropic/claude-opus-5-5`). Follow `../poteto-mode/references/amp-adapter.md`. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 
