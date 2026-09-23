@@ -2,9 +2,9 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "032be146865d973682535de75f2287da438550bf",
-		"version": "0.15.2",
-		"tree": "https://github.com/cursor/plugins/tree/032be146865d973682535de75f2287da438550bf/pstack"
+		"commit": "b42effe0aa50f59c693d7e2924714e015e00bf7c",
+		"version": "0.15.3",
+		"tree": "https://github.com/cursor/plugins/tree/b42effe0aa50f59c693d7e2924714e015e00bf7c/pstack"
 	},
 	"intentionalDepartures": [
 		{

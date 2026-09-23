@@ -1,10 +1,10 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.2. It keeps pstack's 47 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.3. It keeps pstack's 47 skills, 23 engineering playbooks, principles, PR tooling, and dormant Benny workflow while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Porting contract
 
-The workflow source is [Cursor pstack 0.15.2 at the pinned revision](https://github.com/cursor/plugins/tree/032be146865d973682535de75f2287da438550bf/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow.
+The workflow source is [Cursor pstack 0.15.3 at the pinned revision](https://github.com/cursor/plugins/tree/b42effe0aa50f59c693d7e2924714e015e00bf7c/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow.
 
 The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
 
@@ -72,9 +72,9 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 `poteto` is Amp medium tools plus GPT-6 Sol at medium reasoning, then pstack playbooks. Builtin `medium` still maps to GPT-5.6 Sol on Amp's Dial, so the parent pins `openai/gpt-6-sol` instead of inheriting that Dial model. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. Medium coordinates. High judges. Grok at medium reasoning handles implementation and exploration delegates.
 
-Code in `index.ts` still has Cursor-shaped **balanced** defaults (Fable 5.1 and Opus on judgment and panels). The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
+Code in `index.ts` still has Cursor-shaped **balanced** defaults (Opus 5.5 on judgment and panels). The parent stays GPT-6 Sol at medium reasoning. The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
-The bundled file is a cost-oriented departure from Cursor's model defaults. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats, instead of explicit Fable model IDs. Amp controls the models behind builtin modes; they are not stable aliases for particular providers.
+The bundled file is a cost-oriented departure from Cursor's model defaults. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats, instead of explicit Opus 5.5 model IDs. Amp controls the models behind builtin modes; they are not stable aliases for particular providers.
 
 | Seat | Bundled map |
 |---|---|
