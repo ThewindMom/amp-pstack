@@ -42,13 +42,13 @@ Every provider/model ID must be in the detected set. Built-in aliases always pas
 
 Resolution order, later wins:
 
-1. Balanced defaults in `index.ts` (Grok on code delegates; Fable and Opus on judgment and panels).
+1. Balanced defaults in `index.ts` (Grok on code delegates; Opus 5.5 on judgment and panels).
 2. Plugin file `pstack.models.json` next to `index.ts`. This is the live map shipped with the personal plugin. Orbs inherit it.
 3. User file `~/.config/amp/pstack.models.json` on that machine.
 4. Amp user config from `pstack_configure_models` `set` or `profile`.
 5. Workspace file `.amp/pstack.models.json`.
 
-The bundled plugin file is cheap plus builtin seats and contains no Fable or Opus. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats. Edit that file when the change should follow the plugin. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Raw Grok 4.7 pstack delegates request medium reasoning; raw Sol has no effort override.
+The bundled plugin file is cheap plus builtin seats and contains no Fable or Opus. Balanced defaults moved from Fable 5.1 to Opus 5.5. A map written before 0.15.3 that still names Fable as a default is stale. Delete those role lines, then run setup again. A rerun keeps any role whose model differs from the current default. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats. Edit that file when the change should follow the plugin. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Raw Grok 4.7 pstack delegates request medium reasoning; raw Sol has no effort override.
 
 Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed, including any budget rewrite of `builtin:*` seats. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
@@ -59,21 +59,21 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
   "bug-fix": "xai/grok-4.7",
   "perf-issue": "xai/grok-4.7",
   "hillclimb": "xai/grok-4.7",
-  "judgment": "anthropic/claude-fable-5-1",
+  "judgment": "anthropic/claude-opus-5-5",
   "how-explorer": "xai/grok-4.7",
-  "how-explainer": "anthropic/claude-fable-5-1",
+  "how-explainer": "anthropic/claude-opus-5-5",
   "why-investigator": "xai/grok-4.7",
-  "why-synthesizer": "anthropic/claude-fable-5-1",
+  "why-synthesizer": "anthropic/claude-opus-5-5",
   "reflect-tooling": "openai/gpt-5.6-sol",
-  "reflect-judgment": "anthropic/claude-fable-5-1",
-  "reflect-divergent": "anthropic/claude-fable-5-1",
-  "reflect-synthesizer": "anthropic/claude-fable-5-1",
+  "reflect-judgment": "anthropic/claude-opus-5-5",
+  "reflect-divergent": "anthropic/claude-opus-5-5",
+  "reflect-synthesizer": "anthropic/claude-opus-5-5",
   "swarm-worker": "xai/grok-4.7",
-  "comment-reviewer": "anthropic/claude-fable-5-1",
-  "arena-runners": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.7", "anthropic/claude-opus-5"],
-  "arena-cross-judge": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.7", "anthropic/claude-opus-5"],
-  "architect-runners": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.7", "anthropic/claude-opus-5"],
-  "interrogate-reviewers": ["anthropic/claude-fable-5-1", "openai/gpt-5.6-sol", "xai/grok-4.7", "anthropic/claude-opus-5"]
+  "comment-reviewer": "anthropic/claude-opus-5-5",
+  "arena-runners": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"],
+  "arena-cross-judge": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"],
+  "architect-runners": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"],
+  "interrogate-reviewers": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"]
 }
 ```
 

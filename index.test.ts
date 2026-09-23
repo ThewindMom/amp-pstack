@@ -112,8 +112,17 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['bug-fix']).toBe('xai/grok-4.7')
 		expect(DEFAULT_MODELS['perf-issue']).toBe('xai/grok-4.7')
 		expect(DEFAULT_MODELS.hillclimb).toBe('xai/grok-4.7')
-		expect(DEFAULT_MODELS.judgment).toBe('anthropic/claude-fable-5-1')
-		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(4)
+		expect(DEFAULT_MODELS.judgment).toBe('anthropic/claude-opus-5-5')
+		expect(DEFAULT_MODELS['how-explainer']).toBe('anthropic/claude-opus-5-5')
+		expect(DEFAULT_MODELS['comment-reviewer']).toBe('anthropic/claude-opus-5-5')
+		expect(DEFAULT_MODELS['arena-runners']).toEqual([
+			'anthropic/claude-opus-5-5',
+			'openai/gpt-5.6-sol',
+			'xai/grok-4.7',
+		])
+		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(3)
+		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('claude-fable')
+		expect(JSON.stringify(CHEAP_MODELS)).not.toContain('claude-opus')
 		expect(DEFAULT_MODELS.feature).toBe('xai/grok-4.7')
 		expect(DEFAULT_MODELS.refactoring).toBe('xai/grok-4.7')
 		expect(description.length).toBeLessThanOrEqual(300)

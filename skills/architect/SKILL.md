@@ -30,7 +30,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with runner panel `architect-runners`. Follow `../poteto-mode/references/amp-adapter.md`. The plugin then requires one `arena-cross-judge` before the parent can finish that design run, the design-sketch task, and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`: the caller's usage written first, then the type sketch, function signatures, module map, and prose rationale derived from it. The panel defaults to `anthropic/claude-fable-5-1`, `openai/gpt-5.6-sol`, `xai/grok-4.7`, and `anthropic/claude-opus-5`.
+Run the **arena** skill with runner panel `architect-runners`. Follow `../poteto-mode/references/amp-adapter.md`. The plugin then requires one `arena-cross-judge` before the parent can finish that design run, the design-sketch task, and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`: the caller's usage written first, then the type sketch, function signatures, module map, and prose rationale derived from it. The panel defaults to `anthropic/claude-opus-5-5`, `openai/gpt-5.6-sol`, and `xai/grok-4.7`.
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 

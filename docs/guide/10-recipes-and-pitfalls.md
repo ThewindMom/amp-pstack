@@ -57,13 +57,13 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 - A webhook retry is at-least-once. `pstack_create_wake_webhook` appends first, then records the Amp event ID. A crash between those steps is healed by scanning the thread. Treat Slack event IDs the same way in Benny.
 - Benny is dormant until you copy `.amp/benny/` and authorize the webhook.
 - `amp plugins list` is not a description dump. It shows the command, tools, and `poteto` mode. There is no `--json` flag. The plugin description lives in `index.ts` and `package.json`.
-- `setup-models` is a command-palette action. From a thread, use `pstack_configure_models` with `action: "profile"` (`balanced`, `cheap`, `builtin`, `reset`). For a repo default without Fable, copy `.amp/pstack.models.example.json` to `.amp/pstack.models.json` and commit that file.
+- `setup-models` is a command-palette action. From a thread, use `pstack_configure_models` with `action: "profile"` (`balanced`, `cheap`, `builtin`, `reset`). For a repo default without Opus 5.5, copy `.amp/pstack.models.example.json` to `.amp/pstack.models.json` and commit that file.
 
 ## What did not port exactly
 
 - `local` uses the current Amp client. It does not target a parent orb's filesystem. The plugin defaults children of an orb parent to `parent-project-orb` and rejects local routing. A fresh child orb inherits the project, not live files from the parent orb.
 - A plugin-created orb cannot select `orb_size`, project, or an arbitrary agent mode. Use `launchTarget.kind: "native-orb"` with a `project`, then call native `create_thread` with the complete returned fields. Follow the size table in `pstack:poteto-mode`.
 - Amp has no Cursor `inherit-parent` or `auto`. A missing role uses the plugin default, not the parent chat model.
-- Amp has no Cursor thinking slugs. Raw Grok 4.7 pstack delegates explicitly request medium reasoning, while the standalone `grok47-xhigh` mode requests xhigh. Sol thinking comes from its selected builtin mode. Fable is only `builtin:ultra`.
+- Amp has no Cursor thinking slugs. Raw Grok 4.7 pstack delegates explicitly request medium reasoning, while the standalone `grok47-xhigh` mode requests xhigh. Sol thinking comes from its selected builtin mode. Opus 5.5 is the balanced judgment default. `builtin:ultra` is not that model.
 - Editor-specific UI and proprietary automation editors have no direct Amp equivalent. Skills, Amp modes, threads, schedules, and webhooks replace them.
 - Prompt resources in `agents/` are documentation. Runtime delegates are created by [`index.ts`](../../index.ts). Comment Sicko runs as role `comment-reviewer` with write tools excluded.
