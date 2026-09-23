@@ -57,7 +57,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'` and pins `openai/gpt-6-sol` at medium reasoning. Amp medium tools stay. Grok at medium reasoning handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'` and pins `anthropic/claude-opus-5-5` at medium reasoning. Amp medium tools stay. Grok 4.7 at high effort handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns `threadID` immediately. The child exclusively owns its paths and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits only when this turn cannot proceed without one result. Timeout preserves the live `threadID`; terminal failure returns `status: "error"`.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now.
@@ -70,40 +70,37 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` is Amp medium tools plus GPT-6 Sol at medium reasoning, then pstack playbooks. Builtin `medium` still maps to GPT-5.6 Sol on Amp's Dial, so the parent pins `openai/gpt-6-sol` instead of inheriting that Dial model. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. Medium coordinates. High judges. Grok at medium reasoning handles implementation and exploration delegates.
+`poteto` is Amp medium tools plus Opus 5.5 at medium reasoning, then pstack playbooks. Builtin `medium` still maps to GPT-5.6 Sol on Amp's Dial, and current builtin `high` is GPT-6 Astra at medium effort, so the parent pins `anthropic/claude-opus-5-5` instead of inheriting a Dial model. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. The parent coordinates at medium effort. Delegates on the three shipped model IDs run at high effort.
 
-Code in `index.ts` still has Cursor-shaped **balanced** defaults (Opus 5.5 on judgment and panels). The parent stays GPT-6 Sol at medium reasoning. The live map for this plugin is [`pstack.models.json`](./pstack.models.json), shipped inside the plugin directory. Orbs and other machines that load the personal plugin get that file. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
+`index.ts` owns the role map and a separate effort map for `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7`. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there. `builtin:high` is not a stand-in for GPT-6 Sol.
 
-The bundled file is a cost-oriented departure from Cursor's model defaults. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats, instead of explicit Opus 5.5 model IDs. Amp controls the models behind builtin modes; they are not stable aliases for particular providers.
-
-| Seat | Bundled map |
+| Seat | Shipped map |
 |---|---|
-| Parent `poteto` | `extends: medium`, model `openai/gpt-6-sol`, `reasoningEffort: medium` |
-| Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` |
-| Judgment | `builtin:high` |
-| How-explainer, why-synthesizer, reflect-tooling, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `builtin:medium` |
-| Panels | high, medium, Grok |
-| Arena cross-judge pool | high, medium, Grok; one judge runs, preferring a known family different from the parent |
+| Parent `poteto` | `extends: medium`, model `anthropic/claude-opus-5-5`, `reasoningEffort: medium` |
+| Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` at high |
+| Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `anthropic/claude-opus-5-5` at high |
+| Reflect-tooling | `openai/gpt-6-sol` at high |
+| Panels and arena cross-judge pool | Opus 5.5 high, GPT-6 Sol high, Grok 4.7 high; one cross-judge runs, preferring a known family different from the parent |
 
-Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Raw `xai/grok-4.7` pstack delegates explicitly request `reasoningEffort: medium`. The standalone `grok47-xhigh` mode remains xhigh. Raw `openai/gpt-5.6-sol` has no thinking override. Cursor `inherit-parent` and `auto` are not Amp aliases.
+Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7` request `reasoningEffort: high`. Other raw model IDs have no thinking override. The standalone `grok47-xhigh` mode remains xhigh. Cursor `inherit-parent` and `auto` are not Amp aliases. Do not use `builtin:high` for GPT-6 Sol. Current builtin high is GPT-6 Astra at medium effort.
 
 Later wins:
 
 1. Balanced defaults in `index.ts`.
-2. Plugin file `pstack.models.json` next to `index.ts`. This is the live personal-plugin map.
+2. Optional plugin file `pstack.models.json` next to `index.ts`, if someone adds one. The repo does not ship it.
 3. User file `~/.config/amp/pstack.models.json` on that machine.
 4. Amp user config from `pstack_configure_models` `set` or `profile`.
 5. Workspace file `.amp/pstack.models.json` in the current repo.
 
-A workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. The plugin JSON, user JSON, and workspace JSON stay. Orb children inherit the plugin file because it travels with the plugin. They do not inherit a machine-local user JSON.
+A workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. A missing plugin file adds nothing. User JSON and workspace JSON stay when present. Orb children inherit the plugin code, not a machine-local user JSON.
 
 Every delegate resolves this stack on every spawn. Amp requires custom remote modes to be active before a tool runs, so pstack registers the current role/model map when the plugin loads and keeps those exact Agents active for the process lifetime. Local launches still create an unregistered Agent from the latest configuration. After changing the map, local launches use it immediately; reload plugins before the next orb or runner launch so Amp can publish the new modes.
 
-To change the map that orbs see, edit [`pstack.models.json`](./pstack.models.json), push GitHub, then copy the tree into your Amp user-plugins repo and push that too. GitHub push alone does not update personal plugins.
+To change the map that orbs see, change `DEFAULT_MODELS` in `index.ts`, push GitHub, then copy the tree into your Amp user-plugins repo and push that too. GitHub push alone does not update personal plugins.
 
 [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) is a smaller cheap-plus-high sketch for a machine-local overlay. `.amp/pstack.models.json` is gitignored. `{ "profile": "cheap" }` alone is valid and cheaper, but parks prose on Grok.
 
-A panel value is a JSON array. List length is how many agents `pstack_run_panel` runs. The bundled file uses three seats. Add another ID only if you want another seat.
+A panel value is a JSON array. List length is how many agents `pstack_run_panel` runs. The defaults use three seats. Add another ID only if you want another seat.
 
 ## Orbs, modes, and sizes
 

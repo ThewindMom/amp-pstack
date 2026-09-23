@@ -3,7 +3,7 @@
 import type { PluginAPI } from '@ampcode/plugin'
 
 export const description =
-	'Poteto mode for Amp: GPT-6 Sol at medium reasoning with Amp medium tools, plus pstack coordinator routing. Pair with the pstack directory plugin for skills and tools.'
+	'Poteto mode for Amp: Opus 5.5 at medium reasoning with Amp medium tools, plus pstack coordinator routing. Pair with the pstack directory plugin for skills and tools.'
 
 export const COORDINATOR_INSTRUCTIONS = `Playbook match or rigor needed: load pstack:poteto-mode and follow its matched playbook. Casual turn or user opts out: do not. After load, read references/amp-adapter.md from the loaded skill for Amp executors, ownership, transfers, models, schedules, and blocking-tool exceptions.
 
@@ -21,7 +21,7 @@ export default function (amp: PluginAPI) {
 	const agent = amp.createAgent({
 		name: 'poteto',
 		extends: 'medium',
-		model: 'openai/gpt-6-sol',
+		model: 'anthropic/claude-opus-5-5',
 		reasoningEffort: 'medium',
 		instructions: COORDINATOR_INSTRUCTIONS,
 		display: { label: 'poteto', color: '#eab308' },
@@ -31,7 +31,7 @@ export default function (amp: PluginAPI) {
 		key: 'poteto',
 		label: 'poteto',
 		description:
-			'GPT-6 Sol at medium reasoning with Amp medium tools, then pstack playbooks. The parent coordinates.',
+			'Opus 5.5 at medium reasoning with Amp medium tools, then pstack playbooks. The parent coordinates.',
 		color: '#eab308',
 		agent: agent.definition,
 	})

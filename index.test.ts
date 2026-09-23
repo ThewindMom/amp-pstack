@@ -28,6 +28,7 @@ import pstack, {
 	IMPLEMENTATION_BLOCKING_ERROR,
 	START_AGENT_NEXT,
 	CHEAP_MODELS,
+	PLUGIN_MODEL_FILE,
 	COMMENT_REVIEWER_EXCLUDED_TOOLS,
 	COMMENT_REVIEWER_MIN_TIMEOUT_MS,
 	CONFIG_KEY,
@@ -48,6 +49,7 @@ import pstack, {
 	formatMessage,
 	loadFileLayers,
 	mergeModels,
+	MODEL_REASONING_EFFORT,
 	modelFamily,
 	orbAgentModeFor,
 	orbAgentSpecsFor,
@@ -117,11 +119,19 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['comment-reviewer']).toBe('anthropic/claude-opus-5-5')
 		expect(DEFAULT_MODELS['arena-runners']).toEqual([
 			'anthropic/claude-opus-5-5',
-			'openai/gpt-5.6-sol',
+			'openai/gpt-6-sol',
 			'xai/grok-4.7',
 		])
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(3)
+		expect(DEFAULT_MODELS['reflect-tooling']).toBe('openai/gpt-6-sol')
+		expect(MODEL_REASONING_EFFORT).toEqual({
+			'anthropic/claude-opus-5-5': 'high',
+			'openai/gpt-6-sol': 'high',
+			'xai/grok-4.7': 'high',
+		})
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('claude-fable')
+		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('gpt-5.6-sol')
+		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('builtin:')
 		expect(JSON.stringify(CHEAP_MODELS)).not.toContain('claude-opus')
 		expect(DEFAULT_MODELS.feature).toBe('xai/grok-4.7')
 		expect(DEFAULT_MODELS.refactoring).toBe('xai/grok-4.7')
@@ -426,34 +436,18 @@ describe('model configuration', () => {
 		).toBe('xai/grok-4.7')
 	})
 
-	test('bundled plugin json uses Grok for code, high only for judgment, and medium for other builtin seats', async () => {
-		const bundled = JSON.parse(await Bun.file('pstack.models.json').text())
-		const mapped = fileModelMap(bundled)
-		expect(mapped.feature).toBe('xai/grok-4.7')
-		expect(mapped.refactoring).toBe('xai/grok-4.7')
-		expect(mapped['bug-fix']).toBe('xai/grok-4.7')
-		expect(mapped['perf-issue']).toBe('xai/grok-4.7')
-		expect(mapped.hillclimb).toBe('xai/grok-4.7')
-		expect(mapped['reflect-tooling']).toBe('builtin:medium')
-		expect(mapped.judgment).toBe('builtin:high')
-		expect(mapped['how-explainer']).toBe('builtin:medium')
-		expect(mapped['why-synthesizer']).toBe('builtin:medium')
-		expect(mapped['reflect-judgment']).toBe('builtin:medium')
-		expect(mapped['reflect-divergent']).toBe('builtin:medium')
-		expect(mapped['reflect-synthesizer']).toBe('builtin:medium')
-		expect(mapped['comment-reviewer']).toBe('builtin:medium')
-		expect(mapped['arena-cross-judge']).toEqual([
-			'builtin:high',
-			'builtin:medium',
-			'xai/grok-4.7',
-		])
-		expect(mapped['interrogate-reviewers']).toEqual([
-			'builtin:high',
-			'builtin:medium',
-			'xai/grok-4.7',
-		])
-		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
-		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
+	test('missing plugin json leaves the shipped defaults', async () => {
+		expect(await Bun.file(PLUGIN_MODEL_FILE).exists()).toBe(false)
+		const root = await mkdtemp(join(tmpdir(), 'pstack-no-plugin-'))
+		try {
+			const layers = await loadFileLayers(null, join(root, 'absent-user.json'), PLUGIN_MODEL_FILE)
+			expect(layers.pluginFile).toBeUndefined()
+			expect(resolveModels(layers)).toEqual(DEFAULT_MODELS)
+			expect(resolveModels(layers)['comment-reviewer']).toBe('anthropic/claude-opus-5-5')
+			expect(resolveModels(layers)['reflect-tooling']).toBe('openai/gpt-6-sol')
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
 	})
 
 	test('example json is a cheap profile without Fable or Opus', async () => {
@@ -874,7 +868,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.started).toHaveLength(0)
 	})
 
-	test('poteto-mode.ts registers GPT-6 Sol at medium reasoning on a medium parent', async () => {
+	test('poteto-mode.ts registers Opus 5.5 at medium reasoning on a medium parent', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -893,7 +887,7 @@ describe('runtime tool behavior', () => {
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
 			extends: 'medium',
-			model: 'openai/gpt-6-sol',
+			model: 'anthropic/claude-opus-5-5',
 			reasoningEffort: 'medium',
 		})
 		expect(created[0]).not.toHaveProperty('tools')
@@ -912,7 +906,11 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: `T-parent-${index}` } },
 			)
 			expect(String(amp.created.at(-1)?.instructions)).toContain(POTETO_DELEGATE_INSTRUCTIONS)
-			expect(amp.created.at(-1)?.reasoningEffort).toBe('medium')
+			expect(amp.created.at(-1)).toMatchObject({
+				extends: 'medium',
+				model: 'xai/grok-4.7',
+				reasoningEffort: 'high',
+			})
 		}
 		expect(CODE_IMPLEMENTATION_ROLES).toEqual(
 			new Set(['feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb']),
@@ -921,17 +919,18 @@ describe('runtime tool behavior', () => {
 
 	test('specialist and comment roles keep their narrower contracts', async () => {
 		const amp = await loadPlugin()
-		for (const role of [
-			'how-explorer',
-			'how-explainer',
-			'why-investigator',
-			'why-synthesizer',
-			'swarm-worker',
-			'reflect-tooling',
-			'reflect-judgment',
-			'reflect-divergent',
-			'reflect-synthesizer',
-		]) {
+		const specialistModels: Record<string, string> = {
+			'how-explorer': 'xai/grok-4.7',
+			'how-explainer': 'anthropic/claude-opus-5-5',
+			'why-investigator': 'xai/grok-4.7',
+			'why-synthesizer': 'anthropic/claude-opus-5-5',
+			'swarm-worker': 'xai/grok-4.7',
+			'reflect-tooling': 'openai/gpt-6-sol',
+			'reflect-judgment': 'anthropic/claude-opus-5-5',
+			'reflect-divergent': 'anthropic/claude-opus-5-5',
+			'reflect-synthesizer': 'anthropic/claude-opus-5-5',
+		}
+		for (const [role, model] of Object.entries(specialistModels)) {
 			await tool(amp, 'pstack_run_agent').execute(
 				{ role, prompt: 'inspect it' },
 				{ thread: { id: 'T-parent' } },
@@ -939,12 +938,20 @@ describe('runtime tool behavior', () => {
 			expect(String(amp.created.at(-1)?.instructions)).not.toContain(
 				POTETO_DELEGATE_INSTRUCTIONS,
 			)
+			expect(amp.created.at(-1)).toMatchObject({
+				extends: 'medium',
+				model,
+				reasoningEffort: 'high',
+			})
 		}
 		await tool(amp, 'pstack_run_agent').execute(
 			{ role: 'comment-reviewer', prompt: 'review comments', timeoutMs: 120_000 },
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(amp.created.at(-1)).toMatchObject({
+			extends: 'medium',
+			model: 'anthropic/claude-opus-5-5',
+			reasoningEffort: 'high',
 			tools: { include: [...STRICT_READONLY_TOOLS] },
 		})
 		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
@@ -977,6 +984,61 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
+	})
+
+	test('startup registration publishes the shipped lineup at high effort', async () => {
+		const amp = await loadPlugin()
+		const concrete = amp.created.filter((definition) => typeof definition.model === 'string')
+		const lineup = [
+			'anthropic/claude-opus-5-5',
+			'openai/gpt-6-sol',
+			'xai/grok-4.7',
+		] as const
+		const expectedModels = [
+			...Array(8).fill('xai/grok-4.7'),
+			...Array(7).fill('anthropic/claude-opus-5-5'),
+			'openai/gpt-6-sol',
+			...lineup,
+			...lineup,
+			...lineup,
+			...lineup,
+		]
+		expect(concrete.map((definition) => definition.model).sort()).toEqual([...expectedModels].sort())
+		for (const definition of concrete) {
+			expect(definition.extends).toBe('medium')
+			expect(definition.reasoningEffort).toBe('high')
+			if (typeof definition.model !== 'string' || !lineup.includes(definition.model as (typeof lineup)[number])) {
+				throw new Error(`unexpected registered model ${String(definition.model)}`)
+			}
+		}
+		for (const panel of ['arena-runners', 'architect-runners', 'interrogate-reviewers']) {
+			const seats = [1, 2, 3].map((seat) => {
+				const role = `${panel}-${seat}`
+				const mode = orbAgentModeFor(role, lineup[seat - 1]!)
+				return amp.registeredModes.find(({ key }) => key === mode.key)?.agent.model
+			})
+			expect(seats).toEqual([...lineup])
+		}
+		const pool = lineup.map((model) => {
+			const mode = orbAgentModeFor('arena-cross-judge', model)
+			return amp.registeredModes.find(({ key }) => key === mode.key)?.agent.model
+		})
+		expect(pool).toEqual([...lineup])
+		const feature = amp.registeredModes.find(
+			({ key }) => key === orbAgentModeFor('feature', 'xai/grok-4.7').key,
+		)
+		const judgment = amp.registeredModes.find(
+			({ key }) => key === orbAgentModeFor('judgment', 'anthropic/claude-opus-5-5').key,
+		)
+		const tooling = amp.registeredModes.find(
+			({ key }) => key === orbAgentModeFor('reflect-tooling', 'openai/gpt-6-sol').key,
+		)
+		expect(feature?.agent).toMatchObject({ model: 'xai/grok-4.7', reasoningEffort: 'high' })
+		expect(judgment?.agent).toMatchObject({
+			model: 'anthropic/claude-opus-5-5',
+			reasoningEffort: 'high',
+		})
+		expect(tooling?.agent).toMatchObject({ model: 'openai/gpt-6-sol', reasoningEffort: 'high' })
 	})
 
 	test('panel delegates have distinct threads and preserve poteto wrapper boundaries', async () => {

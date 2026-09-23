@@ -28,8 +28,8 @@
 		{
 			"id": "parent-medium",
 			"from": "Cursor parent uses the user's chat model",
-			"to": "Amp poteto extends builtin medium and pins openai/gpt-6-sol at medium reasoning.",
-			"why": "Requested Amp parent on GPT-6 Sol medium. Builtin medium still maps to GPT-5.6 Sol, and official gpt6s is high effort."
+			"to": "Amp poteto extends builtin medium and pins anthropic/claude-opus-5-5 at medium reasoning.",
+			"why": "Requested Amp parent on Opus 5.5 medium. Builtin medium still maps to GPT-5.6 Sol, builtin high is GPT-6 Astra medium, and official gpt6s is high effort."
 		}
 	]
 }

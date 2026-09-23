@@ -39,7 +39,7 @@ Call `pstack_run_panel` once with panel `interrogate-reviewers` and the complete
 | Reviewer | Default model |
 |----------|---------------|
 | Reviewer A | `anthropic/claude-opus-5-5` |
-| Reviewer B | `openai/gpt-5.6-sol` |
+| Reviewer B | `openai/gpt-6-sol` |
 | Reviewer C | `xai/grok-4.7` |
 
 If a configured model is rejected, run `amp plugins show-agent-options --json`, choose the closest available model in the same family, complete the review, and report the stale configuration. Do not alter shared configuration without the user's request.

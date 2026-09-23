@@ -21,19 +21,19 @@ function registerPoteto() {
 }
 
 describe('poteto mode', () => {
-	test('uses GPT-6 Sol at medium reasoning for coordination', () => {
+	test('uses Opus 5.5 at medium reasoning for coordination', () => {
 		const { created, registered } = registerPoteto()
 
 		expect(created).toHaveLength(1)
 		expect(created[0]?.extends).toBe('medium')
-		expect(created[0]?.model).toBe('openai/gpt-6-sol')
+		expect(created[0]?.model).toBe('anthropic/claude-opus-5-5')
 		expect(created[0]?.reasoningEffort).toBe('medium')
 		expect(created[0]).not.toHaveProperty('tools')
 		expect(registered).toHaveLength(1)
 		expect(registered[0]?.key).toBe('poteto')
 		expect(registered[0]?.agent).toEqual(created[0])
-		expect(description).toContain('GPT-6 Sol at medium reasoning')
-		expect(registered[0]?.description).toContain('GPT-6 Sol at medium reasoning')
+		expect(description).toContain('Opus 5.5 at medium reasoning')
+		expect(registered[0]?.description).toContain('Opus 5.5 at medium reasoning')
 	})
 
 	test('keeps the skill and adapter model paragraph aligned with the runtime', async () => {
@@ -45,8 +45,8 @@ describe('poteto mode', () => {
 		])
 		const modelProse = `${skill}\n${adapter}`
 
-		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, pinned to `openai/gpt-6-sol` at medium reasoning')
-		expect(modelProse).toContain('Raw Grok 4.7 pstack delegates request `reasoningEffort: medium`')
+		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, pinned to `anthropic/claude-opus-5-5` at medium reasoning')
+		expect(modelProse).toContain('`anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7` request `reasoningEffort: high`')
 		expect(babysit).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 	})

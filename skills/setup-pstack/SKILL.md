@@ -42,13 +42,13 @@ Every provider/model ID must be in the detected set. Built-in aliases always pas
 
 Resolution order, later wins:
 
-1. Balanced defaults in `index.ts` (Grok on code delegates; Opus 5.5 on judgment and panels).
-2. Plugin file `pstack.models.json` next to `index.ts`. This is the live map shipped with the personal plugin. Orbs inherit it.
+1. Balanced defaults in `index.ts` (Grok 4.7 high on code delegates; Opus 5.5 high on judgment; GPT-6 Sol high on reflect-tooling and panel seats). The repo does not ship `pstack.models.json`.
+2. Optional plugin file `pstack.models.json` next to `index.ts`, only if someone adds one. A missing file leaves the defaults. Orbs inherit the plugin code.
 3. User file `~/.config/amp/pstack.models.json` on that machine.
 4. Amp user config from `pstack_configure_models` `set` or `profile`.
 5. Workspace file `.amp/pstack.models.json`.
 
-The bundled plugin file is cheap plus builtin seats and contains no Fable or Opus. Balanced defaults moved from Fable 5.1 to Opus 5.5. A persisted override stays until the user changes that role. Setup does not delete it, because a stored Fable ID may be a chosen model rather than an old default. A rerun keeps any role whose model differs from the current default. It uses `builtin:high` only for judgment and the first panel seat, and `builtin:medium` for other builtin seats. Edit that file when the change should follow the plugin. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Raw Grok 4.7 pstack delegates request medium reasoning; raw Sol has no effort override.
+A persisted override stays until the user changes that role. Setup does not delete it, because a stored Fable ID may be a chosen model rather than an old default. A rerun keeps any role whose model differs from the current default. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7` request high effort. Other raw model IDs have no effort override. Do not substitute `builtin:high` for GPT-6 Sol. Current builtin high is GPT-6 Astra at medium effort.
 
 Call `pstack_configure_models` with `action: "set"` and an `overrides` object containing only the roles the user changed, including any budget rewrite of `builtin:*` seats. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset`. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
@@ -64,16 +64,16 @@ Call `pstack_configure_models` with `action: "set"` and an `overrides` object co
   "how-explainer": "anthropic/claude-opus-5-5",
   "why-investigator": "xai/grok-4.7",
   "why-synthesizer": "anthropic/claude-opus-5-5",
-  "reflect-tooling": "openai/gpt-5.6-sol",
+  "reflect-tooling": "openai/gpt-6-sol",
   "reflect-judgment": "anthropic/claude-opus-5-5",
   "reflect-divergent": "anthropic/claude-opus-5-5",
   "reflect-synthesizer": "anthropic/claude-opus-5-5",
   "swarm-worker": "xai/grok-4.7",
   "comment-reviewer": "anthropic/claude-opus-5-5",
-  "arena-runners": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"],
-  "arena-cross-judge": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"],
-  "architect-runners": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"],
-  "interrogate-reviewers": ["anthropic/claude-opus-5-5", "openai/gpt-5.6-sol", "xai/grok-4.7"]
+  "arena-runners": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"],
+  "arena-cross-judge": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"],
+  "architect-runners": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"],
+  "interrogate-reviewers": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"]
 }
 ```
 

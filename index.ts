@@ -122,7 +122,7 @@ export const DEFAULT_MODELS = {
 	'how-explainer': 'anthropic/claude-opus-5-5',
 	'why-investigator': 'xai/grok-4.7',
 	'why-synthesizer': 'anthropic/claude-opus-5-5',
-	'reflect-tooling': 'openai/gpt-5.6-sol',
+	'reflect-tooling': 'openai/gpt-6-sol',
 	'reflect-judgment': 'anthropic/claude-opus-5-5',
 	'reflect-divergent': 'anthropic/claude-opus-5-5',
 	'reflect-synthesizer': 'anthropic/claude-opus-5-5',
@@ -130,25 +130,31 @@ export const DEFAULT_MODELS = {
 	'comment-reviewer': 'anthropic/claude-opus-5-5',
 	'arena-runners': [
 		'anthropic/claude-opus-5-5',
-		'openai/gpt-5.6-sol',
+		'openai/gpt-6-sol',
 		'xai/grok-4.7',
 	],
 	'arena-cross-judge': [
 		'anthropic/claude-opus-5-5',
-		'openai/gpt-5.6-sol',
+		'openai/gpt-6-sol',
 		'xai/grok-4.7',
 	],
 	'architect-runners': [
 		'anthropic/claude-opus-5-5',
-		'openai/gpt-5.6-sol',
+		'openai/gpt-6-sol',
 		'xai/grok-4.7',
 	],
 	'interrogate-reviewers': [
 		'anthropic/claude-opus-5-5',
-		'openai/gpt-5.6-sol',
+		'openai/gpt-6-sol',
 		'xai/grok-4.7',
 	],
 } as const
+
+export const MODEL_REASONING_EFFORT = {
+	'anthropic/claude-opus-5-5': 'high',
+	'openai/gpt-6-sol': 'high',
+	'xai/grok-4.7': 'high',
+} as const satisfies Record<string, AgentReasoningEffort>
 
 const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
 
@@ -731,7 +737,9 @@ export default async function pstack(amp: PluginAPI) {
 	}
 
 	const reasoningFor = (model: string): AgentReasoningEffort | undefined => {
-		if (model.startsWith('xai/grok-4.7')) return 'medium'
+		for (const [known, effort] of Object.entries(MODEL_REASONING_EFFORT)) {
+			if (known === model) return effort
+		}
 		return undefined
 	}
 
