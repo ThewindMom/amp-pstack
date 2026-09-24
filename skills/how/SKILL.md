@@ -31,13 +31,13 @@ Each explorer gets the prompt in `references/explorer-prompt.md` with its angle 
 
 Run one `pstack_start_agent` call with role `how-explainer` (default `anthropic/claude-opus-5-5`) and a read-only brief that explores and explains in one pass. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
 
-Build its prompt from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
+Build its prompt from `references/explainer-prompt.md`. Set its path context to direct exploration and omit the explorer-findings section. Go to Step 4.
 
 ## Step 3. Synthesize (complex questions only)
 
 Once all explorers have returned, run one `pstack_start_agent` call with role `how-explainer` (default `anthropic/claude-opus-5-5`) to synthesize their findings into one explanation. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
 
-Build its prompt from `references/explainer-prompt.md` with every explorer's findings filled in.
+Build its prompt from `references/explainer-prompt.md`. Set its path context to synthesis and fill in every explorer's findings.
 
 ## Step 4. Present
 

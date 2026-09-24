@@ -210,25 +210,6 @@ export const MIN_TIMEOUT_MS = 30_000
 export const MAX_TIMEOUT_MS = 60 * 60 * 1000
 export const COMMENT_REVIEWER_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
 export const RUN_AGENT_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
-export const COMMENT_REVIEWER_EXCLUDED_TOOLS = [
-	...WRITE_TOOLS,
-	'Task',
-	'skill',
-	'oracle',
-	'librarian',
-	'find_thread',
-	'read_thread',
-	'create_thread',
-	'wait_for_threads',
-	'send_thread_message',
-	'pstack_run_agent',
-	'pstack_run_panel',
-	'pstack_start_agent',
-	'pstack_send_to_thread',
-	'pstack_configure_models',
-	'pstack_create_wake_webhook',
-	'shell_command_kill',
-] as const
 
 type ModelValue = string | readonly string[]
 export type ModelMap = Record<string, ModelValue>
@@ -298,7 +279,7 @@ export const AGENT_INSTRUCTIONS = [
 ].join(' ')
 
 export const POTETO_DELEGATE_INSTRUCTIONS =
-	'Before work, load pstack:poteto-mode and read it in full. Follow its principles while directly owning the delegated scope.'
+	'Before work, load pstack:poteto-mode and read it in full. Follow its principles while directly owning the delegated scope. When applying a principle, load the appropriate pstack:principle-* leaf skill.'
 
 function usesPotetoDelegateWrapper(role: string): boolean {
 	return (
@@ -334,8 +315,9 @@ const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
 	'Assigned role: comment-reviewer.',
 	'You are a terminal report-only reviewer.',
-	'Do not load skills, spawn agents, create threads, or call pstack tools.',
-	'Use read-only git and file reads to inspect the named scope.',
+	'Do not load skills, spawn agents, create threads, or call pstack tools other than pstack_send_to_thread.',
+	'Use pstack_send_to_thread only when the task prompt tells you to report to the parent; otherwise return findings normally to the blocking caller.',
+	'Use Read and finder to inspect the named scope; do not use git or shell commands.',
 	'Do not edit files or run mutating shell.',
 	'Return findings and MUST KILL symbols. Never apply a patch.',
 ].join(' ')

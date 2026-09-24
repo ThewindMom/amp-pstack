@@ -29,7 +29,6 @@ import pstack, {
 	START_AGENT_NEXT,
 	CHEAP_MODELS,
 	PLUGIN_MODEL_FILE,
-	COMMENT_REVIEWER_EXCLUDED_TOOLS,
 	COMMENT_REVIEWER_MIN_TIMEOUT_MS,
 	CONFIG_KEY,
 	DEFAULT_MODELS,
@@ -917,6 +916,23 @@ describe('runtime tool behavior', () => {
 		)
 	})
 
+	test('poteto roles conditionally direct principle leaf loading', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_run_agent').execute(
+			{ role: 'judgment', prompt: 'review it' },
+			{ thread: { id: 'T-parent' } },
+		)
+		expect(String(amp.created.at(-1)?.instructions)).toContain(
+			'When applying a principle, load the appropriate pstack:principle-* leaf skill.',
+		)
+
+		await tool(amp, 'pstack_run_agent').execute(
+			{ role: 'why-investigator', prompt: 'investigate it' },
+			{ thread: { id: 'T-parent' } },
+		)
+		expect(String(amp.created.at(-1)?.instructions)).not.toContain('pstack:principle-*')
+	})
+
 	test('specialist and comment roles keep their narrower contracts', async () => {
 		const amp = await loadPlugin()
 		const specialistModels: Record<string, string> = {
@@ -952,7 +968,7 @@ describe('runtime tool behavior', () => {
 			extends: 'medium',
 			model: 'anthropic/claude-opus-5-5',
 			reasoningEffort: 'high',
-			tools: { include: [...STRICT_READONLY_TOOLS] },
+			tools: { include: [...REPORTING_READONLY_TOOLS] },
 		})
 		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
 		expect(STRICT_READONLY_TOOLS).not.toContain('Task')
@@ -962,10 +978,29 @@ describe('runtime tool behavior', () => {
 				(name) => !(STRICT_READONLY_TOOLS as readonly string[]).includes(name),
 			),
 		).toBe(true)
-		expect(COMMENT_REVIEWER_EXCLUDED_TOOLS).toContain('Task')
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
+		expect(String(amp.created.at(-1)?.instructions)).toContain(
+			'otherwise return findings normally to the blocking caller',
+		)
+		expect(String(amp.created.at(-1)?.instructions)).toContain(
+			'Use Read and finder to inspect the named scope',
+		)
 		expect(String(amp.created.at(-1)?.instructions)).not.toContain(POTETO_DELEGATE_INSTRUCTIONS)
 		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
+
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'comment-reviewer', prompt: 'review comments in the background' },
+			{ thread: { id: 'T-background-parent' } },
+		)
+		expect(amp.created.at(-1)).toMatchObject({
+			tools: { include: [...REPORTING_READONLY_TOOLS] },
+		})
+		expect(String(amp.created.at(-1)?.instructions)).toContain(
+			'pstack tools other than pstack_send_to_thread',
+		)
+		expect(String(amp.started.at(-1)?.prompt)).toContain(
+			'When finished, call pstack_send_to_thread',
+		)
 		const explained = JSON.parse(
 			await tool(amp, 'pstack_run_agent').execute(
 				{ role: 'how-explainer', prompt: 'explain it', timeoutMs: 120_000 },
@@ -1710,7 +1745,7 @@ describe('runtime tool behavior', () => {
 		})
 		expect(capabilityFor('comment-reviewer')).toEqual({
 			kind: 'strict-readonly',
-			tools: { include: STRICT_READONLY_TOOLS },
+			tools: { include: REPORTING_READONLY_TOOLS },
 		})
 		expect(capabilityFor('arena-cross-judge')).toEqual({
 			kind: 'strict-readonly',
@@ -1720,6 +1755,9 @@ describe('runtime tool behavior', () => {
 		expect(STRICT_READONLY_TOOLS).toContain('read_thread')
 		expect(STRICT_READONLY_TOOLS).not.toContain('pstack_send_to_thread')
 		expect(REPORTING_READONLY_TOOLS).toContain('pstack_send_to_thread')
+		expect(capabilityFor('interrogate-reviewers-2').tools).toEqual({
+			include: STRICT_READONLY_TOOLS,
+		})
 		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
 		expect(STRICT_READONLY_TOOLS).not.toContain('mcp__linear__list')
 		expect(capabilityFor('why-investigator')).toEqual({

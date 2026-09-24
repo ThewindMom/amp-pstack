@@ -178,7 +178,10 @@ export function isDesignPanel(panel: string): boolean {
 export function capabilityFor(role: string): RoleCapability {
 	if (isStrictReadonlyRole(role)) {
 		const tools =
-			role === 'how-explorer' || role === 'how-explainer' || role === 'arena-cross-judge'
+			role === 'how-explorer' ||
+			role === 'how-explainer' ||
+			role === 'comment-reviewer' ||
+			role === 'arena-cross-judge'
 				? REPORTING_READONLY_TOOLS
 				: STRICT_READONLY_TOOLS
 		return { kind: 'strict-readonly', tools: { include: tools } }

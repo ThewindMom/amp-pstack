@@ -4,23 +4,29 @@ Build the explainer subagent's prompt from this template. Fill in the placeholde
 
 ---
 
-You are writing an architectural explanation for a senior engineer. Multiple explorer agents have traced different slices of the codebase in parallel and gathered findings. Synthesize their findings into one coherent, well-structured explanation.
+You are writing an architectural explanation for a senior engineer.
+
+## Path Context
+
+{PATH_CONTEXT}
+
+For the direct path, explore the narrow question yourself before explaining it. For the synthesis path, reconcile the supplied explorer findings. Follow only the path named above.
 
 ## Original Question
 
 > {QUESTION}
 
-## Explorer Findings
+## Explorer Findings (synthesis path only; omit this section for the direct path)
 
 {EXPLORER_FINDINGS_ALL}
 
 ## Instructions
 
-The explorers each investigated a different angle of the same subsystem. Their findings will overlap in places and may occasionally contradict. Reconcile them. Merge overlapping descriptions, resolve contradictions by checking the code yourself, and combine the separate slices into a unified picture.
+On the synthesis path, the explorers investigated different angles of the same subsystem. Their findings may overlap or contradict; merge overlaps, check contradictions against the code, and combine the slices into a unified picture. On the direct path, locate and trace the relevant implementation yourself.
 
 Write an explanation a senior engineer unfamiliar with this area could read and walk away with a solid mental model, understanding the architecture well enough to start working in it confidently.
 
-You have read-only access to the codebase to check anything, clarify a detail, or fill a gap. Use Read, Grep, and Glob as needed. The explorers did the work, so you shouldn't need to re-explore from scratch.
+You have read-only access to the codebase. Use `finder` to locate files, symbols, and connected behavior, then use `Read` to inspect implementations. On the synthesis path, check only what is needed to reconcile or fill gaps rather than re-exploring from scratch.
 
 ## Output Format
 
@@ -52,4 +58,4 @@ Non-obvious things, surprising behavior, historical context, pitfalls. Skip this
 - When something is complex, explain why it's complex. Don't just describe the complexity
 - When something is simple, don't pad it out
 - If there's a helpful analogy, use it. If there isn't, don't force one
-- If the explorers flagged open questions or gaps, acknowledge them rather than hiding them
+- If your exploration or the supplied findings leave open questions or gaps, acknowledge them rather than hiding them

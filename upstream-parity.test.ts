@@ -67,6 +67,9 @@ describe('pinned upstream decision contracts', () => {
 	test('shipping still requires an independent whole-PR verdict', async () => {
 		const shipping = await repoFile('skills/poteto-mode/playbooks/shipping.md')
 		expect(shipping).toContain('Safe means a verdict from an agent that did not write the code.')
+		expect(shipping).toContain('exactly one judgment child to exactly one PR')
+		expect(shipping).toContain('PR number, its exact base and head')
+		expect(shipping).toContain('Shell tests are shell tests, not a claimed CLI skill run.')
 		expect(shipping).toContain('CI green is not a verdict, and an approving bot review is not a verdict.')
 		expect(shipping).toContain('differ only in tests, docs, or lint config')
 		expect(shipping).toContain('Build it twice at the verdict SHA and once at the current head.')
@@ -145,9 +148,25 @@ describe('pinned upstream decision contracts', () => {
 		expect(adapter).toContain('The child exclusively owns its declared paths')
 		expect(adapter).toContain('run_in_background: true')
 		expect(adapter).toContain('pstack_start_agent')
+		expect(adapter).toContain('An explicit `agentMode` override replaces the registered pstack role mode')
 		expect(adapter).toContain('A terminal error requires reconciliation before replacement')
 		expect(adapter).toContain('Never redo or replace a live owner')
 		expect(skill).toContain('Always pause without explicit authorization')
+	})
+
+	test('comment review preserves the requested diff or whole-file scope', async () => {
+		const noComments = await repoFile('skills/no-comments/SKILL.md')
+		const adapter = await repoFile('skills/poteto-mode/references/amp-adapter.md')
+		for (const text of [noComments, adapter]) {
+			expect(text).toMatch(/git refs[^\n]+not sufficient|Do not give the reviewer only git refs/)
+		}
+		expect(noComments).toContain('exact scoped diff snapshot')
+		expect(adapter).toContain('parent-prepared scoped patch artifact')
+		expect(noComments).toContain('base-to-current tracked changes')
+		expect(noComments).toContain('relevant untracked files')
+		expect(noComments).toContain('upload_thread_file')
+		expect(noComments).toContain('For an explicit whole-file review, use the caller\'s named files instead')
+		expect(noComments).toContain('do not substitute git refs or widen that diff audit to whole-file review')
 	})
 
 	test('autopilot playbooks do not git-show plugin paths from the target repo', async () => {

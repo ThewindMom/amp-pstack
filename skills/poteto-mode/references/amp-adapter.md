@@ -15,7 +15,7 @@ Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equiva
 | `/loop` | Durable child thread, or a schedule only when the user asked for later or ongoing work |
 | `/deslop` | Inspect the diff, then **unslop** prose |
 | Cursor `create-skill` | Amp **building-skills** |
-| `control-ui` / `control-cli` | The repository verification skill, or an Amp browser / PTY / accessibility skill |
+| `control-ui` / `control-cli` | No direct Amp alias. Use a verification skill or tool that is actually available and matches the real surface; otherwise report the gap |
 | Workspace `agent-transcripts/` | `pstack_read_current_thread` / `read_thread` / `find_thread` |
 | Todolist | Explicit checklist |
 
@@ -29,7 +29,7 @@ The child exclusively owns its declared paths and reports with `pstack_send_to_t
 
 ## Blocking wait
 
-`pstack_run_agent` and `pstack_run_panel` wait. Use them only when this turn cannot proceed without one result, such as comment-reviewer or a panel you must rank now, and every input is already reachable without a transfer (remote refs, or same-checkout local). A blocking wait starts work immediately and cannot receive parent-local files during the wait. Omit `timeoutMs`. The plugin floors waits at ten minutes. They always return `threadID`. Timeout is `status: timeout` plus that ID and leaves the child live. Terminal failure is `status: error`. Never describe it as a timeout. A timed-out panel candidate remains pending until its thread becomes terminal.
+`pstack_run_agent` and `pstack_run_panel` wait. Use them only when this turn cannot proceed without one result and every input is already reachable without a transfer. For a comment review, that means a same-checkout local child can already read the parent-prepared scoped patch artifact or explicitly named files; git refs alone are not sufficient because `comment-reviewer` cannot run git. A blocking wait starts work immediately and cannot receive parent-local files during the wait. Omit `timeoutMs`. The plugin floors waits at ten minutes. They always return `threadID`. Timeout is `status: timeout` plus that ID and leaves the child live. Terminal failure is `status: error`. Never describe it as a timeout. A timed-out panel candidate remains pending until its thread becomes terminal.
 
 Amp forbids recursive custom-agent runner creation from a plugin tool, so blocking `pstack_run_agent` and `pstack_run_panel` reject runner executors. Use one `pstack_start_agent` named-runner redirect per seat and aggregate reports in the parent.
 
@@ -69,7 +69,7 @@ Mandatory feature delegation has no skip-with-reason escape. Laziness Protocol d
 
 ## Launch targets
 
-Plugin agent tools accept `executor: local | orb | { type: "runner", id }`. `pstack_start_agent` also accepts `launchTarget.kind: "current-checkout" | "parent-project-orb" | "repo-independent-orb" | "named-runner" | "native-orb"`. `named-runner` requires `runnerId`, accepts optional absolute `workingDirectory`, and returns a guarded native `create_thread` redirect with `executor: "runner"`, `runner_id`, and `working_directory`. `current-checkout` means the current local CLI or runner. It is unavailable from an Amp-managed orb. When project, orb size, or an arbitrary mode matters, `native-orb` returns a native redirect. Amp has no `cloudBaseBranch`. Arbitrary native threads outside pstack redirects bypass ownership guards.
+Plugin agent tools accept `executor: local | orb | { type: "runner", id }`. `pstack_start_agent` also accepts `launchTarget.kind: "current-checkout" | "parent-project-orb" | "repo-independent-orb" | "named-runner" | "native-orb"`. `named-runner` requires `runnerId`, accepts optional absolute `workingDirectory`, and returns a guarded native `create_thread` redirect with `executor: "runner"`, `runner_id`, and `working_directory`. `current-checkout` means the current local CLI or runner. It is unavailable from an Amp-managed orb. When project, orb size, or an arbitrary mode matters, `native-orb` returns a native redirect. An explicit `agentMode` override replaces the registered pstack role mode, including its instructions and tool restrictions; use it only when the caller deliberately accepts that different contract. Amp has no `cloudBaseBranch`. Arbitrary native threads outside pstack redirects bypass ownership guards.
 
 ## Size
 
@@ -91,7 +91,7 @@ Pick size from this table unless the user named one. The user-named size always 
 
 ## Briefs
 
-Compact: paths, named data shape, success criteria, how to report. No file dumps. Include the parent thread ID and require `pstack_send_to_thread` with a compact report. Playbooks live with **poteto-mode**. After load, Amp names the skill base directory. Open `playbooks/<name>.md` and `references/amp-adapter.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
+Compact: paths, named data shape, success criteria, how to report. No file dumps. Name only verification skills and tools known to be available, and require reports to distinguish a skill run from direct shell tests. Include the parent thread ID and require `pstack_send_to_thread` with a compact report. Playbooks live with **poteto-mode**. After load, Amp names the skill base directory. Open `playbooks/<name>.md` and `references/amp-adapter.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
 
 ## Models
 
@@ -123,7 +123,7 @@ For work that must wake later, use an Amp schedule only when the user requested 
 | Recall / automate-me miners | `pstack_start_agent` | `how-explorer` |
 | Reflect reviewers / synthesizer | `pstack_start_agent` | `reflect-*` |
 | Shipping per-PR verdict | `pstack_start_agent` | `judgment` (whole-PR `PASS` / `PASS+NOTES` / `FAIL`, not comments-only) |
-| Comment review | `pstack_run_agent` when inputs are already reachable; else `pstack_start_agent`, hold, upload, release | `comment-reviewer` |
+| Comment review | Parent prepares a patch for a diff review, or uses caller-named files for an explicit whole-file review. `pstack_run_agent` only when a same-checkout child can read the inputs; otherwise `pstack_start_agent`, hold, upload the patch and current scoped files (or named files), release. Report a gap if a requested diff cannot be transferred; never replace it with refs or a whole-file review | `comment-reviewer` |
 | Interrogate | `pstack_run_panel` | `interrogate-reviewers` |
 | Arena runners | `pstack_run_panel` | caller panel, default `arena-runners` |
 | Arena cross-judge | `pstack_start_agent` | `arena-cross-judge` |
