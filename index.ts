@@ -1001,6 +1001,12 @@ export default async function pstack(amp: PluginAPI) {
 					items: { type: 'string' },
 					description: 'Concrete paths exclusively owned by this implementation.',
 				},
+				candidateThreadIDs: {
+					type: 'array',
+					items: { type: 'string' },
+					description:
+						'Required for arena-cross-judge: the non-empty unique candidate thread ID set returned by the active design panel.',
+				},
 				executor: {
 					oneOf: [
 						{ type: 'string', enum: ['local', 'orb'] },
@@ -1046,6 +1052,25 @@ export default async function pstack(amp: PluginAPI) {
 		async execute(input, ctx) {
 			const role = text(input.role, 'role')
 			const prompt = text(input.prompt, 'prompt')
+			const candidateThreadIDs = (() => {
+				if (role !== 'arena-cross-judge') return []
+				if (
+					!Array.isArray(input.candidateThreadIDs) ||
+					input.candidateThreadIDs.length === 0 ||
+					input.candidateThreadIDs.some(
+						(value) => typeof value !== 'string' || value.trim().length === 0,
+					)
+				) {
+					throw new Error(
+						'arena-cross-judge requires a non-empty candidateThreadIDs array of non-empty strings.',
+					)
+				}
+				const ids = input.candidateThreadIDs.map((value) => String(value).trim())
+				if (new Set(ids).size !== ids.length) {
+					throw new Error('arena-cross-judge candidateThreadIDs must be unique.')
+				}
+				return ids
+			})()
 			const implementation = isImplementationRole(role)
 			const scope = implementation
 				? text(input.scope, 'scope')
@@ -1072,7 +1097,9 @@ export default async function pstack(amp: PluginAPI) {
 				return JSON.stringify(cloudBaseBranchUnsupported(launchTarget.branch))
 			}
 			const judgeReserved =
-				role === 'arena-cross-judge' ? policy.reserveJudge(ctx.thread.id) : false
+				role === 'arena-cross-judge'
+					? policy.reserveJudge(ctx.thread.id, candidateThreadIDs)
+					: false
 			const resource = implementation
 				? implementationResource(launchTarget, ctx.thread.id, scope, scopePaths)
 				: undefined

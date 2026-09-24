@@ -1111,7 +1111,13 @@ describe('runtime tool behavior', () => {
 		}
 
 		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'arena-cross-judge', prompt: 'judge it' },
+			{
+				role: 'arena-cross-judge',
+				prompt: 'judge it',
+				candidateThreadIDs: architect
+					.map(({ threadID }: { threadID: string }) => threadID)
+					.reverse(),
+			},
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(String(amp.created.at(-1)?.instructions)).not.toContain(POTETO_DELEGATE_INSTRUCTIONS)
@@ -1121,13 +1127,27 @@ describe('runtime tool behavior', () => {
 		const amp = await loadPlugin({
 			initialConfig: {
 				[CONFIG_KEY]: {
+					'architect-runners': ['builtin:high'],
 					'arena-cross-judge': ['xai/grok-4.7', 'builtin:high', 'openai/gpt-5.6-sol'],
 				},
 			},
 		})
+		const panel = JSON.parse(
+			await tool(amp, 'pstack_run_panel').execute(
+				{ panel: 'architect-runners', prompt: 'sketch it' },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		const startedBeforeJudge = amp.started.length
 		const result = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'judge it' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge it',
+					candidateThreadIDs: panel.map(
+						({ threadID }: { threadID: string }) => threadID,
+					),
+				},
 				{
 					thread: {
 						id: 'T-parent',
@@ -1143,7 +1163,7 @@ describe('runtime tool behavior', () => {
 			),
 		)
 		expect(result.model).toBe('openai/gpt-5.6-sol')
-		expect(amp.started).toHaveLength(1)
+		expect(amp.started).toHaveLength(startedBeforeJudge + 1)
 		expect(amp.created.at(-1)).toMatchObject({ model: 'openai/gpt-5.6-sol' })
 		await expect(
 			tool(amp, 'pstack_run_panel').execute(
@@ -2456,7 +2476,11 @@ describe('runtime tool behavior', () => {
 			),
 		).rejects.toThrow('A design run is already live')
 		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'arena-cross-judge', prompt: 'judge it' },
+			{
+				role: 'arena-cross-judge',
+				prompt: 'judge it',
+				candidateThreadIDs: panel.map(({ threadID }: { threadID: string }) => threadID),
+			},
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
@@ -2465,6 +2489,75 @@ describe('runtime tool behavior', () => {
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
 		judge.emit('idle')
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
+		const startedAfterJudge = amp.started.length
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'stale queued continuation',
+					candidateThreadIDs: ['T-child', 'T-child-2'],
+				},
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('No design run is waiting')
+		expect(amp.started).toHaveLength(startedAfterJudge)
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'arena-cross-judge', prompt: 'missing IDs' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('requires a non-empty candidateThreadIDs')
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'malformed IDs',
+					candidateThreadIDs: ['T-child', ''],
+				},
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('requires a non-empty candidateThreadIDs')
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'duplicate IDs',
+					candidateThreadIDs: ['T-child', 'T-child'],
+				},
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('candidateThreadIDs must be unique')
+
+		const nextPanel = JSON.parse(
+			await tool(amp, 'pstack_run_panel').execute(
+				{ panel: 'architect-runners', prompt: 'sketch the next design' },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		const startedBeforeStaleReplay = amp.started.length
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'replay stale A IDs while B waits',
+					candidateThreadIDs: ['T-child', 'T-child-2'],
+				},
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('do not match the active design run')
+		expect(amp.started).toHaveLength(startedBeforeStaleReplay)
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge the next design',
+					candidateThreadIDs: nextPanel
+						.map(({ threadID }: { threadID: string }) => threadID)
+						.reverse(),
+				},
+				{ thread: { id: 'T-parent' } },
+			),
+		).resolves.toBeDefined()
 	})
 
 	test('keeps timed-out design candidates pending until every child is terminal', async () => {
@@ -2490,7 +2583,11 @@ describe('runtime tool behavior', () => {
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'judge too early' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge too early',
+					candidateThreadIDs: ['T-child', 'T-child-2'],
+				},
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow('design candidates are still running')
@@ -2499,7 +2596,11 @@ describe('runtime tool behavior', () => {
 		first.emit('idle')
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'still too early' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'still too early',
+					candidateThreadIDs: ['T-child', 'T-child-2'],
+				},
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow('design candidates are still running')
@@ -2513,11 +2614,42 @@ describe('runtime tool behavior', () => {
 		})
 		const judge = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'judge completed candidates' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge completed candidates',
+					candidateThreadIDs: panel.map(
+						({ threadID }: { threadID: string }) => threadID,
+					),
+				},
 				{ thread: { id: 'T-parent' } },
 			),
 		)
 		expect(judge.threadID).toBe('T-child-3')
+	})
+
+	test('candidate notification retains tracked IDs omitted from the panel result', async () => {
+		const amp = await loadPlugin({
+			appendError: new Error('prompt append failed'),
+			initialConfig: {
+				[CONFIG_KEY]: { 'architect-runners': ['builtin:high', 'builtin:medium'] },
+			},
+		})
+		const panel = JSON.parse(
+			await tool(amp, 'pstack_run_panel').execute(
+				{ panel: 'architect-runners', prompt: 'sketch it' },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+
+		expect(panel[0]).toMatchObject({ status: 'error' })
+		expect(panel[0].threadID).toBeUndefined()
+		expect(panel[1].threadID).toBe('T-child-2')
+		expect(amp.sent.at(-1)).toEqual({
+			threadID: 'T-parent',
+			content:
+				'Design candidates are terminal. Start the required cross-judge for architect-runners with candidateThreadIDs: ["T-child","T-child-2"]. Ignore stale judge requests whose candidate ID set differs.',
+			steer: true,
+		})
 	})
 
 	test('idles while a cross-judge runs and recovers a failed judge', async () => {
@@ -2529,13 +2661,17 @@ describe('runtime tool behavior', () => {
 			{ thread: { id: 'T-parent' } },
 		)
 		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'arena-cross-judge', prompt: 'judge it' },
+			{ role: 'arena-cross-judge', prompt: 'judge it', candidateThreadIDs: ['T-child'] },
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'duplicate judge' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'duplicate judge',
+					candidateThreadIDs: ['T-child'],
+				},
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow('already reserved or running')
@@ -2546,12 +2682,22 @@ describe('runtime tool behavior', () => {
 		const sentBeforeFailure = amp.sent.length
 		judge.emit('error')
 		expect(amp.sent).toHaveLength(sentBeforeFailure + 1)
+		expect(amp.sent.at(-1)).toEqual({
+			threadID: 'T-parent',
+			content:
+				'Cross-judge T-child-2 failed. Start one replacement judge for architect-runners with the same candidateThreadIDs: ["T-child"].',
+			steer: true,
+		})
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toMatchObject({
 			action: 'continue',
 		})
 		const replacement = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'replacement judge' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'replacement judge',
+					candidateThreadIDs: ['T-child'],
+				},
 				{ thread: { id: 'T-parent' } },
 			),
 		)
@@ -2589,7 +2735,11 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: 'T-judging-parent' } },
 			)
 			await tool(judging, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'judge across reload' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge across reload',
+					candidateThreadIDs: ['T-child'],
+				},
 				{ thread: { id: 'T-judging-parent' } },
 			)
 			await judging.dispose()
@@ -2602,7 +2752,11 @@ describe('runtime tool behavior', () => {
 			).toBeUndefined()
 			await expect(
 				tool(restoredJudging, 'pstack_start_agent').execute(
-					{ role: 'arena-cross-judge', prompt: 'duplicate after reload' },
+					{
+						role: 'arena-cross-judge',
+						prompt: 'duplicate after reload',
+						candidateThreadIDs: ['T-child'],
+					},
 					{ thread: { id: 'T-judging-parent' } },
 				),
 			).rejects.toThrow('already reserved or running')
@@ -2626,6 +2780,7 @@ describe('runtime tool behavior', () => {
 				{
 					role: 'arena-cross-judge',
 					prompt: 'wrong mode',
+					candidateThreadIDs: ['T-child'],
 					launchTarget: {
 						kind: 'native-orb',
 						project: 'amp/pstack',
@@ -2640,6 +2795,7 @@ describe('runtime tool behavior', () => {
 				{
 					role: 'arena-cross-judge',
 					prompt: 'judge it',
+					candidateThreadIDs: ['T-child'],
 					launchTarget: { kind: 'native-orb', project: 'amp/pstack', orbSize: 'a1.small' },
 				},
 				{ thread: { id: 'T-parent' } },
@@ -2653,7 +2809,11 @@ describe('runtime tool behavior', () => {
 		)
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(
-				{ role: 'arena-cross-judge', prompt: 'duplicate judge' },
+				{
+					role: 'arena-cross-judge',
+					prompt: 'duplicate judge',
+					candidateThreadIDs: ['T-child'],
+				},
 				{ thread: { id: 'T-parent' } },
 			),
 		).rejects.toThrow('already reserved or running')

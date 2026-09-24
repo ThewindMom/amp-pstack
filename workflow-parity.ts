@@ -354,13 +354,15 @@ export function ownerConflictMessage(owner: ImplementationOwner): string {
 }
 
 export function judgeContinueMessage(run: Extract<DesignRun, { state: 'judge-required' }>): string {
+	const candidateThreadIDs = JSON.stringify(run.candidateThreadIDs)
+	const identity = `Candidate thread IDs (copy this JSON list into candidateThreadIDs): ${candidateThreadIDs}. Ignore this request if those IDs belong to a stale design run.`
 	if (run.nativeToolUseID) {
-		return `The paired native create_thread call ${run.nativeToolUseID} for arena-cross-judge has not produced an observable child yet. Do not start another judge. Candidate thread IDs: ${run.candidateThreadIDs.join(', ') || '(none)'}.`
+		return `The paired native create_thread call ${run.nativeToolUseID} for arena-cross-judge has not produced an observable child yet. Do not start another judge. ${identity}`
 	}
 	if (run.expectedNative) {
-		return `Call native create_thread next with the exact fields returned by pstack_start_agent for arena-cross-judge. Do not start another judge. Candidate thread IDs: ${run.candidateThreadIDs.join(', ') || '(none)'}.`
+		return `Call native create_thread next with the exact fields returned by pstack_start_agent for arena-cross-judge. Do not start another judge. ${identity}`
 	}
-	return `Call pstack_start_agent with role arena-cross-judge before completing this design run. Candidate thread IDs: ${run.candidateThreadIDs.join(', ') || '(none)'}. Pick, graft, synthesis quality, and verification stay with this parent.`
+	return `Call pstack_start_agent with role arena-cross-judge and candidateThreadIDs before completing this design run. ${identity} Pick, graft, synthesis quality, and verification stay with this parent.`
 }
 
 export function threadIDFromCreateThreadResult(output: unknown): string | null {
@@ -655,14 +657,27 @@ export class WorkflowParityPolicy {
 		return next
 	}
 
-	reserveJudge(parentThreadID: string): boolean {
+	reserveJudge(parentThreadID: string, candidateThreadIDs: readonly string[]): boolean {
 		const run = this.designs.get(parentThreadID)
-		if (!run) return false
+		if (!run) {
+			throw new Error(
+				'No design run is waiting for an arena-cross-judge; start and settle a design panel first.',
+			)
+		}
 		if (run.state === 'candidates-running') {
 			throw new Error('The design candidates are still running; the cross-judge cannot start yet.')
 		}
 		if (run.state === 'judging' || run.judgeReserved) {
 			throw new Error('An arena-cross-judge is already reserved or running for this design run.')
+		}
+		const activeIDs = new Set(run.candidateThreadIDs)
+		if (
+			candidateThreadIDs.length !== activeIDs.size ||
+			candidateThreadIDs.some((threadID) => !activeIDs.has(threadID))
+		) {
+			throw new Error(
+				'The arena-cross-judge candidateThreadIDs do not match the active design run. Ignore stale judge requests and use the exact candidate ID set reported for this run.',
+			)
 		}
 		this.setDesign({ ...run, judgeReserved: true })
 		return true
@@ -989,7 +1004,7 @@ export class WorkflowParityPolicy {
 		if (next?.state === 'judge-required') {
 			this.candidateNotifier?.(
 				run.parentThreadID,
-				`Design candidates are terminal. Start the required cross-judge for ${run.panel}.`,
+				`Design candidates are terminal. Start the required cross-judge for ${run.panel} with candidateThreadIDs: ${JSON.stringify(run.candidateThreadIDs)}. Ignore stale judge requests whose candidate ID set differs.`,
 			)
 		}
 		return next
@@ -1025,7 +1040,7 @@ export class WorkflowParityPolicy {
 				})
 				this.candidateNotifier?.(
 					child.parentThreadID,
-					`Cross-judge ${threadID} failed. Start one replacement judge for ${run.panel}.`,
+					`Cross-judge ${threadID} failed. Start one replacement judge for ${run.panel} with the same candidateThreadIDs: ${JSON.stringify(run.candidateThreadIDs)}.`,
 				)
 			} else {
 				this.deleteDesign(child.parentThreadID)

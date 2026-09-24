@@ -126,7 +126,7 @@ For work that must wake later, use an Amp schedule only when the user requested 
 | Comment review | Parent prepares a patch for a diff review, or uses caller-named files for an explicit whole-file review. `pstack_run_agent` only when a same-checkout child can read the inputs; otherwise `pstack_start_agent`, hold, upload the patch and current scoped files (or named files), release. Report a gap if a requested diff cannot be transferred; never replace it with refs or a whole-file review | `comment-reviewer` |
 | Interrogate | `pstack_run_panel` | `interrogate-reviewers` |
 | Arena runners | `pstack_run_panel` | caller panel, default `arena-runners` |
-| Arena cross-judge | `pstack_start_agent` | `arena-cross-judge` |
+| Arena cross-judge | `pstack_start_agent` with the non-empty unique `candidateThreadIDs` from the candidate-ready notification or `agent.end` continuation. These authoritative lists include tracked failed children even when the panel result omits them. Ignore stale requests with another ID set; a failed-judge notification repeats the same set for retry | `arena-cross-judge` |
 | Architect sketches | **arena** with `architect-runners` | then `arena-cross-judge` |
 
 `how` is a workflow, not a role. Never pass role `how`. Never use Amp builtin `Task` for these waves.
