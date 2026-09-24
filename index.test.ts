@@ -1267,6 +1267,29 @@ describe('runtime tool behavior', () => {
 		expect(amp.registeredModes).toHaveLength(amp.preloadedModeCount)
 	})
 
+	test('start_agent surfaces blocked-report checks on the parent return and child instructions', async () => {
+		const amp = await loadPlugin({ waitError: new Error('must not wait') })
+		const result = JSON.parse(
+			await tool(amp, 'pstack_start_agent').execute(
+				implStart,
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		const childInstructions = String(amp.created.at(-1)?.instructions)
+		expect(result.next).toContain(
+			'inspect the actual child tool-call/result status and output',
+		)
+		expect(result.next).toContain('steer that same child instead of replacing it')
+		expect(result.next).not.toContain('not attempted')
+		expect(childInstructions).toContain(
+			'A blocked report must name the attempted tool and its tool-call/result status and output',
+		)
+		expect(childInstructions).toContain('say not attempted, not unavailable')
+		expect(childInstructions).not.toContain('steer that same child')
+		expect(amp.started).toHaveLength(1)
+		expect(amp.waited).toHaveLength(0)
+	})
+
 	test('orb starts use and retain the exact agent published during plugin initialization', async () => {
 		const amp = await loadPlugin()
 		expect(amp.registeredModes.length).toBeGreaterThan(0)
@@ -2183,6 +2206,8 @@ describe('runtime tool behavior', () => {
 				prompt: backgroundChildPrompt('implement on the hardware runner', 'T-parent'),
 			},
 		})
+		expect(started.next).toContain('inspect the actual child tool-call/result status and output')
+		expect(started.next).toContain('steer that same child instead of replacing it')
 		expect(background.started).toHaveLength(0)
 
 		const blocking = await loadPlugin()
@@ -2355,6 +2380,8 @@ describe('runtime tool behavior', () => {
 			},
 		})
 		expect(native.next).toContain('Arbitrary native threads bypass')
+		expect(native.next).toContain('inspect the actual child tool-call/result status and output')
+		expect(native.next).toContain('steer that same child instead of replacing it')
 		expect(redirected.started).toHaveLength(0)
 		expect(redirected.registeredModes).toHaveLength(redirected.preloadedModeCount)
 		expect(

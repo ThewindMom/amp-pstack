@@ -276,6 +276,7 @@ export const AGENT_INSTRUCTIONS = [
 	'Do not spawn another agent for this same scope.',
 	'Do not message sibling threads. Report only to the named parent.',
 	'The parent may steer you mid-run. Treat a steering message as the new scope.',
+	'A blocked report must name the attempted tool and its tool-call/result status and output. If no call was attempted, say not attempted, not unavailable.',
 ].join(' ')
 
 export const POTETO_DELEGATE_INSTRUCTIONS =
@@ -308,8 +309,11 @@ export function backgroundChildPrompt(prompt: string, parentThreadID: string): s
 	].join('\n')
 }
 
+const BLOCKED_REPORT_PARENT_GUIDANCE =
+	'Before treating a blocked report as terminal, inspect the actual child tool-call/result status and output; when the result contradicts the claim, steer that same child instead of replacing it.'
+
 export const START_AGENT_NEXT =
-	'The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. Never redo or replace a live child. The child reports through pstack_send_to_thread, and the parent may steer it. If you must check later, read_thread; zero messages means not started yet, not dead.'
+	`The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. Never redo or replace a live child. ${BLOCKED_REPORT_PARENT_GUIDANCE} The child reports through pstack_send_to_thread, and the parent may steer it. If you must check later, read_thread; zero messages means not started yet, not dead.`
 
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
@@ -1140,7 +1144,7 @@ export default async function pstack(amp: PluginAPI) {
 					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id)
 					if (launchTarget.kind === 'named-runner') orbAgentFor(model, role)
 					else if (!launchTarget.agentMode) orbAgentFor(model, role)
-					const redirect =
+					const redirectBase =
 						launchTarget.kind === 'native-orb'
 							? nativeRedirect({
 									role,
@@ -1169,7 +1173,11 @@ export default async function pstack(amp: PluginAPI) {
 									next:
 										'Call native create_thread next with exactly create_thread. Pstack keeps the resource claim until that tool result is paired.',
 								}
-					const nativeInput = redirect.create_thread as Record<string, unknown>
+					const redirect = {
+						...redirectBase,
+						next: `${redirectBase.next} ${BLOCKED_REPORT_PARENT_GUIDANCE}`,
+					}
+					const nativeInput = redirectBase.create_thread as Record<string, unknown>
 					if (owner) policy.expectNative(owner.resourceKey, nativeInput)
 					else if (judgeReserved) policy.expectNativeJudge(ctx.thread.id, nativeInput)
 					return JSON.stringify(redirect)
