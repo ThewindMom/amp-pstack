@@ -22,12 +22,14 @@ import {
 	WorkflowParityPolicy,
 	capabilityFor,
 	cloudBaseBranchUnsupported,
+	exactCreateThreadInputMatches,
 	executorForParent,
 	isDesignPanel,
 	isImplementationRole,
 	isStrictReadonlyRole,
 	launchTargetForParent,
 	nativeRedirect,
+	threadIDFromCreateThreadResult,
 	type DelegateExecutor,
 	type ImplementationOwner,
 	type ImplementationResource,
@@ -112,6 +114,7 @@ export const SKILL_PATHS = [
 ] as const
 
 export const DEFAULT_MODELS = {
+	hardest: 'anthropic/claude-opus-5-5',
 	feature: 'xai/grok-4.7',
 	refactoring: 'xai/grok-4.7',
 	'bug-fix': 'xai/grok-4.7',
@@ -151,14 +154,15 @@ export const DEFAULT_MODELS = {
 } as const
 
 export const MODEL_REASONING_EFFORT = {
-	'anthropic/claude-opus-5-5': 'high',
-	'openai/gpt-6-sol': 'high',
-	'xai/grok-4.7': 'high',
+	'anthropic/claude-opus-5-5': 'max',
+	'openai/gpt-6-sol': 'max',
+	'xai/grok-4.7': 'xhigh',
 } as const satisfies Record<string, AgentReasoningEffort>
 
 const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
 
 export const CHEAP_MODELS = {
+	hardest: 'openai/gpt-5.6-sol',
 	feature: 'xai/grok-4.7',
 	refactoring: 'xai/grok-4.7',
 	'bug-fix': 'xai/grok-4.7',
@@ -210,13 +214,17 @@ export const MIN_TIMEOUT_MS = 30_000
 export const MAX_TIMEOUT_MS = 60 * 60 * 1000
 export const COMMENT_REVIEWER_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
 export const RUN_AGENT_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
+export const MAX_PANEL_COUNT = 20
 
-type ModelValue = string | readonly string[]
+export type Seat = Readonly<{ model: string; effort?: AgentReasoningEffort }>
+type SeatInput = string | Seat
+type ModelValue = SeatInput | readonly SeatInput[]
 export type ModelMap = Record<string, ModelValue>
 
 export type ResolvedAgentSpec = Readonly<{
 	role: string
 	model: string
+	effort?: AgentReasoningEffort
 }>
 
 const BUILTIN_MODE = /^builtin:(low|medium|high|ultra)$/
@@ -232,9 +240,9 @@ const POOL_ROLES = new Set(['arena-cross-judge'])
 export const ORB_MODE_RELOAD_ERROR =
 	'Orb agents use the role/model map captured when pstack loaded. Reload plugins, then retry this orb launch. Local launches use configuration changes immediately.'
 
-export function orbAgentModeFor(role: string, model: string): { key: string; label: string } {
+export function orbAgentModeFor(role: string, model: string, effort?: AgentReasoningEffort): { key: string; label: string } {
 	const hasher = new Bun.CryptoHasher('sha256')
-	hasher.update(JSON.stringify([role, model]))
+	hasher.update(JSON.stringify([role, model, effort ?? MODEL_REASONING_EFFORT[model as keyof typeof MODEL_REASONING_EFFORT]]))
 	const digest = hasher.digest('hex')
 	const roleSlug =
 		role
@@ -250,17 +258,31 @@ export function orbAgentModeFor(role: string, model: string): { key: string; lab
 	}
 }
 
-export function orbAgentSpecsFor(models: ModelMap): ResolvedAgentSpec[] {
+export function orbAgentSpecsFor(
+	models: ModelMap,
+	onInvalid?: (role: string, message: string) => void,
+): ResolvedAgentSpec[] {
 	return Object.entries(models).flatMap(([role, value]) => {
+		const seats = Array.isArray(value) ? value : [value]
+		const invalid = seats.find((seat) => !isSeatInput(seat) || seatError(role, seat) !== undefined)
+		if (invalid !== undefined) {
+			const message = isSeatInput(invalid)
+				? seatError(role, invalid)!
+				: `Invalid model seat for ${role}. Use a model string or { model, effort }.`
+			onInvalid?.(role, message)
+			return []
+		}
 		if (PANEL_ROLES.has(role)) {
-			const seats = typeof value === 'string' ? [value] : value
-			return seats.map((model, index) => ({ role: `${role}-${index + 1}`, model }))
+			return seats.map((seat, index) => ({ role: `${role}-${index + 1}`, ...resolveSeat(seat) }))
 		}
 		if (POOL_ROLES.has(role)) {
-			const pool = typeof value === 'string' ? [value] : value
-			return [...new Set(pool)].map((model) => ({ role, model }))
+			const unique = new Map(seats.map((seat) => {
+				const resolved = resolveSeat(seat)
+				return [JSON.stringify([resolved.model, resolved.effort]), resolved]
+			}))
+			return [...unique.values()].map((seat) => ({ role, ...seat }))
 		}
-		if (typeof value === 'string') return [{ role, model: value }]
+		if (isSeatInput(value)) return [{ role, ...resolveSeat(value) }]
 		throw new Error(`Single pstack role ${role} must configure one model.`)
 	})
 }
@@ -334,11 +356,11 @@ export function modelMapFrom(value: unknown): ModelMap {
 	if (!isRecord(value)) return {}
 	const result: ModelMap = {}
 	for (const [role, candidate] of Object.entries(value)) {
-		if (typeof candidate === 'string') result[role] = candidate
+		if (isSeatInput(candidate)) result[role] = candidate
 		if (
 			Array.isArray(candidate) &&
 			candidate.length > 0 &&
-			candidate.every((item) => typeof item === 'string')
+			candidate.every(isSeatInput)
 		) {
 			result[role] = candidate
 		}
@@ -357,30 +379,62 @@ export function modelFamily(model: string): 'claude' | 'gpt' | 'grok' | undefine
 	return undefined
 }
 
-export function selectPoolModel(models: readonly string[], parentModel?: string): string {
+export function selectPoolModel(models: readonly SeatInput[], parentModel?: string): Omit<ResolvedAgentSpec, 'role'> {
 	if (models.length === 0) throw new Error('A pstack model pool cannot be empty.')
+	const seats = models.map(resolveSeat)
 	const parentFamily = parentModel ? modelFamily(parentModel) : undefined
 	if (parentFamily) {
-		const differentFamily = models.find((model) => {
+		const differentFamily = seats.find(({ model }) => {
 			const family = modelFamily(model)
 			return family !== undefined && family !== parentFamily
 		})
 		if (differentFamily) return differentFamily
 	}
-	return models[0]
+	return seats[0]!
 }
 
 export function isKnownRole(role: string): boolean {
 	return KNOWN_ROLES.has(role)
 }
 
+const EFFORTS = new Set<AgentReasoningEffort>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+const KNOWN_EFFORTS: Record<string, ReadonlySet<AgentReasoningEffort>> = {
+	'anthropic/claude-opus-5-5': new Set(['low', 'medium', 'high', 'xhigh', 'max']),
+	'openai/gpt-6-sol': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
+	'xai/grok-4.7': new Set(['low', 'medium', 'high', 'xhigh']),
+}
+
+function isSeatInput(value: unknown): value is SeatInput {
+	return typeof value === 'string' || (isRecord(value) && typeof value.model === 'string' &&
+		(value.effort === undefined || typeof value.effort === 'string'))
+}
+
+function seatError(role: string, seat: SeatInput): string | undefined {
+	const { model, effort } = typeof seat === 'string' ? { model: seat, effort: undefined } : seat
+	if (!validateModel(model)) return `Invalid model for ${role}: ${model}. Use provider/model or builtin:<mode>.`
+	if (model.startsWith('builtin:') && effort !== undefined) return `Invalid effort for ${role}: builtin ${model} cannot carry effort ${effort}.`
+	if (effort !== undefined && !EFFORTS.has(effort)) {
+		return `Invalid effort for ${role}: ${effort}. Use none, minimal, low, medium, high, xhigh, or max.`
+	}
+	if (effort !== undefined && KNOWN_EFFORTS[model] && !KNOWN_EFFORTS[model].has(effort)) {
+		return `Invalid effort for ${role}: model ${model} does not support effort ${effort}.`
+	}
+	return undefined
+}
+
+function resolveSeat(value: SeatInput): Omit<ResolvedAgentSpec, 'role'> {
+	const seat = typeof value === 'string' ? { model: value } : value
+	if (seat.model.startsWith('builtin:')) return { model: seat.model }
+	return { model: seat.model, effort: seat.effort ?? MODEL_REASONING_EFFORT[seat.model as keyof typeof MODEL_REASONING_EFFORT] }
+}
+
 function isValidRoleModel(role: string, value: unknown): value is ModelValue {
-	if (typeof value === 'string') return validateModel(value)
+	if (isSeatInput(value)) return seatError(role, value) === undefined
 	return (
 		(PANEL_ROLES.has(role) || POOL_ROLES.has(role)) &&
 		Array.isArray(value) &&
 		value.length > 0 &&
-		value.every((model) => typeof model === 'string' && validateModel(model))
+		value.every((seat) => isSeatInput(seat) && seatError(role, seat) === undefined)
 	)
 }
 
@@ -403,7 +457,13 @@ export function storedModelMap(value: unknown): ModelMap {
 	}
 	for (const [role, model] of Object.entries(value)) {
 		if (!isKnownRole(role)) continue
-		if (isValidRoleModel(role, model)) result[role] = model
+		if (isSeatInput(model)) result[role] = model
+		else if (
+			(PANEL_ROLES.has(role) || POOL_ROLES.has(role)) &&
+			Array.isArray(model) &&
+			model.length > 0 &&
+			model.every(isSeatInput)
+		) result[role] = model
 	}
 	return result
 }
@@ -427,6 +487,8 @@ export function validateOverrides(value: unknown): ModelMap {
 			throw new Error(`Unknown pstack role: ${role}.`)
 		}
 		if (!isValidRoleModel(role, model)) {
+			const invalid = Array.isArray(model) ? model.find((seat) => !isSeatInput(seat) || seatError(role, seat)) : model
+			if (isSeatInput(invalid)) throw new Error(seatError(role, invalid))
 			throw new Error(`Invalid model for ${role}. Use provider/model or builtin:<mode>.`)
 		}
 		overrides[role] = model
@@ -597,6 +659,86 @@ export default async function pstack(amp: PluginAPI) {
 		runtimeStatePath(amp.system.ampURL, amp.system.user?.id ?? null),
 	)
 	const wakeWebhooks = new WakeWebhookCoordinator(amp, runtimeStore)
+	const reportsInFlight = new Map<string, Set<Promise<void>>>()
+	const terminalTranscript = async (threadID: string, parentThreadID: string) => {
+		const successfulResults = new Set<string>()
+		const reports = new Map<string, string>()
+		let lastAssistantText = ''
+		let offset = 0
+		while (true) {
+			const messages = await amp.threads.get(threadID as ThreadID).messages({
+				full: true,
+				from: 'end',
+				limit: 20,
+				offset,
+			})
+			for (const message of [...messages].reverse()) {
+				if (!('content' in message) || !Array.isArray(message.content)) continue
+				for (const block of message.content) {
+					if (block.type === 'tool_result' && block.status === 'done') {
+						successfulResults.add(block.toolUseID)
+					} else if (
+						block.type === 'tool_use' &&
+						block.name === 'pstack_send_to_thread' &&
+						typeof block.id === 'string' &&
+						isRecord(block.input) &&
+						typeof block.input.threadID === 'string'
+					) {
+						reports.set(block.id, block.input.threadID)
+					}
+				}
+				if (!lastAssistantText && message.role === 'assistant') {
+					lastAssistantText = message.content
+						.filter((block) => block.type === 'text')
+						.map((block) => block.text)
+						.join('\n')
+				}
+			}
+			if (messages.length < 20) break
+			offset += messages.length
+		}
+		return {
+			lastAssistantText,
+			reportedToParent: [...reports].some(
+				([toolUseID, target]) => target === parentThreadID && successfulResults.has(toolUseID),
+			),
+		}
+	}
+	const notifyUnreportedChild = async (
+		threadID: string,
+		parentThreadID: string,
+		state: 'idle' | 'error',
+	): Promise<void> => {
+		await Promise.allSettled([...(reportsInFlight.get(threadID) ?? [])])
+		if (!runtimeStore.claimBackgroundNotification(threadID)) {
+			runtimeStore.deleteReportedBackgroundChild(threadID)
+			return
+		}
+		let lastAssistantText = ''
+		try {
+			const transcript = await terminalTranscript(threadID, parentThreadID)
+			lastAssistantText = transcript.lastAssistantText
+			if (transcript.reportedToParent) {
+				runtimeStore.deleteBackgroundChild(threadID)
+				return
+			}
+		} catch (error) {
+			amp.logger.log(`Could not read terminal child ${threadID}: ${String(error)}`)
+		}
+		const message = `Child ${threadID} reached terminal state ${state} without successfully reporting via pstack_send_to_thread. Last assistant text: ${lastAssistantText || '(none)'}`
+		let notified = false
+		await amp.threads
+			.get(parentThreadID as ThreadID)
+			.appendUserMessage({ type: 'user-message', content: message }, { steer: true })
+			.then(() => {
+				notified = true
+			})
+			.catch((error: unknown) => {
+				amp.logger.log(`Could not notify parent ${parentThreadID}: ${String(error)}`)
+			})
+		if (notified) runtimeStore.deleteBackgroundChild(threadID)
+		else runtimeStore.releaseBackgroundNotification(threadID)
+	}
 	const policy = new WorkflowParityPolicy(
 		(parentThreadID, message) => {
 			void amp.threads
@@ -614,6 +756,13 @@ export default async function pstack(amp: PluginAPI) {
 			if (run) runtimeStore.saveDesignRun(run)
 			else runtimeStore.releaseDesignRun(parentThreadID)
 		},
+		(threadID, parentThreadID, state) => {
+			void notifyUnreportedChild(threadID, parentThreadID, state)
+		},
+		(threadID) => runtimeStore.markBackgroundActive(threadID),
+	)
+	const restoredOwnerThreadIDs = new Set(
+		runtimeStore.listOwners().flatMap((owner) => owner.state === 'running' ? [owner.threadID] : []),
 	)
 	for (const owner of runtimeStore.listOwners()) {
 		let thread
@@ -634,6 +783,21 @@ export default async function pstack(amp: PluginAPI) {
 				return undefined
 			}
 		})
+	}
+	for (const child of runtimeStore.listBackgroundChildren()) {
+		if (restoredOwnerThreadIDs.has(child.threadID)) continue
+		if (child.notified) runtimeStore.releaseBackgroundNotification(child.threadID)
+		if (policy.child(child.threadID)) continue
+		try {
+			const thread = amp.threads.get(child.threadID as ThreadID)
+			if (isStrictReadonlyRole(child.role)) {
+				await policy.trackReadonly(thread, child.role, child.parentThreadID, true, child.active)
+			} else {
+				await policy.trackBackground(thread, child.role, child.parentThreadID, child.active, true)
+			}
+		} catch (error) {
+			amp.logger.log(`Could not reattach background child ${child.threadID}: ${String(error)}`)
+		}
 	}
 	await wakeWebhooks.restore()
 	await Promise.all(SKILL_PATHS.map((path) => amp.registerSkill({ path })))
@@ -697,10 +861,15 @@ export default async function pstack(amp: PluginAPI) {
 		return storedModelMap(configuration[CONFIG_KEY])
 	}
 
-	const modelFor = async (role: string, parentThread?: Pick<PluginThread, 'agent'>): Promise<string> => {
+	const modelFor = async (role: string, parentThread?: Pick<PluginThread, 'agent'>): Promise<Omit<ResolvedAgentSpec, 'role'>> => {
 		const value = (await configuredModels())[role]
+		const seats = Array.isArray(value) ? value : value === undefined ? [] : [value]
+		const invalid = seats.find((seat) => !isSeatInput(seat) || seatError(role, seat) !== undefined)
+		if (invalid !== undefined) {
+			throw new Error(isSeatInput(invalid) ? seatError(role, invalid) : `Invalid model seat for ${role}.`)
+		}
 		if (POOL_ROLES.has(role) && value !== undefined) {
-			const pool = typeof value === 'string' ? [value] : value
+			const pool = Array.isArray(value) ? value : [value]
 			let parentModel: string | undefined
 			try {
 				const parentAgent = await parentThread?.agent()
@@ -710,23 +879,21 @@ export default async function pstack(amp: PluginAPI) {
 			} catch {}
 			return selectPoolModel(pool, parentModel)
 		}
-		if (!PANEL_ROLES.has(role) && typeof value === 'string') return value
+		if (!PANEL_ROLES.has(role) && isSeatInput(value)) return resolveSeat(value)
 		throw new Error(`Unknown pstack role: ${role}. ${ROLE_GUIDANCE}`)
 	}
 
-	const panelFor = async (panel: string): Promise<string[]> => {
+	const panelFor = async (panel: string): Promise<Array<Omit<ResolvedAgentSpec, 'role'>>> => {
 		if (!PANEL_ROLES.has(panel)) throw new Error(`Unknown pstack panel: ${panel}`)
 		const value = (await configuredModels())[panel]
-		if (Array.isArray(value) && value.length > 0) return value
-		if (typeof value === 'string') return [value]
-		throw new Error(`Unknown pstack panel: ${panel}`)
-	}
-
-	const reasoningFor = (model: string): AgentReasoningEffort | undefined => {
-		for (const [known, effort] of Object.entries(MODEL_REASONING_EFFORT)) {
-			if (known === model) return effort
+		const seats = Array.isArray(value) ? value : value === undefined ? [] : [value]
+		const invalid = seats.find((seat) => !isSeatInput(seat) || seatError(panel, seat) !== undefined)
+		if (invalid !== undefined) {
+			throw new Error(isSeatInput(invalid) ? seatError(panel, invalid) : `Invalid model seat for ${panel}.`)
 		}
-		return undefined
+		if (Array.isArray(value) && value.length > 0) return value.map(resolveSeat)
+		if (isSeatInput(value)) return [resolveSeat(value)]
+		throw new Error(`Unknown pstack panel: ${panel}`)
 	}
 
 	const lastAssistantText = (message: { content?: unknown }): string => {
@@ -747,7 +914,7 @@ export default async function pstack(amp: PluginAPI) {
 			.trim()
 	}
 
-	const agentFor = (model: string, role: string): Agent => {
+	const agentFor = (model: string, role: string, effort?: AgentReasoningEffort): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
 		if (builtin) {
 			return amp.createAgent({
@@ -757,36 +924,36 @@ export default async function pstack(amp: PluginAPI) {
 				display: { label: role.slice(0, 24) },
 			})
 		}
-		return amp.createAgent({
-			extends: 'medium',
+		const definition = {
+			extends: 'medium' as const,
 			model: model as PluginAgentModel,
 			instructions: instructionsFor(role),
 			tools: toolsFor(role),
-			reasoningEffort: reasoningFor(model),
 			display: { label: role.slice(0, 24) },
-		})
+		}
+		return amp.createAgent(effort === undefined ? definition : { ...definition, reasoningEffort: effort })
 	}
 
 	type RegisteredOrbAgent = { agent: Agent; subscription: Subscription }
 	const orbAgents = new Map<string, RegisteredOrbAgent>()
 
-	const orbAgentIdentity = (model: string, role: string): string => {
-		return JSON.stringify([role, model])
+	const orbAgentIdentity = (model: string, role: string, effort?: AgentReasoningEffort): string => {
+		return JSON.stringify([role, model, effort])
 	}
 
-	const registerOrbAgent = (model: string, role: string): Agent => {
-		const identity = orbAgentIdentity(model, role)
+	const registerOrbAgent = (model: string, role: string, effort?: AgentReasoningEffort): Agent => {
+		const identity = orbAgentIdentity(model, role, effort)
 		const registered = orbAgents.get(identity)
 		if (registered) return registered.agent
-		const agent = agentFor(model, role)
-		const mode = orbAgentModeFor(role, model)
+		const agent = agentFor(model, role, effort)
+		const mode = orbAgentModeFor(role, model, effort)
 		const subscription = amp.registerAgentMode({ ...mode, agent: agent.definition })
 		orbAgents.set(identity, { agent, subscription })
 		return agent
 	}
 
-	const orbAgentFor = (model: string, role: string): Agent => {
-		const registered = orbAgents.get(orbAgentIdentity(model, role))
+	const orbAgentFor = (model: string, role: string, effort?: AgentReasoningEffort): Agent => {
+		const registered = orbAgents.get(orbAgentIdentity(model, role, effort))
 		if (!registered) throw new Error(ORB_MODE_RELOAD_ERROR)
 		return registered.agent
 	}
@@ -797,20 +964,28 @@ export default async function pstack(amp: PluginAPI) {
 		)
 		return resolvedFrom(undefined)
 	})
-	for (const spec of orbAgentSpecsFor(startupModels)) {
-		registerOrbAgent(spec.model, spec.role)
+	const startupSpecs = orbAgentSpecsFor(startupModels, (role, message) => {
+		amp.logger.log(`Could not register pstack role ${role}: ${message}`)
+	})
+	for (const spec of startupSpecs) {
+		try {
+			registerOrbAgent(spec.model, spec.role, spec.effort)
+		} catch (error) {
+			amp.logger.log(`Could not register pstack seat ${spec.role}/${spec.model}: ${String(error)}`)
+		}
 	}
 
 	const createAgentThread = (input: {
 		model: string
+		effort?: AgentReasoningEffort
 		role: string
 		parentThreadID: ThreadID
 		executor: DelegateExecutor
 	}) => {
 		const agent =
 			input.executor === 'orb' || typeof input.executor === 'object'
-				? orbAgentFor(input.model, input.role)
-				: agentFor(input.model, input.role)
+				? orbAgentFor(input.model, input.role, input.effort)
+				: agentFor(input.model, input.role, input.effort)
 		return agent.createThread({
 			parentThreadID: input.parentThreadID,
 			executor: input.executor,
@@ -819,6 +994,7 @@ export default async function pstack(amp: PluginAPI) {
 
 	const runOnThread = async (input: {
 		model: string
+		effort?: AgentReasoningEffort
 		role: string
 		prompt: string
 		parentThreadID: ThreadID
@@ -870,7 +1046,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack delegate',
 		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
 		description:
-			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Prefer pstack_start_agent for feature, how, bug-fix, and other long work. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work. Roles include feature, refactoring, bug-fix, and comment-reviewer.',
+			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Implementation roles, including hardest, are rejected: start them with pstack_start_agent and a scope. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -897,7 +1073,7 @@ export default async function pstack(amp: PluginAPI) {
 			const role = text(input.role, 'role')
 			if (isImplementationRole(role)) throw new Error(IMPLEMENTATION_BLOCKING_ERROR)
 			const prompt = text(input.prompt, 'prompt')
-			const model = await modelFor(role, ctx.thread)
+			const { model, effort } = await modelFor(role, ctx.thread)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS })
 			const executor = executorFrom(input.executor, await parentExecutorKind())
 			if (typeof executor === 'object') {
@@ -907,6 +1083,7 @@ export default async function pstack(amp: PluginAPI) {
 			}
 			const result = await runOnThread({
 				model,
+				effort,
 				role,
 				prompt,
 				parentThreadID: ctx.thread.id,
@@ -922,12 +1099,18 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Run pstack panel',
 		transcriptGroup: { active: 'Running pstack panel', complete: 'Ran pstack panel' },
 		description:
-			'Run the same standalone brief concurrently across every model configured for a pstack panel. Each seat is a child thread. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Returns threadID even when a seat times out so the parent can read that thread instead of redoing the work.',
+			'Run the same standalone brief concurrently across configured seats of a pstack panel. count optionally cycles those seats in configured order, preserving each seat model and effort. Each candidate has a distinct label and child thread. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Returns threadID even when a seat times out so the parent can read that thread instead of redoing the work.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				panel: { type: 'string', description: 'Configured pstack panel.' },
 				prompt: { type: 'string', description: 'Complete standalone task brief.' },
+				count: {
+					type: 'integer',
+					minimum: 1,
+					maximum: MAX_PANEL_COUNT,
+					description: `Optional candidate count (1-${MAX_PANEL_COUNT}); configured seats repeat in order.`,
+				},
 				executor: {
 					oneOf: [
 						{ type: 'string', enum: ['local', 'orb'] },
@@ -948,7 +1131,15 @@ export default async function pstack(amp: PluginAPI) {
 		async execute(input, ctx) {
 			const panel = text(input.panel, 'panel')
 			const prompt = text(input.prompt, 'prompt')
-			const models = await panelFor(panel)
+			if (
+				input.count !== undefined &&
+				(!Number.isInteger(input.count) || Number(input.count) < 1 || Number(input.count) > MAX_PANEL_COUNT)
+			) {
+				throw new Error(`count must be a positive integer no greater than ${MAX_PANEL_COUNT}.`)
+			}
+			const configuredSeats = await panelFor(panel)
+			const count = input.count === undefined ? configuredSeats.length : Number(input.count)
+			const models = Array.from({ length: count }, (_, index) => configuredSeats[index % configuredSeats.length]!)
 			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS })
 			const executor = executorFrom(input.executor, await parentExecutorKind())
 			if (typeof executor === 'object') {
@@ -958,12 +1149,17 @@ export default async function pstack(amp: PluginAPI) {
 			}
 			if (isDesignPanel(panel)) policy.beginDesign(ctx.thread.id, panel)
 			const settled = await Promise.allSettled(
-				models.map(async (model, index) => {
-					const role = `${panel}-${index + 1}`
+				models.map(async ({ model, effort }, index) => {
+					const seatNumber = (index % configuredSeats.length) + 1
+					const role = `${panel}-${seatNumber}`
+					const label = input.count === undefined ? role : `${panel}-candidate-${index + 1}`
+					const candidatePrompt =
+						input.count === undefined ? prompt : `${prompt}\n\nCandidate output label: ${label}`
 					const result = await runOnThread({
 						model,
+						effort,
 						role,
-						prompt,
+						prompt: candidatePrompt,
 						parentThreadID: ctx.thread.id,
 						executor,
 						timeoutMs,
@@ -974,7 +1170,7 @@ export default async function pstack(amp: PluginAPI) {
 					if (isDesignPanel(panel)) {
 						policy.recordCandidateResult(ctx.thread.id, result.threadID, result.status)
 					}
-					return { label: role, model, timeoutMs, ...result }
+					return { label, model, effort, timeoutMs, ...result }
 				}),
 			)
 			if (isDesignPanel(panel)) policy.finishCandidateLaunch(ctx.thread.id)
@@ -993,7 +1189,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Start pstack background agent',
 		transcriptGroup: { active: 'Starting pstack agent', complete: 'Started pstack agent' },
 		description:
-			'Start a durable background pstack agent in a child thread and return immediately. Default for feature, how, bug-fix, and other long work. Implementation roles require a non-empty scope. Local parents default implementation to current-checkout; orb parents and explicit executor orb use a fresh parent-project-orb. current-checkout is rejected from an orb parent because it cannot share that orb filesystem. repo-independent-orb is for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with pstack_send_to_thread (steer defaults on). Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
+			'Start a durable background pstack agent in a child thread and return immediately. Use hardest for the strongest implementation model; all implementation roles require a non-empty scope. Local parents default implementation to current-checkout; orb parents and explicit executor orb use a fresh parent-project-orb. current-checkout is rejected from an orb parent because it cannot share that orb filesystem. repo-independent-orb is for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with pstack_send_to_thread (steer defaults on). Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -1129,7 +1325,7 @@ export default async function pstack(amp: PluginAPI) {
 			}
 			let judgeStarted = false
 			try {
-				const model = await modelFor(role, ctx.thread)
+				const { model, effort } = await modelFor(role, ctx.thread)
 				if (launchTarget?.kind === 'native-orb' || launchTarget?.kind === 'named-runner') {
 					if (
 						launchTarget.kind === 'native-orb' &&
@@ -1140,10 +1336,10 @@ export default async function pstack(amp: PluginAPI) {
 							'The required arena-cross-judge must use its registered pstack mode; omit agentMode.',
 						)
 					}
-					const mode = orbAgentModeFor(role, model)
+					const mode = orbAgentModeFor(role, model, effort)
 					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id)
-					if (launchTarget.kind === 'named-runner') orbAgentFor(model, role)
-					else if (!launchTarget.agentMode) orbAgentFor(model, role)
+					if (launchTarget.kind === 'named-runner') orbAgentFor(model, role, effort)
+					else if (!launchTarget.agentMode) orbAgentFor(model, role, effort)
 					const redirectBase =
 						launchTarget.kind === 'native-orb'
 							? nativeRedirect({
@@ -1180,6 +1376,11 @@ export default async function pstack(amp: PluginAPI) {
 					const nativeInput = redirectBase.create_thread as Record<string, unknown>
 					if (owner) policy.expectNative(owner.resourceKey, nativeInput)
 					else if (judgeReserved) policy.expectNativeJudge(ctx.thread.id, nativeInput)
+					else runtimeStore.saveNativeBackgroundReservation({
+						parentThreadID: ctx.thread.id,
+						role,
+						expectedNative: nativeInput,
+					})
 					return JSON.stringify(redirect)
 				}
 				const executor =
@@ -1191,16 +1392,20 @@ export default async function pstack(amp: PluginAPI) {
 							: executorFrom(input.executor, await parentExecutorKind())
 				const thread = await createAgentThread({
 					model,
+					effort,
 					role,
 					parentThreadID: ctx.thread.id,
 					executor,
 				})
+				if (!judgeReserved) runtimeStore.saveBackgroundChild(thread.id, ctx.thread.id, role)
 				if (owner) await policy.attachRunning(owner.resourceKey, thread)
 				else if (judgeReserved) {
 					await policy.startJudge(ctx.thread.id, thread)
 					judgeStarted = true
 				} else if (isStrictReadonlyRole(role)) {
 					await policy.trackReadonly(thread, role, ctx.thread.id)
+				} else {
+					await policy.trackBackground(thread, role, ctx.thread.id)
 				}
 				try {
 					await thread.appendUserMessage({
@@ -1215,9 +1420,13 @@ export default async function pstack(amp: PluginAPI) {
 							{ cause: error },
 						)
 					}
-					if (judgeStarted) policy.failJudgeStart(ctx.thread.id)
-					else if (isStrictReadonlyRole(role)) policy.untrack(thread.id)
-					throw error
+					const detail = error instanceof Error ? error.message : String(error)
+					throw new Error(
+						judgeStarted
+							? `Judge thread ${thread.id} was created but prompt delivery is uncertain. It remains tracked; do not start a replacement unless it reaches a terminal state. ${detail}`
+							: `Child thread ${thread.id} was created but prompt delivery is uncertain. It remains tracked; reconcile that exact child ID with pstack_stop_agent before retrying. ${detail}`,
+						{ cause: error },
+					)
 				}
 				return JSON.stringify({
 					role,
@@ -1244,6 +1453,71 @@ export default async function pstack(amp: PluginAPI) {
 	})
 
 	amp.registerTool({
+		name: 'pstack_stop_agent',
+		title: 'Stop owned pstack agent',
+		transcriptGroup: { active: 'Stopping child agent', complete: 'Requested child stop' },
+		description:
+			'Cancel a tracked pstack child owned by the current parent. Implementation ownership remains claimed until the child reaches idle or error. This also reconciles a non-owner child whose prompt append acknowledgement failed.',
+		inputSchema: {
+			type: 'object',
+			properties: { threadID: { type: 'string' } },
+			required: ['threadID'],
+		},
+		async execute(input, ctx) {
+			const threadID = text(input.threadID, 'threadID')
+			if (!threadID.startsWith('T-')) throw new Error('Invalid Amp thread ID.')
+			const owners = runtimeStore.listOwners()
+			const owner = owners.find(
+				(candidate) => candidate.state === 'running' && candidate.threadID === threadID,
+			)
+			if (!owner) {
+				const background = runtimeStore.backgroundChild(threadID)
+				if (background?.parentThreadID === ctx.thread.id) {
+					const child = amp.threads.get(threadID as ThreadID)
+					await child.cancel()
+					const state = await child.state.get()
+					if (state === 'idle' || state === 'error') {
+						policy.untrack(threadID)
+						runtimeStore.deleteBackgroundChild(threadID)
+					}
+					return JSON.stringify({
+						threadID,
+						state,
+						canceled: true,
+						reconciled: state === 'idle' || state === 'error',
+					})
+				}
+				const reservation = owners.find(
+					(candidate) => candidate.state === 'reserving' && candidate.parentThreadID === ctx.thread.id,
+				)
+				if (reservation) {
+					throw new Error(
+						`Implementation reservation ${reservation.resourceKey} has no paired child thread ID yet and cannot be canceled through this tool. Reconcile the native create_thread result first.`,
+					)
+				}
+				throw new Error(`Thread ${threadID} is not a paired implementation child.`)
+			}
+			if (owner.parentThreadID !== ctx.thread.id) {
+				throw new Error(`Thread ${threadID} is owned by a different parent.`)
+			}
+			const child = amp.threads.get(threadID as ThreadID)
+			await child.cancel()
+			const state = await child.state.get()
+			if (state === 'idle' || state === 'error') {
+				policy.release(owner.resourceKey)
+				return JSON.stringify({ threadID, state, canceled: true, ownershipReleased: true })
+			}
+			return JSON.stringify({
+				threadID,
+				state,
+				canceled: true,
+				ownershipReleased: false,
+				next: 'Cancellation is asynchronous. The ownership claim remains until the observed child state is idle or error.',
+			})
+		},
+	})
+
+	amp.registerTool({
 		name: 'pstack_send_to_thread',
 		title: 'Report to pstack thread',
 		transcriptGroup: { active: 'Reporting to parent', complete: 'Reported to parent' },
@@ -1258,13 +1532,38 @@ export default async function pstack(amp: PluginAPI) {
 			},
 			required: ['threadID', 'message'],
 		},
-		async execute(input) {
+		async execute(input, ctx) {
 			const threadID = text(input.threadID, 'threadID')
 			if (!threadID.startsWith('T-')) throw new Error('Invalid Amp thread ID.')
-			await amp.threads.get(threadID as ThreadID).appendUserMessage(
-				{ type: 'user-message', content: text(input.message, 'message') },
-				{ steer: steerFrom(input.steer) },
-			)
+			const childID = ctx?.thread.id
+			const message = text(input.message, 'message')
+			const child = childID ? runtimeStore.backgroundChild(childID) : undefined
+			let settleReport: (() => void) | undefined
+			let reportPromise: Promise<void> | undefined
+			if (childID) {
+				reportPromise = new Promise<void>((resolve) => {
+					settleReport = resolve
+				})
+				const reports = reportsInFlight.get(childID) ?? new Set<Promise<void>>()
+				reports.add(reportPromise)
+				reportsInFlight.set(childID, reports)
+			}
+			try {
+				await amp.threads.get(threadID as ThreadID).appendUserMessage(
+					{ type: 'user-message', content: message },
+					{ steer: steerFrom(input.steer) },
+				)
+				if (child?.parentThreadID === threadID) {
+					runtimeStore.markBackgroundReported(childID, threadID)
+				}
+			} finally {
+				settleReport?.()
+				if (childID && reportPromise) {
+					const reports = reportsInFlight.get(childID)
+					reports?.delete(reportPromise)
+					if (reports?.size === 0) reportsInFlight.delete(childID)
+				}
+			}
 			return `Sent report to ${threadID}.`
 		},
 	})
@@ -1278,27 +1577,46 @@ export default async function pstack(amp: PluginAPI) {
 		inputSchema: {
 			type: 'object',
 			properties: {
+				offset: { type: 'number', description: 'Zero-based offset from the oldest message.' },
 				limit: { type: 'number', description: 'Maximum messages, from 1 through 200.' },
 			},
 			required: [],
 		},
 		async execute(input, ctx) {
+			const requestedOffset =
+				typeof input.offset === 'number' && Number.isFinite(input.offset)
+					? Math.max(0, Math.floor(input.offset))
+					: 0
 			const limit =
-				typeof input.limit === 'number'
+				typeof input.limit === 'number' && Number.isFinite(input.limit)
 					? Math.max(1, Math.min(Math.floor(input.limit), 200))
 					: 100
 			const messages: ThreadMessage[] = []
-			for (let offset = 0; offset < limit; offset += 20) {
+			let total = 0
+			for (let offset = 0; ; offset += 20) {
 				const page = await ctx.thread.messages({
 					full: true,
-					from: 'end',
+					from: 'start',
 					offset,
-					limit: Math.min(20, limit - offset),
+					limit: 20,
 				})
-				messages.unshift(...page)
-				if (page.length < Math.min(20, limit - offset)) break
+				for (let index = 0; index < page.length; index += 1) {
+					const position = offset + index
+					if (position >= requestedOffset && position < requestedOffset + limit) {
+						messages.push(page[index])
+					}
+				}
+				total += page.length
+				if (page.length < 20) break
 			}
-			return JSON.stringify({ threadID: ctx.thread.id, messages: messages.map(formatMessage) })
+			return JSON.stringify({
+				threadID: ctx.thread.id,
+				offset: requestedOffset,
+				limit,
+				total,
+				truncated: requestedOffset > 0 || requestedOffset + messages.length < total,
+				messages: messages.map(formatMessage),
+			})
 		},
 	})
 
@@ -1415,18 +1733,56 @@ export default async function pstack(amp: PluginAPI) {
 
 	if (typeof amp.on === 'function') {
 		amp.on('tool.call', (event) => {
+			if (event.tool === 'create_thread' && event.toolUseID) {
+				const reservation = runtimeStore.listNativeBackgroundReservations().find(
+					(candidate) =>
+						candidate.parentThreadID === event.thread.id &&
+						!candidate.toolUseID &&
+						exactCreateThreadInputMatches(event.input, candidate.expectedNative),
+				)
+				if (reservation) runtimeStore.setNativeBackgroundToolUse(reservation.reservationID, event.toolUseID)
+			}
 			const modified = amp.helpers?.filesModifiedByToolCall?.(event) ?? null
 			const files = modified?.map((uri) => amp.helpers.filePathFromURI(uri)) ?? null
 			return policy.onToolCall(event, files)
 		})
-		amp.on('tool.result', (event) => {
-			return policy.onToolResult(event, (threadID) => {
-				try {
-					return amp.threads.get(threadID as ThreadID)
-				} catch {
-					return undefined
+		amp.on('tool.result', async (event) => {
+			if (event.tool === 'create_thread' && event.toolUseID) {
+				const reservation = runtimeStore.listNativeBackgroundReservations().find(
+					(candidate) => candidate.parentThreadID === event.thread.id && candidate.toolUseID === event.toolUseID,
+				)
+				if (reservation) {
+					runtimeStore.deleteNativeBackgroundReservation(reservation.reservationID)
+					if (!event.status || event.status === 'done') {
+						const threadID = threadIDFromCreateThreadResult(event.output)
+						let thread
+						try {
+							thread = threadID ? amp.threads.get(threadID as ThreadID) : undefined
+						} catch {
+							thread = undefined
+						}
+						if (thread?.state?.subscribe) {
+							runtimeStore.saveBackgroundChild(thread.id, reservation.parentThreadID, reservation.role)
+							if (isStrictReadonlyRole(reservation.role)) {
+								await policy.trackReadonly(thread, reservation.role, reservation.parentThreadID, true)
+							} else {
+								await policy.trackBackground(thread, reservation.role, reservation.parentThreadID, false, true)
+							}
+						}
+					}
 				}
-			})
+			}
+			return policy.onToolResult(
+				event,
+				(threadID) => {
+					try {
+						return amp.threads.get(threadID as ThreadID)
+					} catch {
+						return undefined
+					}
+				},
+				(threadID, parentThreadID, role) => runtimeStore.saveBackgroundChild(threadID, parentThreadID, role),
+			)
 		})
 		amp.on('agent.end', (_event, ctx) => {
 			return policy.onAgentEnd(ctx.thread.id)

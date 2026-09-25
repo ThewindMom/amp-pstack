@@ -9,8 +9,8 @@
 	"intentionalDepartures": [
 		{
 			"id": "amp-host-autonomy",
-			"from": "**Just do it.** Use any MCP tool. Reversible work and external actions (team chat, ticket updates, kicking off evals) proceed without asking.",
-			"to": "Amp pauses without explicit authorization for shared or external writes, and the coordinator must respect host and user restrictions.",
+			"from": "**Just do it.** Use any MCP tool. Reversible work and external actions proceed without asking. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the operator can make. Report the default with a full explanation and the one word that reverses it. Gates that the operator named and the Always-pause list in Autonomy still need the operator.",
+			"to": "Amp preserves those full-autonomy decision boundaries, but full autonomy does not authorize shared or external writes; those still require the user's explicit approval.",
 			"why": "Amp permission boundaries are stricter than Cursor pstack autonomy."
 		},
 		{
@@ -48,6 +48,30 @@
 			"from": "A role line of inherit-parent or auto omits Task model. A rejected slug falls back to the same family on that Task call.",
 			"to": "Amp roles resolve through the plugin. inherit-parent and auto stay invalid. A rejected single-role spawn stops. A rejected panel seat is one dropout. A replacement config write happens only when the user asks, then reload before the next orb spawn. There is no per-call model argument.",
 			"why": "pstack_start_agent and pstack_run_panel take a role or panel. modelFor and panelFor resolve the map. Orb agents are registered at plugin load."
+		},
+		{
+			"id": "catalog-disable-model-invocation",
+			"from": "Cursor marks routed pstack skills disable-model-invocation: true.",
+			"to": "Amp keeps the skills in its catalog but scopes their descriptions to named use or poteto-mode routing; setup-pstack remains directly discoverable.",
+			"why": "Amp skill frontmatter has no equivalent catalog suppression flag, so trigger wording carries the routing boundary."
+		},
+		{
+			"id": "amp-seat-effort-budget",
+			"from": "Cursor budgets rewrite effort-bearing model slugs and allow inherit-parent or auto.",
+			"to": "Amp setup reads show-agent-options capabilities and writes per-seat model and effort values, capping each concrete model to supported effort while mapping builtin budgets to builtin aliases.",
+			"why": "Amp exposes effort separately from model IDs and validates per-model effort capabilities at runtime."
+		},
+		{
+			"id": "amp-panel-count",
+			"from": "Custom arena counts launch one Task per candidate model choice.",
+			"to": "Amp passes count, capped at 20, to one pstack_run_panel call and cycles configured seats in order.",
+			"why": "Amp panels own candidate labeling, run tracking, dropout handling, and cross-judge gating; arbitrary per-candidate roles do not exist."
+		},
+		{
+			"id": "synced-script-invocation",
+			"from": "Cursor instructions invoke scripts relative to the plugin checkout and may execute shell scripts directly.",
+			"to": "Amp instructions resolve scripts from the loaded skill base and invoke them explicitly with bun or bash.",
+			"why": "A synced Amp install may run from any user working directory and does not preserve executable bits."
 		}
 	]
 }

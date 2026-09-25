@@ -1,8 +1,8 @@
 ---
 name: make-bot-ui
 description: >-
-  Builds a custom page or dashboard whose buttons wake an Amp orb thread over
-  a durable webhook. Use when exposing a small control UI locally or over Tailscale.
+  Only use when named or routed by poteto-mode. Builds a custom page or dashboard
+  whose buttons wake an Amp orb thread over a durable webhook for a small control UI.
 builtin-tools:
   - pstack_create_wake_webhook
 ---

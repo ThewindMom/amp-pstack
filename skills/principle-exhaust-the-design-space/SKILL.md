@@ -1,6 +1,6 @@
 ---
 name: principle-exhaust-the-design-space
-description: "Apply when facing a novel UI interaction or architectural decision with no precedent in the codebase. Build 2-3 competing prototypes and compare side by side before committing."
+description: "Only use when named or routed by poteto-mode. Builds and compares competing prototypes for novel UI interactions or architectural decisions without precedent."
 ---
 
 # Exhaust the Design Space

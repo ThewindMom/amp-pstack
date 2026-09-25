@@ -1,6 +1,6 @@
 ---
 name: principle-redesign-from-first-principles
-description: "Apply when integrating a new requirement into an existing design. Redesign as if the requirement had been a foundational assumption from day one, instead of bolting it on."
+description: "Only use when named or routed by poteto-mode. Integrates a new requirement by redesigning as if it had been foundational instead of bolting it on."
 ---
 
 # Redesign From First Principles

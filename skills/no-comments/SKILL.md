@@ -1,6 +1,6 @@
 ---
 name: no-comments
-description: "Spawn Comment Sicko, fix accepted findings, and offer encodings for claimed constraints."
+description: "Only use when named or routed by poteto-mode. Spawns Comment Sicko, fixes accepted findings, and offers structural encodings when auditing comments and claimed constraints."
 builtin-tools:
   - pstack_run_agent
   - pstack_start_agent

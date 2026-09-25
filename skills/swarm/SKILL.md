@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: "Fan out N parallel workers, drain them, and return one report. Use for /swarm, 'swarm this', or parallel coverage, races, gauntlets, and exploration."
+description: "Only use when named or routed by poteto-mode. Fans out N parallel workers and returns one report for swarm requests, coverage, races, gauntlets, or exploration."
 builtin-tools:
   - pstack_run_agent
   - pstack_run_panel

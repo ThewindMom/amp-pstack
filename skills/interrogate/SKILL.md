@@ -1,6 +1,6 @@
 ---
 name: interrogate
-description: "Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Multiple LLM reviewers challenge changes from independent angles."
+description: "Only use when named or routed by poteto-mode. Runs independent multi-model reviewers for adversarial review, stress testing, challenges, or blind-spot searches."
 builtin-tools:
   - pstack_run_panel
 ---

@@ -205,6 +205,25 @@ describe('intentional Amp departures', () => {
 			'only when the user asks',
 		)
 	})
+
+	test('gates every upstream-disabled skill while leaving setup discoverable', async () => {
+		const skillFiles = Array.fromAsync(new Bun.Glob('skills/*/SKILL.md').scan({ cwd: import.meta.dir }))
+		const files = await skillFiles
+		const frontmatters = await Promise.all(
+			files.map(async (file) => {
+				const text = await Bun.file(join(import.meta.dir, file)).text()
+				return { file, frontmatter: text.split('---', 3)[1] ?? '' }
+			}),
+		)
+		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
+		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
+
+		expect(routed).toHaveLength(46)
+		for (const { frontmatter } of routed) {
+			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
+		}
+		expect(setup?.frontmatter).not.toContain('Only use when named')
+	})
 })
 
 describe('0.15.5 decision contracts', () => {

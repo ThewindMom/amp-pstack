@@ -1,6 +1,6 @@
 ---
 name: principle-laziness-protocol
-description: "Apply when refactoring, evaluating diff size, or tempted to add abstractions, layers, or signal threading. Bias toward deletion and the smallest change that solves the problem."
+description: "Only use when named or routed by poteto-mode. Biases refactors and diff sizing toward deletion and the smallest change when abstractions or layers are tempting."
 ---
 
 # Laziness Protocol

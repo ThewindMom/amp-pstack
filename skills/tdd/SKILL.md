@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: "Use only when the user explicitly asks for TDD, a failing test, or a regression test, OR when the bug has an obvious cheap local test target. Skip when the test path is unclear, expensive, integration-heavy, or not requested."
+description: "Only use when named or routed by poteto-mode, and then only for explicit TDD, failing-test, or regression-test requests or bugs with an obvious cheap local test target; skip unclear or expensive test paths."
 ---
 
 # TDD Bug Fix

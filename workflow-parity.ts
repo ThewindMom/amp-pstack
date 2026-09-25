@@ -1,6 +1,7 @@
 export const WRITE_TOOLS = ['apply_patch', 'create_file', 'edit_file'] as const
 
 export const CODE_IMPLEMENTATION_ROLES = new Set([
+	'hardest',
 	'feature',
 	'refactoring',
 	'bug-fix',
@@ -129,6 +130,7 @@ type ThreadState = 'idle' | 'running' | 'awaiting-approval' | 'error'
 
 type StateThread = {
 	id: string
+	messages?: (options?: { from?: 'start' | 'end'; limit?: number; offset?: number }) => Promise<unknown[]>
 	state: {
 		subscribe: (listener: (state: ThreadState) => void) => { unsubscribe(): void }
 		get: () => Promise<ThreadState>
@@ -138,12 +140,14 @@ type StateThread = {
 type GuardedChild = {
 	role: string
 	parentThreadID: string
-	kind: 'implementation' | 'strict-readonly' | 'candidate' | 'judge'
+	kind: 'implementation' | 'strict-readonly' | 'background' | 'candidate' | 'judge'
 	seenActive: boolean
 	subscription: { unsubscribe(): void }
 }
 
 type CandidateNotifier = (parentThreadID: string, message: string) => void
+type TerminalNotifier = (threadID: string, parentThreadID: string, state: 'idle' | 'error') => void
+type ChildActiveObserver = (threadID: string) => void
 type OwnerObserver = (resourceKey: string, owner: ImplementationOwner | undefined) => void
 type DesignObserver = (parentThreadID: string, run: DesignRun | undefined) => void
 
@@ -398,10 +402,35 @@ export function createThreadInputMatches(
 	input: Record<string, unknown>,
 	expected: Record<string, unknown>,
 ): boolean {
-	for (const [key, value] of Object.entries(expected)) {
-		if (input[key] !== value) return false
+	return expectedValueMatches(input, expected)
+}
+
+function expectedValueMatches(input: unknown, expected: unknown): boolean {
+	if (Object.is(input, expected)) return true
+	if (Array.isArray(input) && Array.isArray(expected)) {
+		return input.length === expected.length && input.every((value, index) => expectedValueMatches(value, expected[index]))
 	}
-	return true
+	if (!isRecord(input) || !isRecord(expected)) return false
+	return Object.entries(expected).every(([key, value]) => expectedValueMatches(input[key], value))
+}
+
+export function exactCreateThreadInputMatches(
+	input: Record<string, unknown>,
+	expected: Record<string, unknown>,
+): boolean {
+	return exactValueMatches(input, expected)
+}
+
+function exactValueMatches(left: unknown, right: unknown): boolean {
+	if (Object.is(left, right)) return true
+	if (Array.isArray(left) && Array.isArray(right)) {
+		return left.length === right.length && left.every((value, index) => exactValueMatches(value, right[index]))
+	}
+	if (!isRecord(left) || !isRecord(right)) return false
+	const leftKeys = Object.keys(left).sort()
+	const rightKeys = Object.keys(right).sort()
+	return leftKeys.length === rightKeys.length &&
+		leftKeys.every((key, index) => key === rightKeys[index] && exactValueMatches(left[key], right[key]))
 }
 
 function isWriteTool(name: string): boolean {
@@ -431,15 +460,21 @@ export class WorkflowParityPolicy {
 	private candidateNotifier: CandidateNotifier | undefined
 	private ownerObserver: OwnerObserver | undefined
 	private designObserver: DesignObserver | undefined
+	private terminalNotifier: TerminalNotifier | undefined
+	private childActiveObserver: ChildActiveObserver | undefined
 
 	constructor(
 		candidateNotifier?: CandidateNotifier,
 		ownerObserver?: OwnerObserver,
 		designObserver?: DesignObserver,
+		terminalNotifier?: TerminalNotifier,
+		childActiveObserver?: ChildActiveObserver,
 	) {
 		this.candidateNotifier = candidateNotifier
 		this.ownerObserver = ownerObserver
 		this.designObserver = designObserver
+		this.terminalNotifier = terminalNotifier
+		this.childActiveObserver = childActiveObserver
 	}
 
 	owner(parentThreadID: string): ImplementationOwner | undefined {
@@ -499,7 +534,7 @@ export class WorkflowParityPolicy {
 				role: owner.role,
 				parentThreadID: owner.parentThreadID,
 				kind: 'implementation',
-			})
+			}, false, true)
 		}
 	}
 
@@ -516,7 +551,7 @@ export class WorkflowParityPolicy {
 						role: 'arena-candidate',
 						parentThreadID: run.parentThreadID,
 						kind: 'candidate',
-					})
+					}, false, true)
 				}
 			}
 		}
@@ -527,7 +562,7 @@ export class WorkflowParityPolicy {
 					role: 'arena-cross-judge',
 					parentThreadID: run.parentThreadID,
 					kind: 'judge',
-				})
+				}, false, true)
 			}
 		}
 	}
@@ -752,8 +787,24 @@ export class WorkflowParityPolicy {
 		if (run?.state === 'judging') this.unobserve(run.judgeThreadID)
 	}
 
-	async trackReadonly(thread: StateThread, role: string, parentThreadID: string): Promise<void> {
-		await this.observe(thread, { role, parentThreadID, kind: 'strict-readonly' })
+	async trackReadonly(
+		thread: StateThread,
+		role: string,
+		parentThreadID: string,
+		inferFromTranscript = false,
+		previouslyActive = false,
+	): Promise<void> {
+		await this.observe(thread, { role, parentThreadID, kind: 'strict-readonly' }, previouslyActive, inferFromTranscript)
+	}
+
+	async trackBackground(
+		thread: StateThread,
+		role: string,
+		parentThreadID: string,
+		previouslyActive = false,
+		inferFromTranscript = false,
+	): Promise<void> {
+		await this.observe(thread, { role, parentThreadID, kind: 'background' }, previouslyActive, inferFromTranscript)
 	}
 
 	untrack(threadID: string): void {
@@ -832,6 +883,7 @@ export class WorkflowParityPolicy {
 			output?: unknown
 		},
 		resolveThread: (threadID: string) => StateThread | undefined,
+		onImplementationChild?: (threadID: string, parentThreadID: string, role: string) => void,
 	): Promise<void> {
 		if (event.tool !== 'create_thread') return
 		const ownerEntry = [...this.owners.entries()].find(
@@ -857,6 +909,7 @@ export class WorkflowParityPolicy {
 				return
 			}
 			try {
+				onImplementationChild?.(handle.id, owner.parentThreadID, owner.role)
 				await this.attachRunning(resourceKey, handle)
 			} catch {
 				this.release(resourceKey)
@@ -937,12 +990,15 @@ export class WorkflowParityPolicy {
 	private async observe(
 		thread: StateThread,
 		info: { role: string; parentThreadID: string; kind: GuardedChild['kind'] },
+		previouslyActive = false,
+		inferFromTranscript = false,
 	): Promise<void> {
 		this.unobserve(thread.id)
-		let seenActive = false
+		let seenActive = previouslyActive
 		const handleState = (state: ThreadState) => {
 			if (state === 'running' || state === 'awaiting-approval') {
 				seenActive = true
+				if (info.kind !== 'candidate' && info.kind !== 'judge') this.childActiveObserver?.(thread.id)
 				const tracked = this.children.get(thread.id)
 				if (tracked) tracked.seenActive = true
 				return
@@ -963,6 +1019,20 @@ export class WorkflowParityPolicy {
 			subscription,
 		}
 		this.children.set(thread.id, child)
+		if (inferFromTranscript && !seenActive && thread.messages) {
+			try {
+				let offset = 0
+				while (!seenActive) {
+					const messages = await thread.messages({ from: 'end', limit: 20, offset })
+					if (messages.some((message) => isRecord(message) && message.role === 'assistant')) {
+						handleState('running')
+						break
+					}
+					if (messages.length < 20) break
+					offset += messages.length
+				}
+			} catch {}
+		}
 		try {
 			handleState(await thread.state.get())
 		} catch {
@@ -1015,6 +1085,13 @@ export class WorkflowParityPolicy {
 		if (!child) return
 		child.subscription.unsubscribe()
 		this.children.delete(threadID)
+		if (
+			state &&
+			(state === 'idle' || state === 'error') &&
+			(child.kind === 'implementation' || child.kind === 'strict-readonly' || child.kind === 'background')
+		) {
+			this.terminalNotifier?.(threadID, child.parentThreadID, state)
+		}
 		if (child.kind === 'implementation') {
 			const ownerEntry = [...this.owners.entries()].find(
 				([, owner]) => owner.state === 'running' && owner.threadID === threadID,

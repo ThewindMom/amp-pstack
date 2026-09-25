@@ -1,6 +1,6 @@
 ---
 name: typescript-best-practices
-description: TypeScript best practices. Use when reading or editing any .ts or .tsx file.
+description: "Only use when named or routed by poteto-mode. Applies TypeScript best practices when the routed work reads or edits .ts or .tsx files."
 ---
 
 # TypeScript best practices

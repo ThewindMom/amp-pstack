@@ -1,6 +1,6 @@
 ---
 name: how
-description: "Use for \"how does X work\", code walkthroughs before changing something, and placement / ownership / layering questions (\"where should this live\", \"which package owns this\", \"is this the right layer\"). Explains subsystem architecture, runtime flow, onboarding mental models. Use why for motivation."
+description: "Only use when named or routed by poteto-mode. Explains subsystem architecture and runtime flow for code walkthroughs and placement, ownership, or layering questions; use why for motivation."
 builtin-tools:
   - pstack_run_agent
   - pstack_start_agent

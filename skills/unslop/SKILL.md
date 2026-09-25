@@ -1,6 +1,6 @@
 ---
 name: unslop
-description: Cut AI tells from any writing. Must always apply.
+description: "Only use when named or routed by poteto-mode. Cuts AI tells from writing produced inside that routed workflow."
 ---
 
 # Unslop

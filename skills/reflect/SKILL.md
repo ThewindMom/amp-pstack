@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: Spawn three parallel review subagents over the active transcript, surface learnings, and route each to a concrete edit on an existing skill. Use when the user says reflect.
+description: "Only use when named or routed by poteto-mode. Spawns three parallel reviewers over the active transcript and routes learnings to concrete skill edits for a reflect request."
 builtin-tools:
   - pstack_read_current_thread
   - pstack_run_agent
@@ -19,7 +19,7 @@ Invoke when the user says "reflect" or "/reflect". Skip when the conversation is
 
 ### 1. Read the active transcript
 
-Call `pstack_read_current_thread` with the largest useful limit. It reads this Amp thread directly, including compacted history. Do not search local transcript caches or unrelated threads. If the tool cannot return the full relevant exchange, write a tight digest of the visible session and label the missing range.
+Call `pstack_read_current_thread` with the largest useful limit. It reads this Amp thread directly, including compacted history. Read its `offset`, `total`, and `truncated` fields. `truncated` means the response is a partial transcript. While `offset + messages.length < total` and the relevant range remains unread, request the next page with `offset` advanced by the number of returned messages. Do not search local transcript caches or unrelated threads. If the tool cannot return the full relevant exchange, write a tight digest of the visible session and label the missing range.
 
 ### 2. Spawn three reviewers in parallel
 

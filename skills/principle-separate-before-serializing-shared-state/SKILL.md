@@ -1,6 +1,6 @@
 ---
 name: principle-separate-before-serializing-shared-state
-description: "Apply when concurrent actors might write to the same file, branch, key, or state object. Eliminate the sharing first; serialize structurally only when one shared writer is a real invariant."
+description: "Only use when named or routed by poteto-mode. Eliminates shared write targets between concurrent actors before serializing access to files, branches, keys, or state."
 ---
 
 # Separate Before Serializing Shared State

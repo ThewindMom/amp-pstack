@@ -1,6 +1,6 @@
 ---
 name: principle-guard-the-context-window
-description: "Apply when context is filling up: large outputs, long files, repeated reads, fan-out planning. Route bulk to subagents; keep summaries in the main thread, not raw payloads."
+description: "Only use when named or routed by poteto-mode. Protects a filling context window by routing large outputs, long reads, and fan-out detail away while keeping summaries."
 ---
 
 # Guard the Context Window

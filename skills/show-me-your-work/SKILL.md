@@ -1,6 +1,6 @@
 ---
 name: show-me-your-work
-description: "Keep a reviewable decision trail for long-running or unattended work: a TSV log with one row per decision (what, why, evidence, result). Local by default; commit it when a reviewer needs the trail to trust the result. Use for /show-me-your-work, autonomous or multi-phase runs, or work a human reviews after stepping away."
+description: "Only use when named or routed by poteto-mode. Keeps a reviewable TSV decision trail for show-me-your-work requests, autonomous or multi-phase runs, and work reviewed after the human steps away."
 builtin-tools:
   - pstack_read_current_thread
   - pstack_run_agent
@@ -38,7 +38,7 @@ ts	phase	decision	why	evidence	result
 
 Write each entry the way you'd tell a teammate what you did. Plain words, concrete actions, no AI speak or abstract jargon (the **unslop** skill applies to log text too).
 
-Use the helper `scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <result>`. It stamps `ts`, appends the header when the file is missing or empty, strips stray tabs/newlines, and prefixes any cell starting with `=`, `+`, `-`, or `@` with a single quote. A bare `printf` appending a row works too, but mind those same bytes if cells come from generated or user-supplied text.
+Use the helper as `bash <loaded-skill-base>/scripts/log.sh <logfile> <phase> <decision> <why> <evidence> <result>`. Resolve `<loaded-skill-base>` from this loaded skill rather than the user's current working directory; synced installs may not preserve executable bits. It stamps `ts`, appends the header when the file is missing or empty, strips stray tabs/newlines, and prefixes any cell starting with `=`, `+`, `-`, or `@` with a single quote. A bare `printf` appending a row works too, but mind those same bytes if cells come from generated or user-supplied text.
 
 Log decision points and checkpoints, not every action: a fork chosen, a unit completed with its verification result, a pivot or revert with its trigger, a blocker surfaced, a gate fixed. For loop runs, one row per iteration. Skip the trivial and self-evident.
 

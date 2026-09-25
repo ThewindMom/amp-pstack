@@ -1,6 +1,6 @@
 ---
 name: automate-me
-description: "Use for \"automate me\", \"create/update/refresh my -mode skill\", \"turn/capture my preferences or working style into a skill\", or wanting agents to follow how the user works. Drafts or revises a personal -mode skill via create-skill + unslop, optionally pulling fresh evidence from recent transcripts."
+description: "Only use when named or routed by poteto-mode. Drafts or revises a personal -mode skill via create-skill and unslop for requests to capture or automate the user's working style."
 builtin-tools:
   - find_thread
   - read_thread

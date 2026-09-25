@@ -1,4 +1,5 @@
 import { Database } from 'bun:sqlite'
+import { randomUUID } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 
@@ -22,6 +23,38 @@ type WakeRegistrationRow = Readonly<{
 
 type WakeEventRow = Readonly<{ state: string }>
 type DesignRow = Readonly<{ run_json: string }>
+type BackgroundChildRow = Readonly<{
+	thread_id: string
+	parent_thread_id: string
+	role: string
+	active: number
+	reported: number
+	notified: number
+}>
+type NativeBackgroundReservationRow = Readonly<{
+	reservation_id: string
+	parent_thread_id: string
+	role: string
+	expected_json: string
+	tool_use_id: string | null
+}>
+
+export type BackgroundChild = Readonly<{
+	threadID: string
+	parentThreadID: string
+	role: string
+	active: boolean
+	reported: boolean
+	notified: boolean
+}>
+
+export type NativeBackgroundReservation = Readonly<{
+	reservationID: string
+	parentThreadID: string
+	role: string
+	expectedNative: Record<string, unknown>
+	toolUseID?: string
+}>
 
 export type WakeRegistration = Readonly<{
 	ampKey: string
@@ -176,7 +209,166 @@ export class RuntimeStore {
 				parent_thread_id TEXT PRIMARY KEY,
 				run_json TEXT NOT NULL
 			)
+			;
+			CREATE TABLE IF NOT EXISTS background_children (
+				thread_id TEXT PRIMARY KEY,
+				parent_thread_id TEXT NOT NULL,
+				role TEXT NOT NULL DEFAULT 'background',
+				active INTEGER NOT NULL DEFAULT 0,
+				reported INTEGER NOT NULL DEFAULT 0,
+				notified INTEGER NOT NULL DEFAULT 0
+			)
+			;
+			CREATE TABLE IF NOT EXISTS native_background_reservations (
+				reservation_id TEXT PRIMARY KEY,
+				parent_thread_id TEXT NOT NULL,
+				role TEXT NOT NULL,
+				expected_json TEXT NOT NULL,
+				tool_use_id TEXT
+			)
 		`)
+		const reservationColumns = this.database
+			.query<Readonly<{ name: string }>, []>('PRAGMA table_info(native_background_reservations)')
+			.all()
+		if (!reservationColumns.some((column) => column.name === 'reservation_id')) {
+			this.database.exec(`
+				ALTER TABLE native_background_reservations RENAME TO native_background_reservations_legacy;
+				CREATE TABLE native_background_reservations (
+					reservation_id TEXT PRIMARY KEY,
+					parent_thread_id TEXT NOT NULL,
+					role TEXT NOT NULL,
+					expected_json TEXT NOT NULL,
+					tool_use_id TEXT
+				);
+				INSERT INTO native_background_reservations
+					(reservation_id, parent_thread_id, role, expected_json, tool_use_id)
+				SELECT 'legacy:' || parent_thread_id, parent_thread_id, role, expected_json, tool_use_id
+				FROM native_background_reservations_legacy;
+				DROP TABLE native_background_reservations_legacy;
+			`)
+		}
+		const backgroundColumns = this.database
+			.query<Readonly<{ name: string }>, []>('PRAGMA table_info(background_children)')
+			.all()
+		if (!backgroundColumns.some((column) => column.name === 'active')) {
+			this.database.exec('ALTER TABLE background_children ADD COLUMN active INTEGER NOT NULL DEFAULT 0')
+		}
+		if (!backgroundColumns.some((column) => column.name === 'role')) {
+			this.database.exec("ALTER TABLE background_children ADD COLUMN role TEXT NOT NULL DEFAULT 'background'")
+		}
+	}
+
+	listNativeBackgroundReservations(): NativeBackgroundReservation[] {
+		return this.database
+			.query<NativeBackgroundReservationRow, []>(
+				'SELECT reservation_id, parent_thread_id, role, expected_json, tool_use_id FROM native_background_reservations ORDER BY rowid',
+			)
+			.all()
+			.map((row) => {
+				const expectedNative: unknown = JSON.parse(row.expected_json)
+				if (!isRecord(expectedNative)) throw new Error('Stored native background input must be an object.')
+				return {
+					reservationID: row.reservation_id,
+					parentThreadID: row.parent_thread_id,
+					role: row.role,
+					expectedNative,
+					toolUseID: row.tool_use_id ?? undefined,
+				}
+			})
+	}
+
+	saveNativeBackgroundReservation(reservation: Omit<NativeBackgroundReservation, 'reservationID'>): string {
+		const reservationID = randomUUID()
+		this.database
+			.query(
+				`INSERT INTO native_background_reservations
+					(reservation_id, parent_thread_id, role, expected_json, tool_use_id)
+				 VALUES (?, ?, ?, ?, ?)`,
+			)
+			.run(
+				reservationID,
+				reservation.parentThreadID,
+				reservation.role,
+				JSON.stringify(reservation.expectedNative),
+				reservation.toolUseID ?? null,
+			)
+		return reservationID
+	}
+
+	setNativeBackgroundToolUse(reservationID: string, toolUseID: string): boolean {
+		const result = this.database
+			.query(
+				'UPDATE native_background_reservations SET tool_use_id = ? WHERE reservation_id = ? AND tool_use_id IS NULL',
+			)
+			.run(toolUseID, reservationID)
+		return result.changes === 1
+	}
+
+	deleteNativeBackgroundReservation(reservationID: string): void {
+		this.database
+			.query('DELETE FROM native_background_reservations WHERE reservation_id = ?')
+			.run(reservationID)
+	}
+
+	listBackgroundChildren(): BackgroundChild[] {
+		return this.database
+			.query<BackgroundChildRow, []>(
+				'SELECT thread_id, parent_thread_id, role, active, reported, notified FROM background_children ORDER BY thread_id',
+			)
+			.all()
+			.map((row) => ({
+				threadID: row.thread_id,
+				parentThreadID: row.parent_thread_id,
+				role: row.role,
+				active: row.active === 1,
+				reported: row.reported === 1,
+				notified: row.notified === 1,
+			}))
+	}
+
+	markBackgroundActive(threadID: string): void {
+		this.database.query('UPDATE background_children SET active = 1 WHERE thread_id = ?').run(threadID)
+	}
+
+	backgroundChild(threadID: string): BackgroundChild | undefined {
+		return this.listBackgroundChildren().find((child) => child.threadID === threadID)
+	}
+
+	saveBackgroundChild(threadID: string, parentThreadID: string, role: string): void {
+		this.database
+			.query('INSERT OR IGNORE INTO background_children (thread_id, parent_thread_id, role) VALUES (?, ?, ?)')
+			.run(threadID, parentThreadID, role)
+	}
+
+	markBackgroundReported(threadID: string, parentThreadID: string): void {
+		this.database
+			.query(
+				'UPDATE background_children SET reported = 1 WHERE thread_id = ? AND parent_thread_id = ?',
+			)
+			.run(threadID, parentThreadID)
+	}
+
+	deleteBackgroundChild(threadID: string): void {
+		this.database.query('DELETE FROM background_children WHERE thread_id = ?').run(threadID)
+	}
+
+	deleteReportedBackgroundChild(threadID: string): void {
+		this.database
+			.query('DELETE FROM background_children WHERE thread_id = ? AND reported = 1')
+			.run(threadID)
+	}
+
+	claimBackgroundNotification(threadID: string): boolean {
+		const result = this.database
+			.query('UPDATE background_children SET notified = 1 WHERE thread_id = ? AND reported = 0 AND notified = 0')
+			.run(threadID)
+		return result.changes === 1
+	}
+
+	releaseBackgroundNotification(threadID: string): void {
+		this.database
+			.query('UPDATE background_children SET notified = 0 WHERE thread_id = ? AND reported = 0')
+			.run(threadID)
 	}
 
 	listOwners(): ImplementationOwner[] {

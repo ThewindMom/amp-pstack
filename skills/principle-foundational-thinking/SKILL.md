@@ -1,6 +1,6 @@
 ---
 name: principle-foundational-thinking
-description: "Apply before writing logic: choosing core types and data structures, sequencing scaffold-vs-feature work, asking what concurrent actors share. Get the data structures right so downstream code becomes obvious."
+description: "Only use when named or routed by poteto-mode. Chooses core types, data structures, work sequencing, and shared-state boundaries before writing logic."
 ---
 
 # Foundational Thinking

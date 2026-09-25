@@ -1,6 +1,6 @@
 ---
 name: principle-fix-root-causes
-description: "Apply when debugging. Trace each symptom to its root cause and fix it there; reproduce first, ask why until you reach it, resist nil-check guards that silence crashes."
+description: "Only use when named or routed by poteto-mode. Reproduces debugging symptoms, traces root causes, and fixes them instead of silencing failures with guards."
 ---
 
 # Fix Root Causes

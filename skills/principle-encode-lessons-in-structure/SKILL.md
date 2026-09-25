@@ -1,6 +1,6 @@
 ---
 name: principle-encode-lessons-in-structure
-description: "Apply when you catch yourself writing the same instruction a second time, or notice a recurring correction. Encode the rule as a lint, metadata flag, runtime check, or script instead of more text."
+description: "Only use when named or routed by poteto-mode. Encodes recurring instructions or corrections as lint, metadata, runtime checks, or scripts instead of more prose."
 ---
 
 # Encode Lessons in Structure

@@ -1,6 +1,6 @@
 ---
 name: recall
-description: "Reconstruct your recent working context from your own chat history, live state, and the shared record (user reports, prior fixes, incidents), then hand back a tight current-state brief. Use for 'recall my work on X', 'catch me up', 'what have I been working on', 'where did I leave off', before starting or resuming work."
+description: "Only use when named or routed by poteto-mode. Reconstructs recent working context from chat history, live state, and shared records for catch-up, recall, or resume requests."
 builtin-tools:
   - find_thread
   - read_thread

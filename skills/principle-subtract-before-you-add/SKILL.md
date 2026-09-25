@@ -1,6 +1,6 @@
 ---
 name: principle-subtract-before-you-add
-description: "Apply when sequencing an addition, refactor, or rewrite. Remove dead code, redundant validators, and stub references first, then build on the simpler base."
+description: "Only use when named or routed by poteto-mode. Removes dead code, redundant validators, and stubs before additions, refactors, or rewrites."
 ---
 
 # Subtract Before You Add

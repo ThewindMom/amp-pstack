@@ -36,7 +36,7 @@ describe('poteto mode', () => {
 		expect(registered[0]?.description).toContain('Opus 5.5 at medium reasoning')
 	})
 
-	test('keeps the skill and adapter model paragraph aligned with the runtime', async () => {
+	test('documents coordinator, delegate, and child-thread behavior accurately', async () => {
 		const [skill, adapter, babysit, shipping] = await Promise.all([
 			Bun.file(new URL('skills/poteto-mode/SKILL.md', import.meta.url)).text(),
 			Bun.file(new URL('skills/poteto-mode/references/amp-adapter.md', import.meta.url)).text(),
@@ -46,7 +46,16 @@ describe('poteto mode', () => {
 		const modelProse = `${skill}\n${adapter}`
 
 		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, pinned to `anthropic/claude-opus-5-5` at medium reasoning')
-		expect(modelProse).toContain('`anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7` request `reasoningEffort: high`')
+		expect(adapter).toMatch(/Opus 5\.5 and GPT-6 Sol seats request `reasoningEffort: max`/)
+		expect(adapter).toMatch(/Grok 4\.7 seats request `reasoningEffort: xhigh`/)
+		expect(adapter).toContain('An explicit seat effort overrides that default.')
+		expect(skill).toContain('The hardest implementation changes read `hardest`')
+		expect(skill).toContain('prose and review judgment read `judgment`')
+		expect(adapter).toContain('page `pstack_read_current_thread` by `offset`')
+		expect(adapter).toMatch(/cancel any durably tracked child owned by the current parent/)
+		expect(adapter).toMatch(/cancellation does not release that claim until Amp observes terminal `idle` or `error`/)
+		expect(adapter).toMatch(/complete the returned native `create_thread` call so the plugin can pair that exact thread ID/)
+		expect(adapter).toMatch(/reservation with no paired native child cannot be canceled[\s\S]*Reconcile the native create result first/)
 		expect(babysit).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 	})

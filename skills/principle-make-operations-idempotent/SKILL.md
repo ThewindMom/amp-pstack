@@ -1,6 +1,6 @@
 ---
 name: principle-make-operations-idempotent
-description: "Apply when designing commands, lifecycle steps, or processing loops that run amid crashes, restarts, and retries. Converge to the same end state regardless of partial prior runs."
+description: "Only use when named or routed by poteto-mode. Designs commands, lifecycle steps, and processing loops to converge after crashes, restarts, retries, or partial runs."
 ---
 
 # Make Operations Idempotent

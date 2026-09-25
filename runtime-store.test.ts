@@ -91,4 +91,81 @@ describe('RuntimeStore', () => {
 		expect(store.listDesignRuns()).toEqual([])
 		store.close()
 	})
+
+	test('persists report suppression and atomically claims one terminal notification', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-store-'))
+		const path = join(root, 'runtime.sqlite')
+		try {
+			const first = new RuntimeStore(path)
+			first.saveBackgroundChild('T-child', 'T-parent', 'how-explorer')
+			first.markBackgroundActive('T-child')
+			expect(first.claimBackgroundNotification('T-child')).toBe(true)
+			expect(first.claimBackgroundNotification('T-child')).toBe(false)
+			first.releaseBackgroundNotification('T-child')
+			expect(first.claimBackgroundNotification('T-child')).toBe(true)
+			first.saveBackgroundChild('T-reported', 'T-parent', 'why-investigator')
+			first.markBackgroundReported('T-reported', 'T-parent')
+			first.close()
+
+			const reopened = new RuntimeStore(path)
+			expect(reopened.claimBackgroundNotification('T-child')).toBe(false)
+			expect(reopened.claimBackgroundNotification('T-reported')).toBe(false)
+			expect(reopened.listBackgroundChildren()).toEqual([
+				{ threadID: 'T-child', parentThreadID: 'T-parent', role: 'how-explorer', active: true, reported: false, notified: true },
+				{ threadID: 'T-reported', parentThreadID: 'T-parent', role: 'why-investigator', active: false, reported: true, notified: false },
+			])
+			reopened.deleteBackgroundChild('T-child')
+			expect(reopened.backgroundChild('T-child')).toBeUndefined()
+			reopened.close()
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('durably pairs native background reservations by parent and tool use ID', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-native-background-'))
+		const path = join(root, 'runtime.sqlite')
+		try {
+			const first = new RuntimeStore(path)
+			const reservationID = first.saveNativeBackgroundReservation({
+				parentThreadID: 'T-parent',
+				role: 'why-investigator',
+				expectedNative: { executor: 'orb', prompt: 'investigate' },
+			})
+			expect(first.setNativeBackgroundToolUse('T-other', 'toolu-wrong')).toBe(false)
+			expect(first.setNativeBackgroundToolUse(reservationID, 'toolu-native')).toBe(true)
+			first.close()
+
+			const reopened = new RuntimeStore(path)
+			expect(reopened.listNativeBackgroundReservations()).toEqual([
+				{
+					reservationID,
+					parentThreadID: 'T-parent',
+					role: 'why-investigator',
+					expectedNative: { executor: 'orb', prompt: 'investigate' },
+					toolUseID: 'toolu-native',
+				},
+			])
+			reopened.deleteNativeBackgroundReservation('missing')
+			expect(reopened.listNativeBackgroundReservations()).toHaveLength(1)
+			reopened.deleteNativeBackgroundReservation(reservationID)
+			expect(reopened.listNativeBackgroundReservations()).toEqual([])
+			reopened.close()
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('keeps multiple identical native background reservations for one parent independently pairable', () => {
+		const store = new RuntimeStore(':memory:')
+		const input = { executor: 'orb', prompt: 'same' }
+		const first = store.saveNativeBackgroundReservation({ parentThreadID: 'T-parent', role: 'why-investigator', expectedNative: input })
+		const second = store.saveNativeBackgroundReservation({ parentThreadID: 'T-parent', role: 'why-investigator', expectedNative: input })
+		expect(first).not.toBe(second)
+		expect(store.listNativeBackgroundReservations()).toHaveLength(2)
+		expect(store.setNativeBackgroundToolUse(first, 'toolu-1')).toBe(true)
+		expect(store.setNativeBackgroundToolUse(second, 'toolu-2')).toBe(true)
+		expect(store.listNativeBackgroundReservations().map(({ toolUseID }) => toolUseID)).toEqual(['toolu-1', 'toolu-2'])
+		store.close()
+	})
 })

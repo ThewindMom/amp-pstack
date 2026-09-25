@@ -1,6 +1,6 @@
 ---
 name: principle-model-the-domain
-description: "Apply when writing stateful logic, or when code branches a lot or repeats a shape assumption across files. Encode the domain in a structure instead of scattered conditionals."
+description: "Only use when named or routed by poteto-mode. Encodes stateful, branch-heavy, or shape-dependent logic in a domain structure instead of scattered conditionals."
 ---
 
 # Model the Domain

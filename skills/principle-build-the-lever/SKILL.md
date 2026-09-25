@@ -1,6 +1,6 @@
 ---
 name: principle-build-the-lever
-description: "Apply to any non-trivial work, not just bulk work: edits, migrations, analyses, checks. Build the tool that does it or proves it (codemod, script, generator, or a skill your subagents follow) instead of working by hand. The tool is the artifact a reviewer can rerun."
+description: "Only use when named or routed by poteto-mode. Builds a rerunnable tool that performs or proves non-trivial edits, migrations, analyses, or checks instead of doing them by hand."
 ---
 # Build the Lever
 

@@ -63,7 +63,17 @@ import pstack, {
 	validateOverrides,
 	workspaceRootPath,
 } from './index'
+import { createThreadInputMatches, exactCreateThreadInputMatches } from './workflow-parity'
 import { parseWakeEnvelope, WAKE_ENVELOPE_PREFIX } from './webhook-runtime'
+
+test('native reservation matchers distinguish expected-field subsets from exact background input', () => {
+	const expected = { prompt: 'work', options: { project: 'amp/pstack' } }
+	const input = { prompt: 'work', options: { project: 'amp/pstack', nativeDefault: true }, unrelated: true }
+
+	expect(createThreadInputMatches(input, expected)).toBe(true)
+	expect(exactCreateThreadInputMatches(input, expected)).toBe(false)
+	expect(createThreadInputMatches({ ...input, options: { project: 'other' } }, expected)).toBe(false)
+})
 
 describe('amp-pstack plugin', () => {
 	test('declares every bundled skill once', () => {
@@ -124,9 +134,9 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(3)
 		expect(DEFAULT_MODELS['reflect-tooling']).toBe('openai/gpt-6-sol')
 		expect(MODEL_REASONING_EFFORT).toEqual({
-			'anthropic/claude-opus-5-5': 'high',
-			'openai/gpt-6-sol': 'high',
-			'xai/grok-4.7': 'high',
+			'anthropic/claude-opus-5-5': 'max',
+			'openai/gpt-6-sol': 'max',
+			'xai/grok-4.7': 'xhigh',
 		})
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('claude-fable')
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('gpt-5.6-sol')
@@ -206,6 +216,7 @@ describe('amp-pstack plugin', () => {
 			'pstack_run_agent',
 			'pstack_run_panel',
 			'pstack_start_agent',
+			'pstack_stop_agent',
 			'pstack_send_to_thread',
 			'pstack_read_current_thread',
 			'pstack_configure_models',
@@ -273,14 +284,15 @@ describe('model configuration', () => {
 		})
 	})
 
-	test('drops unknown stored keys and invalid values, then fills defaults', () => {
+	test('drops unknown stored keys but preserves invalid known-role choices for use-time errors', () => {
 		expect(
 			storedModelMap({
 				'bug-fix': 'openai/gpt-5.6-sol',
 				mystery: 'xai/grok-4.7',
 				hillclimb: 'nope',
 			}),
-		).toEqual({ 'bug-fix': 'openai/gpt-5.6-sol' })
+		).toEqual({ 'bug-fix': 'openai/gpt-5.6-sol', hillclimb: 'nope' })
+		expect(mergeModels({ hillclimb: 'nope' }).hillclimb).toBe('nope')
 		expect(mergeModels({ 'bug-fix': 'anthropic/claude-fable-5' })['bug-fix']).toBe(
 			'anthropic/claude-fable-5',
 		)
@@ -344,11 +356,11 @@ describe('model configuration', () => {
 				['xai/grok-4.7', 'builtin:high', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5'],
 				'xai/grok-4.5',
 			),
-		).toBe('openai/gpt-5.6-sol')
-		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toBe(
-			'builtin:high',
-		)
-		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'])).toBe('builtin:high')
+		).toEqual({ model: 'openai/gpt-5.6-sol' })
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toEqual({
+			model: 'builtin:high',
+		})
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'])).toEqual({ model: 'builtin:high' })
 		expect(() => selectPoolModel([])).toThrow('cannot be empty')
 	})
 
@@ -381,6 +393,7 @@ describe('model configuration', () => {
 	test('cheap profile has no Fable or Opus', () => {
 		const cheap = profileModels('cheap')
 		expect(cheap.judgment).toBe('xai/grok-4.7')
+		expect(cheap.hardest).toBe('openai/gpt-5.6-sol')
 		expect(JSON.stringify(cheap)).not.toContain('claude-fable')
 		expect(JSON.stringify(cheap)).not.toContain('claude-opus')
 		expect(profileModels('balanced').judgment).toBe(DEFAULT_MODELS.judgment)
@@ -433,6 +446,65 @@ describe('model configuration', () => {
 				workspaceFile: { profile: 'cheap' },
 			}).judgment,
 		).toBe('xai/grok-4.7')
+	})
+
+	test('seat layers replace whole roles without zipping effort across layers', () => {
+		expect(resolveModels({
+			pluginFile: { 'arena-runners': [{ model: 'openai/gpt-6-sol', effort: 'low' }, { model: 'xai/grok-4.7', effort: 'high' }] },
+			userFile: { 'arena-runners': ['anthropic/claude-opus-5-5'] },
+		})['arena-runners']).toEqual(['anthropic/claude-opus-5-5'])
+		expect(resolveModels({
+			pluginFile: { feature: { model: 'openai/gpt-6-sol', effort: 'low' } },
+			stored: { feature: 'xai/grok-4.7' },
+		}).feature).toBe('xai/grok-4.7')
+	})
+
+	test('validates explicit model effort pairs and leaves unknown model defaults to Amp', () => {
+		expect(() => validateOverrides({ feature: { model: 'anthropic/claude-opus-5-5', effort: 'none' } })).toThrow(
+			'feature: model anthropic/claude-opus-5-5 does not support effort none',
+		)
+		expect(() => validateOverrides({ feature: { model: 'anthropic/claude-opus-5-5', effort: 'minimal' } })).toThrow(
+			'feature: model anthropic/claude-opus-5-5 does not support effort minimal',
+		)
+		expect(() => validateOverrides({ feature: { model: 'openai/gpt-6-sol', effort: 'minimal' } })).toThrow(
+			'feature: model openai/gpt-6-sol does not support effort minimal',
+		)
+		expect(() => validateOverrides({ feature: { model: 'xai/grok-4.7', effort: 'max' } })).toThrow(
+			'feature: model xai/grok-4.7 does not support effort max',
+		)
+		expect(() => validateOverrides({ feature: { model: 'xai/grok-4.7', effort: 'minimal' } })).toThrow(
+			'feature: model xai/grok-4.7 does not support effort minimal',
+		)
+		expect(() => validateOverrides({ feature: { model: 'other/future', effort: 'turbo' } as never })).toThrow(
+			'Invalid effort for feature: turbo',
+		)
+		expect(() => validateOverrides({ feature: { model: 'builtin:high', effort: 'high' } })).toThrow(
+			'feature: builtin builtin:high cannot carry effort high',
+		)
+		expect(orbAgentSpecsFor({ feature: { model: 'other/future' } })).toEqual([
+			{ role: 'feature', model: 'other/future', effort: undefined },
+		])
+		expect(validateOverrides({ feature: { model: 'other/future', effort: 'max' } })).toEqual({
+			feature: { model: 'other/future', effort: 'max' },
+		})
+	})
+
+	test('same model with different effort remains distinct in panels and pools', () => {
+		const seats = [
+			{ model: 'openai/gpt-6-sol', effort: 'low' as const },
+			{ model: 'openai/gpt-6-sol', effort: 'max' as const },
+		]
+		expect(orbAgentSpecsFor({ 'architect-runners': seats })).toEqual([
+			{ role: 'architect-runners-1', ...seats[0] },
+			{ role: 'architect-runners-2', ...seats[1] },
+		])
+		expect(orbAgentSpecsFor({ 'arena-cross-judge': seats })).toEqual([
+			{ role: 'arena-cross-judge', ...seats[0] },
+			{ role: 'arena-cross-judge', ...seats[1] },
+		])
+		expect(orbAgentModeFor('feature', seats[0].model, seats[0].effort)).not.toEqual(
+			orbAgentModeFor('feature', seats[1].model, seats[1].effort),
+		)
 	})
 
 	test('missing plugin json leaves the shipped defaults', async () => {
@@ -521,10 +593,14 @@ describe('runtime tool behavior', () => {
 		waitError?: Error
 		waitState?: 'idle' | 'running' | 'awaiting-approval' | 'error'
 		appendError?: Error
+		appendHook?: (threadID: string, content: string) => Promise<void>
 		initialConfig?: Record<string, unknown>
 		executorKind?: 'local' | 'remote' | 'unknown'
 		keepAliveError?: Error
 		runtimeStateFile?: string
+		restoredThreadStates?: Record<string, 'idle' | 'running' | 'awaiting-approval' | 'error'>
+		restoredThreadMessages?: Record<string, Array<Record<string, unknown>>>
+		restoredMessageError?: Record<string, Error>
 		filesModifiedByToolCall?: (event: Record<string, unknown>) => string[] | null
 	}) {
 		const created: Array<Record<string, unknown>> = []
@@ -621,6 +697,9 @@ describe('runtime tool behavior', () => {
 							executor: createOptions?.executor,
 							prompt: '',
 							timeoutMs: undefined as number | undefined,
+								assistantText: `assistant:${definition.instructions}`,
+								assistantMessages: undefined as string[] | undefined,
+								transcriptMessages: undefined as Array<Record<string, unknown>> | undefined,
 							stateListeners: listeners,
 							state: {
 								subscribe(listener: (state: string) => void) {
@@ -647,6 +726,23 @@ describe('runtime tool behavior', () => {
 								}
 								thread.prompt = content
 							},
+							cancelCount: 0,
+							async cancel() {
+								thread.cancelCount += 1
+							},
+								async messages(options: { from?: 'start' | 'end'; limit?: number; offset?: number } = {}) {
+									const limit = options.limit ?? 10
+									const offset = options.offset ?? 0
+									if (limit > 20) throw new Error('messages limit exceeds host maximum of 20')
+									const messages = thread.transcriptMessages ?? (thread.assistantMessages ?? [thread.assistantText]).map((text, index) => ({
+										id: `M-${thread.id}-${index}`,
+										role: 'assistant',
+										content: [{ type: 'text', text }],
+									}))
+									if (options.from === 'start') return messages.slice(offset, offset + limit)
+									const end = Math.max(0, messages.length - offset)
+									return messages.slice(Math.max(0, end - limit), end)
+								},
 							async waitForResponse({ timeoutMs }: { timeoutMs?: number } = {}) {
 								thread.timeoutMs = timeoutMs
 								waited.push(thread)
@@ -763,16 +859,30 @@ describe('runtime tool behavior', () => {
 					if (existing) return existing
 					return {
 						id: threadID,
+						async messages({
+							from = 'end',
+							limit = 10,
+							offset = 0,
+						}: { from?: 'start' | 'end'; limit?: number; offset?: number } = {}) {
+							if (limit > 20) throw new Error('messages limit exceeds host maximum of 20')
+							const failure = options?.restoredMessageError?.[threadID]
+							if (failure) throw failure
+							const messages = options?.restoredThreadMessages?.[threadID] ?? []
+							if (from === 'start') return messages.slice(offset, offset + limit)
+							const end = Math.max(0, messages.length - offset)
+							return messages.slice(Math.max(0, end - limit), end)
+						},
 						state: {
 							subscribe(listener: (state: string) => void) {
 								return { unsubscribe() {} }
 							},
 								async get() {
-									return 'idle'
+									return options?.restoredThreadStates?.[threadID] ?? 'idle'
 								},
 						},
-						async appendUserMessage(message: { content: string }, options?: { steer?: boolean }) {
-							sent.push({ threadID, content: message.content, steer: options?.steer })
+						async appendUserMessage(message: { content: string }, appendOptions?: { steer?: boolean }) {
+							if (options?.appendHook) await options.appendHook(threadID, message.content)
+							sent.push({ threadID, content: message.content, steer: appendOptions?.steer })
 						},
 					}
 				},
@@ -839,6 +949,98 @@ describe('runtime tool behavior', () => {
 		launchTarget: { kind: 'current-checkout' as const },
 	}
 
+	test('reads a 450-message transcript in stable offset pages with truncation metadata', async () => {
+		const amp = await loadPlugin()
+		const transcript = Array.from({ length: 450 }, (_, index) => ({
+			id: `M-${index}`,
+			role: 'user',
+			content: [{ type: 'text', text: `msg ${index}` }],
+		}))
+		const currentThread = {
+			id: 'T-current',
+			async messages(options: { from: string; offset: number; limit: number }) {
+				expect(options.from).toBe('start')
+				expect(options.limit).toBeLessThanOrEqual(20)
+				return transcript.slice(options.offset, options.offset + options.limit)
+			},
+		}
+		const read = async (offset: number) =>
+			JSON.parse(
+				await tool(amp, 'pstack_read_current_thread').execute(
+					{ offset, limit: 200 },
+					{ thread: currentThread },
+				),
+			)
+
+		const first = await read(0)
+		const second = await read(200)
+		const third = await read(400)
+		expect(first.messages).toHaveLength(200)
+		expect(first.messages[0].id).toBe('M-0')
+		expect(second.messages[0].id).toBe('M-200')
+		expect(third.messages.map((message: { id: string }) => message.id)).toEqual(
+			transcript.slice(400).map((message) => message.id),
+		)
+		expect(first).toMatchObject({ total: 450, truncated: true, offset: 0, limit: 200 })
+		expect(second).toMatchObject({ total: 450, truncated: true })
+		expect(third).toMatchObject({ total: 450, truncated: true })
+	})
+
+	test('stops only a durably paired owned child and releases after terminal state', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
+		const child = amp.started[0] as {
+			id: string
+			cancelCount: number
+			emit: (state: string) => void
+		}
+		child.emit('running')
+
+		await expect(
+			tool(amp, 'pstack_stop_agent').execute(
+				{ threadID: child.id },
+				{ thread: { id: 'T-other-parent' } },
+			),
+		).rejects.toThrow('different parent')
+		expect(child.cancelCount).toBe(0)
+		const stopped = JSON.parse(
+			await tool(amp, 'pstack_stop_agent').execute(
+				{ threadID: child.id },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		expect(stopped).toMatchObject({ canceled: true, ownershipReleased: false, state: 'running' })
+		expect(child.cancelCount).toBe(1)
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
+		).rejects.toThrow('Implementation resource')
+
+		child.emit('idle')
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
+		).resolves.toBeDefined()
+		await expect(
+			tool(amp, 'pstack_stop_agent').execute(
+				{ threadID: 'T-unpaired' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('not a paired implementation child')
+	})
+
+	test('does not claim it can stop a native reservation without a child ID', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(
+			{ ...implStart, launchTarget: { kind: 'native-orb', project: 'project' } },
+			{ thread: { id: 'T-parent' } },
+		)
+		await expect(
+			tool(amp, 'pstack_stop_agent').execute(
+				{ threadID: 'T-unknown' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('has no paired child thread ID')
+	})
+
 	test('builtin roles extend the mode with pstack instructions', async () => {
 		const amp = await loadPlugin()
 		amp.config[CONFIG_KEY] = { 'bug-fix': 'builtin:high' }
@@ -894,7 +1096,7 @@ describe('runtime tool behavior', () => {
 
 	test('code implementation roles receive the full poteto delegate wrapper', async () => {
 		const amp = await loadPlugin()
-		for (const [index, role] of ['feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb'].entries()) {
+		for (const [index, role] of ['hardest', 'feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb'].entries()) {
 			await tool(amp, 'pstack_start_agent').execute(
 				{
 					role,
@@ -907,13 +1109,51 @@ describe('runtime tool behavior', () => {
 			expect(String(amp.created.at(-1)?.instructions)).toContain(POTETO_DELEGATE_INSTRUCTIONS)
 			expect(amp.created.at(-1)).toMatchObject({
 				extends: 'medium',
-				model: 'xai/grok-4.7',
-				reasoningEffort: 'high',
+				model: role === 'hardest' ? 'anthropic/claude-opus-5-5' : 'xai/grok-4.7',
+				reasoningEffort: role === 'hardest' ? 'max' : 'xhigh',
 			})
 		}
 		expect(CODE_IMPLEMENTATION_ROLES).toEqual(
-			new Set(['feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb']),
+			new Set(['hardest', 'feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb']),
 		)
+	})
+
+	test('hardest requires scoped background ownership and rejects blocking or colliding work', async () => {
+		const amp = await loadPlugin()
+		await expect(
+			tool(amp, 'pstack_run_agent').execute(
+				{ role: 'hardest', prompt: 'implement it' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'hardest', prompt: 'implement it' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('Missing scope')
+		await tool(amp, 'pstack_start_agent').execute(
+			{
+				role: 'hardest',
+				prompt: 'own it',
+				scope: 'index implementation',
+				scopePaths: ['index.ts'],
+				launchTarget: { kind: 'current-checkout' },
+			},
+			{ thread: { id: 'T-hardest-parent' } },
+		)
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'feature',
+					prompt: 'collide',
+					scope: 'same file',
+					scopePaths: ['index.ts'],
+					launchTarget: { kind: 'current-checkout' },
+				},
+				{ thread: { id: 'T-feature-parent' } },
+			),
+		).rejects.toThrow('conflicts with')
 	})
 
 	test('poteto roles conditionally direct principle leaf loading', async () => {
@@ -957,7 +1197,7 @@ describe('runtime tool behavior', () => {
 			expect(amp.created.at(-1)).toMatchObject({
 				extends: 'medium',
 				model,
-				reasoningEffort: 'high',
+				reasoningEffort: MODEL_REASONING_EFFORT[model as keyof typeof MODEL_REASONING_EFFORT],
 			})
 		}
 		await tool(amp, 'pstack_run_agent').execute(
@@ -967,7 +1207,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).toMatchObject({
 			extends: 'medium',
 			model: 'anthropic/claude-opus-5-5',
-			reasoningEffort: 'high',
+			reasoningEffort: 'max',
 			tools: { include: [...REPORTING_READONLY_TOOLS] },
 		})
 		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
@@ -1031,7 +1271,7 @@ describe('runtime tool behavior', () => {
 		] as const
 		const expectedModels = [
 			...Array(8).fill('xai/grok-4.7'),
-			...Array(7).fill('anthropic/claude-opus-5-5'),
+			...Array(8).fill('anthropic/claude-opus-5-5'),
 			'openai/gpt-6-sol',
 			...lineup,
 			...lineup,
@@ -1041,7 +1281,7 @@ describe('runtime tool behavior', () => {
 		expect(concrete.map((definition) => definition.model).sort()).toEqual([...expectedModels].sort())
 		for (const definition of concrete) {
 			expect(definition.extends).toBe('medium')
-			expect(definition.reasoningEffort).toBe('high')
+			expect(definition.reasoningEffort).toBe(MODEL_REASONING_EFFORT[definition.model as keyof typeof MODEL_REASONING_EFFORT])
 			if (typeof definition.model !== 'string' || !lineup.includes(definition.model as (typeof lineup)[number])) {
 				throw new Error(`unexpected registered model ${String(definition.model)}`)
 			}
@@ -1068,12 +1308,12 @@ describe('runtime tool behavior', () => {
 		const tooling = amp.registeredModes.find(
 			({ key }) => key === orbAgentModeFor('reflect-tooling', 'openai/gpt-6-sol').key,
 		)
-		expect(feature?.agent).toMatchObject({ model: 'xai/grok-4.7', reasoningEffort: 'high' })
+		expect(feature?.agent).toMatchObject({ model: 'xai/grok-4.7', reasoningEffort: 'xhigh' })
 		expect(judgment?.agent).toMatchObject({
 			model: 'anthropic/claude-opus-5-5',
-			reasoningEffort: 'high',
+			reasoningEffort: 'max',
 		})
-		expect(tooling?.agent).toMatchObject({ model: 'openai/gpt-6-sol', reasoningEffort: 'high' })
+		expect(tooling?.agent).toMatchObject({ model: 'openai/gpt-6-sol', reasoningEffort: 'max' })
 	})
 
 	test('panel delegates have distinct threads and preserve poteto wrapper boundaries', async () => {
@@ -1466,6 +1706,63 @@ describe('runtime tool behavior', () => {
 		expect(() => amp.flushOrbSelections()).not.toThrow()
 	})
 
+	test('effort-only changes apply locally but require orb reload', async () => {
+		const amp = await loadPlugin({ initialConfig: {
+			[CONFIG_KEY]: { 'bug-fix': { model: 'openai/gpt-6-sol', effort: 'low' } },
+		} })
+		await tool(amp, 'pstack_configure_models').execute({
+			action: 'set',
+			overrides: { 'bug-fix': { model: 'openai/gpt-6-sol', effort: 'max' } },
+		})
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'bug-fix', prompt: 'local effort', scope: 'local.ts', launchTarget: { kind: 'current-checkout' } },
+			{ thread: { id: 'T-local-effort' } },
+		)
+		expect(amp.created.at(-1)).toMatchObject({ model: 'openai/gpt-6-sol', reasoningEffort: 'max' })
+		await expect(tool(amp, 'pstack_start_agent').execute(
+			{ role: 'bug-fix', prompt: 'orb effort', scope: 'orb.ts', launchTarget: { kind: 'repo-independent-orb' } },
+			{ thread: { id: 'T-orb-effort' } },
+		)).rejects.toThrow(ORB_MODE_RELOAD_ERROR)
+	})
+
+	test('invalid persisted effort fails its named role while another startup orb seat still runs', async () => {
+		const amp = await loadPlugin({
+			initialConfig: {
+				[CONFIG_KEY]: {
+					feature: { model: 'anthropic/claude-opus-5-5', effort: 'none' },
+					'how-explainer': { model: 'openai/gpt-6-sol', effort: 'low' },
+				},
+			},
+		})
+		expect(amp.logs).toContain(
+			'Could not register pstack role feature: Invalid effort for feature: model anthropic/claude-opus-5-5 does not support effort none.',
+		)
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'feature', prompt: 'must fail', scope: 'feature.ts', launchTarget: { kind: 'current-checkout' } },
+				{ thread: { id: 'T-invalid-local' } },
+			),
+		).rejects.toThrow('Invalid effort for feature: model anthropic/claude-opus-5-5 does not support effort none')
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'feature', prompt: 'must fail in orb', scope: 'orb.ts', launchTarget: { kind: 'repo-independent-orb' } },
+				{ thread: { id: 'T-invalid-orb' } },
+			),
+		).rejects.toThrow('Invalid effort for feature: model anthropic/claude-opus-5-5 does not support effort none')
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'still starts', launchTarget: { kind: 'repo-independent-orb' } },
+				{ thread: { id: 'T-valid-orb' } },
+			),
+		).resolves.toBeDefined()
+		expect(amp.started.at(-1)).toMatchObject({ executor: 'orb' })
+		const validMode = orbAgentModeFor('how-explainer', 'openai/gpt-6-sol', 'low')
+		expect(amp.registeredModes.find(({ key }) => key === validMode.key)?.agent).toMatchObject({
+			model: 'openai/gpt-6-sol',
+			reasoningEffort: 'low',
+		})
+	})
+
 	test('send_to_thread steers the parent unless steer is false', async () => {
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_send_to_thread').execute({
@@ -1481,6 +1778,322 @@ describe('runtime tool behavior', () => {
 			{ threadID: 'T-parent', content: 'done', steer: true },
 			{ threadID: 'T-parent', content: 'note', steer: false },
 		])
+	})
+
+	test('terminal background children notify once with state and last assistant text', async () => {
+		for (const [role, terminal] of [
+			['feature', 'idle'],
+			['how-explainer', 'error'],
+			['why-investigator', 'idle'],
+		] as const) {
+			const amp = await loadPlugin()
+			await tool(amp, 'pstack_start_agent').execute(
+				{
+					role,
+					prompt: `${role} task`,
+					...(role === 'feature' ? { scope: `${role}.ts` } : {}),
+				},
+				{ thread: { id: `T-parent-${role}` } },
+			)
+			const child = amp.started[0] as { emit: (state: string) => void; assistantMessages: string[] }
+			child.assistantMessages = [`${role} older text`, `${role} final text`]
+			child.emit('idle')
+			expect(amp.sent).toHaveLength(0)
+			if (terminal === 'idle') child.emit('running')
+			else child.emit('awaiting-approval')
+			child.emit(terminal)
+			child.emit(terminal)
+			await Bun.sleep(0)
+			expect(amp.sent).toEqual([{
+				threadID: `T-parent-${role}`,
+				content: expect.stringContaining(`Child T-child reached terminal state ${terminal}`),
+				steer: true,
+			}])
+			expect(String(amp.sent[0]?.content)).toContain(`${role} final text`)
+			expect(String(amp.sent[0]?.content)).not.toContain(`${role} older text`)
+		}
+	})
+
+	test('terminal fallback reads the newest assistant text from the host-sized latest page', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explainer', prompt: 'find the latest report' },
+			{ thread: { id: 'T-parent' } },
+		)
+		const child = amp.started[0] as {
+			emit: (state: string) => void
+			transcriptMessages: Array<Record<string, unknown>>
+		}
+		child.transcriptMessages = [
+			...Array.from({ length: 21 }, (_, index) => ({
+				id: `M-old-${index}`,
+				role: index === 20 ? 'assistant' : 'user',
+				content: [{ type: 'text', text: index === 20 ? 'older assistant text' : `old user ${index}` }],
+			})),
+			{ id: 'M-final', role: 'assistant', content: [{ type: 'text', text: 'required final assistant text' }] },
+			{ id: 'M-user', role: 'user', content: [{ type: 'text', text: 'trailing user text' }] },
+			{
+				id: 'M-tool',
+				role: 'user',
+				content: [{ type: 'tool_result', toolUseID: 'call-1', status: 'done', output: 'trailing tool text' }],
+			},
+		]
+		child.emit('running')
+		child.emit('idle')
+		await Bun.sleep(0)
+		expect(amp.sent).toHaveLength(1)
+		expect(String(amp.sent[0]?.content)).toContain('required final assistant text')
+		expect(String(amp.sent[0]?.content)).not.toContain('older assistant text')
+		expect(amp.logs).toEqual([])
+	})
+
+	test('reload reconciles a previously active child already idle but ignores initial idle', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-background-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({ runtimeStateFile })
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'active child' },
+				{ thread: { id: 'T-parent-active' } },
+			)
+			;(first.started[0] as { emit: (state: string) => void }).emit('running')
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'why-investigator', prompt: 'not started child' },
+				{ thread: { id: 'T-parent-initial' } },
+			)
+			await first.dispose()
+
+			const restored = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'idle', 'T-child-2': 'idle' },
+			})
+			await Bun.sleep(0)
+			expect(restored.sent).toHaveLength(1)
+			expect(restored.sent[0]).toMatchObject({ threadID: 'T-parent-active' })
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('reload infers owner and background completion from assistant transcripts but keeps untouched idle children pending', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-gap-completion-'))
+		try {
+			const ownerState = join(root, 'owner.sqlite')
+			const owner = await loadPlugin({ runtimeStateFile: ownerState })
+			await tool(owner, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-owner-parent' } })
+			await owner.dispose()
+			const restoredOwner = await loadPlugin({
+				runtimeStateFile: ownerState,
+				restoredThreadStates: { 'T-child': 'idle' },
+				restoredThreadMessages: { 'T-child': [{ role: 'assistant', content: [{ type: 'text', text: 'owner finished in gap' }] }] },
+			})
+			await Bun.sleep(0)
+			expect(restoredOwner.sent).toEqual([expect.objectContaining({ threadID: 'T-owner-parent', steer: true })])
+			await expect(tool(restoredOwner, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-new-owner' } })).resolves.toBeDefined()
+
+			const backgroundState = join(root, 'background.sqlite')
+			const background = await loadPlugin({ runtimeStateFile: backgroundState })
+			await tool(background, 'pstack_start_agent').execute({ role: 'why-investigator', prompt: 'work' }, { thread: { id: 'T-background-parent' } })
+			await background.dispose()
+			const restoredBackground = await loadPlugin({
+				runtimeStateFile: backgroundState,
+				restoredThreadStates: { 'T-child': 'idle' },
+				restoredThreadMessages: { 'T-child': [
+					...Array.from({ length: 20 }, (_, index) => ({ role: 'user', content: [{ type: 'text', text: `later ${index}` }] })),
+					{ role: 'assistant', content: [{ type: 'text', text: 'background finished in gap' }] },
+				] },
+			})
+			await Bun.sleep(0)
+			expect(restoredBackground.sent).toEqual([expect.objectContaining({ threadID: 'T-background-parent', steer: true })])
+
+			const untouchedState = join(root, 'untouched.sqlite')
+			const untouched = await loadPlugin({ runtimeStateFile: untouchedState })
+			await tool(untouched, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-untouched-parent' } })
+			await untouched.dispose()
+			const restoredUntouched = await loadPlugin({
+				runtimeStateFile: untouchedState,
+				restoredThreadStates: { 'T-child': 'idle' },
+				restoredMessageError: { 'T-child': new Error('transcript unavailable') },
+			})
+			expect(restoredUntouched.sent).toHaveLength(0)
+			await expect(tool(restoredUntouched, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-other' } })).rejects.toThrow('resource')
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('reload settles completed design candidates and judges from assistant transcripts', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-design-gap-'))
+		try {
+			const candidateState = join(root, 'candidate.sqlite')
+			const candidate = await loadPlugin({
+				runtimeStateFile: candidateState,
+				initialConfig: { [CONFIG_KEY]: { 'architect-runners': ['builtin:high'] } },
+				waitError: new Error('gap'),
+				waitState: 'running',
+			})
+			await tool(candidate, 'pstack_run_panel').execute({ panel: 'architect-runners', prompt: 'design' }, { thread: { id: 'T-design-parent' } })
+			await candidate.dispose()
+			const restoredCandidate = await loadPlugin({
+				runtimeStateFile: candidateState,
+				restoredThreadStates: { 'T-child': 'idle' },
+				restoredThreadMessages: { 'T-child': [{ role: 'assistant', content: [{ type: 'text', text: 'candidate done' }] }] },
+			})
+			expect(restoredCandidate.sent).toEqual([expect.objectContaining({ threadID: 'T-design-parent', steer: true })])
+			const gate = await restoredCandidate.emit('agent.end', { thread: { id: 'T-design-parent' } }) as { userMessage: string }
+			expect(gate.userMessage).toContain('Call pstack_start_agent with role arena-cross-judge')
+
+			const judgeState = join(root, 'judge.sqlite')
+			const judge = await loadPlugin({ runtimeStateFile: judgeState, initialConfig: { [CONFIG_KEY]: { 'architect-runners': ['builtin:high'] } } })
+			const panel = JSON.parse(await tool(judge, 'pstack_run_panel').execute({ panel: 'architect-runners', prompt: 'design' }, { thread: { id: 'T-judge-parent' } }))
+			await tool(judge, 'pstack_start_agent').execute({ role: 'arena-cross-judge', prompt: 'judge', candidateThreadIDs: panel.map(({ threadID }: { threadID: string }) => threadID) }, { thread: { id: 'T-judge-parent' } })
+			await judge.dispose()
+			const restoredJudge = await loadPlugin({
+				runtimeStateFile: judgeState,
+				restoredThreadStates: { 'T-child-2': 'idle' },
+				restoredThreadMessages: { 'T-child-2': [{ role: 'assistant', content: [{ type: 'text', text: 'judge done' }] }] },
+			})
+			expect(await restoredJudge.emit('agent.end', { thread: { id: 'T-judge-parent' } })).toBeUndefined()
+			await expect(tool(restoredJudge, 'pstack_run_panel').execute({ panel: 'architect-runners', prompt: 'next design' }, { thread: { id: 'T-judge-parent' } })).resolves.toBeDefined()
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('successful child report suppresses the terminal fallback', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explainer', prompt: 'explain it' },
+			{ thread: { id: 'T-parent' } },
+		)
+		await tool(amp, 'pstack_send_to_thread').execute(
+			{ threadID: 'T-parent', message: 'reported' },
+			{ thread: { id: 'T-child' } },
+		)
+		const child = amp.started[0] as { emit: (state: string) => void }
+		child.emit('running')
+		child.emit('idle')
+		await Bun.sleep(0)
+		expect(amp.sent).toEqual([{ threadID: 'T-parent', content: 'reported', steer: true }])
+	})
+
+	test('cross-orb transcript evidence suppresses only a successful report to the actual parent across pages', async () => {
+		for (const [status, fallbackExpected] of [['done', false], ['error', true]] as const) {
+			const amp = await loadPlugin()
+			await tool(amp, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'report from a fresh orb', launchTarget: { kind: 'repo-independent-orb' } },
+				{ thread: { id: 'T-parent' } },
+			)
+			const child = amp.started[0] as {
+				emit: (state: string) => void
+				transcriptMessages: Array<Record<string, unknown>>
+			}
+			child.transcriptMessages = [
+				{
+					id: 'M-use',
+					role: 'assistant',
+					content: [{ type: 'tool_use', id: 'TU-cross-orb', name: 'pstack_send_to_thread', input: { threadID: 'T-parent', message: 'report' } }],
+				},
+				...Array.from({ length: 20 }, (_, index) => ({
+					id: `M-filler-${index}`,
+					role: 'user',
+					content: [{ type: 'text', text: `filler ${index}` }],
+				})),
+				{ id: 'M-result', role: 'user', content: [{ type: 'tool_result', toolUseID: 'TU-cross-orb', status, output: 'host result' }] },
+				{ id: 'M-final', role: 'assistant', content: [{ type: 'text', text: 'last child explanation' }] },
+			]
+			child.emit('running')
+			child.emit('idle')
+			await Bun.sleep(0)
+			expect(amp.sent).toHaveLength(fallbackExpected ? 1 : 0)
+			if (fallbackExpected) expect(String(amp.sent[0]?.content)).toContain('last child explanation')
+		}
+	})
+
+	test('failed terminal fallback append returns the durable claim to pending and retries after reload', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-notification-retry-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({
+				runtimeStateFile,
+				appendHook: async () => { throw new Error('parent append failed') },
+			})
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'retry fallback' },
+				{ thread: { id: 'T-parent' } },
+			)
+			const child = first.started[0] as { emit: (state: string) => void }
+			child.emit('running')
+			child.emit('idle')
+			await Bun.sleep(0)
+			expect(first.sent).toHaveLength(0)
+			await first.dispose()
+
+			const restored = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'idle' },
+			})
+			await Bun.sleep(0)
+			expect(restored.sent).toHaveLength(1)
+			expect(restored.sent[0]).toMatchObject({ threadID: 'T-parent' })
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('a successful report to a different thread does not suppress the parent fallback', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explainer', prompt: 'explain it' },
+			{ thread: { id: 'T-parent' } },
+		)
+		await tool(amp, 'pstack_send_to_thread').execute(
+			{ threadID: 'T-other', message: 'side note' },
+			{ thread: { id: 'T-child' } },
+		)
+		const child = amp.started[0] as { emit: (state: string) => void }
+		child.emit('running')
+		child.emit('idle')
+		await Bun.sleep(0)
+		expect(amp.sent).toHaveLength(2)
+		expect(amp.sent[1]).toMatchObject({ threadID: 'T-parent' })
+	})
+
+	test('concurrent child reports retain all in-flight tracking and only the actual parent suppresses fallback', async () => {
+		let releaseSuccess: (() => void) | undefined
+		let releaseFailure: (() => void) | undefined
+		const amp = await loadPlugin({
+			appendHook: async (_threadID, content) => {
+				if (content === 'success') await new Promise<void>((resolve) => { releaseSuccess = resolve })
+				if (content === 'failure') {
+					await new Promise<void>((resolve) => { releaseFailure = resolve })
+					throw new Error('send failed')
+				}
+			},
+		})
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explainer', prompt: 'race reports' },
+			{ thread: { id: 'T-parent' } },
+		)
+		const success = tool(amp, 'pstack_send_to_thread').execute(
+			{ threadID: 'T-parent', message: 'success' },
+			{ thread: { id: 'T-child' } },
+		)
+		const failure = tool(amp, 'pstack_send_to_thread').execute(
+			{ threadID: 'T-parent', message: 'failure' },
+			{ thread: { id: 'T-child' } },
+		)
+		const child = amp.started[0] as { emit: (state: string) => void }
+		child.emit('running')
+		child.emit('idle')
+		releaseFailure?.()
+		releaseSuccess?.()
+		expect((await Promise.allSettled([success, failure])).map(({ status }) => status).sort()).toEqual([
+			'fulfilled',
+			'rejected',
+		])
+		await Bun.sleep(0)
+		expect(amp.sent).toEqual([{ threadID: 'T-parent', content: 'success', steer: true }])
 	})
 
 	test('configure set stores overrides only and unknown actions fail', async () => {
@@ -2003,6 +2616,30 @@ describe('runtime tool behavior', () => {
 		expect(appended.started).toHaveLength(1)
 	})
 
+	test('non-owner append ambiguity exposes its child ID and explicit stop reconciles it', async () => {
+		const amp = await loadPlugin({ appendError: new Error('append acknowledgement lost') })
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'explain' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('Child thread T-child')
+		expect(
+			JSON.parse(
+				await tool(amp, 'pstack_stop_agent').execute(
+					{ threadID: 'T-child' },
+					{ thread: { id: 'T-parent' } },
+				),
+			),
+		).toMatchObject({ threadID: 'T-child', canceled: true, reconciled: true })
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'retry after reconciliation' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).resolves.toContain('T-child-2')
+	})
+
 	test('child state ignores initial idle, retains ownership on timeout, and releases after running', async () => {
 		const amp = await loadPlugin({ waitError: new Error('wait expired') })
 		await tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
@@ -2103,6 +2740,82 @@ describe('runtime tool behavior', () => {
 			input: {},
 		})
 		expect(rejected).toMatchObject({ action: 'reject-and-continue' })
+	})
+
+	test('restored active strict read-only children still reject writes', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-readonly-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({ runtimeStateFile })
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'how-explorer', prompt: 'inspect without mutation' },
+				{ thread: { id: 'T-parent' } },
+			)
+			;(first.started[0] as { emit: (state: string) => void }).emit('running')
+			await first.dispose()
+
+			const restored = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'running' },
+			})
+			const rejected = await restored.emit('tool.call', {
+				tool: 'edit_file',
+				thread: { id: 'T-child' },
+				input: {},
+			})
+			expect(rejected).toMatchObject({ action: 'reject-and-continue' })
+			expect(String((rejected as { message: string }).message)).toContain('how-explorer')
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('reported strict read-only children remain guarded across reload until terminal cleanup', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-reported-readonly-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({ runtimeStateFile })
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'how-explorer', prompt: 'report while still running' },
+				{ thread: { id: 'T-parent' } },
+			)
+			;(first.started[0] as { emit: (state: string) => void }).emit('running')
+			await tool(first, 'pstack_send_to_thread').execute(
+				{ threadID: 'T-parent', message: 'interim report' },
+				{ thread: { id: 'T-child' } },
+			)
+			await first.dispose()
+
+			const restored = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'running' },
+			})
+			const rejected = await restored.emit('tool.call', {
+				tool: 'edit_file',
+				thread: { id: 'T-child' },
+				input: {},
+			})
+			expect(rejected).toMatchObject({ action: 'reject-and-continue' })
+			expect(String((rejected as { message: string }).message)).toContain('how-explorer')
+			await restored.dispose()
+
+			const terminal = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'idle' },
+			})
+			await Bun.sleep(0)
+			expect(terminal.sent).toHaveLength(0)
+			await terminal.dispose()
+
+			const afterCleanup = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'idle' },
+			})
+			await Bun.sleep(0)
+			expect(afterCleanup.sent).toHaveLength(0)
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
 	})
 
 	test('remote parents keep plugin children in orbs and reject local routing', async () => {
@@ -2440,7 +3153,7 @@ describe('runtime tool behavior', () => {
 		expect(overridden.registeredModes).toHaveLength(overridden.preloadedModeCount)
 	})
 
-	test('exact matching native create_thread pairs while unrelated native calls bypass it', async () => {
+	test('native implementation reservations pair when native input adds fields', async () => {
 		const amp = await loadPlugin()
 		const native = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
@@ -2453,22 +3166,16 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: 'T-parent' } },
 			),
 		)
-		const mismatch = await amp.emit('tool.call', {
-			tool: 'create_thread',
-			toolUseID: 'toolu_other',
-			thread: { id: 'T-parent' },
-			input: { executor: 'orb', agent_mode: 'something-else' },
-		})
-		expect(mismatch).toEqual({ action: 'allow' })
-		await expect(
-			tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
-		).rejects.toThrow('conflicts with')
-		await amp.emit('tool.call', {
+		const match = await amp.emit('tool.call', {
 			tool: 'create_thread',
 			toolUseID: 'toolu_match',
 			thread: { id: 'T-parent' },
-			input: native.create_thread,
+			input: { ...native.create_thread, unrelated: true },
 		})
+		expect(match).toEqual({ action: 'allow' })
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
+		).rejects.toThrow('conflicts with')
 		await amp.emit('tool.result', {
 			tool: 'create_thread',
 			toolUseID: 'toolu_match',
@@ -2479,6 +3186,194 @@ describe('runtime tool behavior', () => {
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
 		).rejects.toThrow('T-native')
+	})
+
+	test('native implementation children persist before terminal observation and honor cross-orb reports', async () => {
+		for (const reported of [false, true]) {
+			const amp = await loadPlugin({
+				initialConfig: { [CONFIG_KEY]: { 'interrogate-reviewers': ['builtin:high'] } },
+			})
+			await tool(amp, 'pstack_run_panel').execute(
+				{ panel: 'interrogate-reviewers', prompt: 'provide a native child handle' },
+				{ thread: { id: 'T-panel-parent' } },
+			)
+			const child = amp.started[0] as {
+				emit(state: string): void
+				transcriptMessages: Array<Record<string, unknown>>
+			}
+			child.transcriptMessages = reported
+				? [
+						{ role: 'assistant', content: [{ type: 'tool_use', id: 'TU-report', name: 'pstack_send_to_thread', input: { threadID: 'T-parent', message: 'done' } }] },
+						{ role: 'user', content: [{ type: 'tool_result', toolUseID: 'TU-report', status: 'done', output: 'sent' }] },
+					]
+				: [{ role: 'assistant', content: [{ type: 'text', text: 'unreported native result' }] }]
+			const native = JSON.parse(await tool(amp, 'pstack_start_agent').execute(
+				{ role: 'feature', prompt: 'native', scope: 'index.ts', launchTarget: { kind: 'native-orb', project: 'amp/pstack' } },
+				{ thread: { id: 'T-parent' } },
+			))
+			await amp.emit('tool.call', {
+				tool: 'create_thread', toolUseID: 'TU-native-owner', thread: { id: 'T-parent' }, input: native.create_thread,
+			})
+			await amp.emit('tool.result', {
+				tool: 'create_thread', toolUseID: 'TU-native-owner', thread: { id: 'T-parent' }, status: 'done', output: { threadID: 'T-child' },
+			})
+			child.emit('running')
+			child.emit('idle')
+			await Bun.sleep(0)
+			const fallback = amp.sent.filter(({ threadID }) => threadID === 'T-parent')
+			expect(fallback).toHaveLength(reported ? 0 : 1)
+			if (!reported) expect(String(fallback[0]?.content)).toContain('unreported native result')
+		}
+	})
+
+	test('native background redirects track only their exact paired child through terminal fallback', async () => {
+		const amp = await loadPlugin({
+			initialConfig: { [CONFIG_KEY]: { 'architect-runners': ['builtin:high'] } },
+		})
+		await tool(amp, 'pstack_run_panel').execute(
+			{ panel: 'architect-runners', prompt: 'supply a native child handle' },
+			{ thread: { id: 'T-panel-parent' } },
+		)
+		const native = JSON.parse(
+			await tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'how-explorer',
+					prompt: 'investigate',
+					launchTarget: { kind: 'native-orb', project: 'amp/pstack' },
+				},
+				{ thread: { id: 'T-native-parent' } },
+			),
+		)
+		await amp.emit('tool.call', {
+			tool: 'create_thread',
+			toolUseID: 'toolu-unrelated',
+			thread: { id: 'T-native-parent' },
+			input: { ...native.create_thread, unrelated: true },
+		})
+		await amp.emit('tool.result', {
+			tool: 'create_thread',
+			toolUseID: 'toolu-unrelated',
+			thread: { id: 'T-native-parent' },
+			status: 'done',
+			output: { threadID: 'T-child' },
+		})
+		await amp.emit('tool.call', {
+			tool: 'create_thread',
+			toolUseID: 'toolu-native-background',
+			thread: { id: 'T-native-parent' },
+			input: native.create_thread,
+		})
+		const child = amp.started[0] as {
+			emit(state: string): void
+			transcriptMessages: Array<Record<string, unknown>>
+		}
+		child.transcriptMessages = [{ id: 'M-prompt', role: 'user', content: [{ type: 'text', text: 'investigate' }] }]
+		await amp.emit('tool.result', {
+			tool: 'create_thread',
+			toolUseID: 'toolu-native-background',
+			thread: { id: 'T-native-parent' },
+			status: 'done',
+			output: { threadID: 'T-child' },
+		})
+		expect(await amp.emit('tool.call', {
+			tool: 'apply_patch',
+			thread: { id: 'T-child' },
+			input: {},
+		})).toMatchObject({ action: 'reject-and-continue' })
+		child.transcriptMessages.push({ id: 'M-final', role: 'assistant', content: [{ type: 'text', text: 'done' }] })
+		child.emit('running')
+		child.emit('idle')
+		await Bun.sleep(0)
+		expect(amp.sent.filter((message) => message.threadID === 'T-native-parent')).toHaveLength(1)
+		child.emit('error')
+		await Bun.sleep(0)
+		expect(amp.sent.filter((message) => message.threadID === 'T-native-parent')).toHaveLength(1)
+	})
+
+	test('native background create errors and unresolved results clean their reservations', async () => {
+		for (const result of [
+			{ status: 'error', output: 'failed' },
+			{ status: 'done', output: {} },
+		]) {
+			const amp = await loadPlugin()
+			const native = JSON.parse(
+				await tool(amp, 'pstack_start_agent').execute(
+					{
+						role: 'how-explorer',
+						prompt: 'inspect',
+						launchTarget: { kind: 'native-orb', project: 'amp/pstack' },
+					},
+					{ thread: { id: 'T-parent' } },
+				),
+			)
+			await amp.emit('tool.call', {
+				tool: 'create_thread', toolUseID: 'toolu-native', thread: { id: 'T-parent' }, input: native.create_thread,
+			})
+			await amp.emit('tool.result', {
+				tool: 'create_thread', toolUseID: 'toolu-native', thread: { id: 'T-parent' }, ...result,
+			})
+			await amp.emit('tool.call', {
+				tool: 'create_thread', toolUseID: 'toolu-late', thread: { id: 'T-parent' }, input: native.create_thread,
+			})
+			await amp.emit('tool.result', {
+				tool: 'create_thread', toolUseID: 'toolu-late', thread: { id: 'T-parent' }, status: 'done', output: { threadID: 'T-late' },
+			})
+			expect(amp.sent).toEqual([])
+		}
+	})
+
+	test('late native create result recognizes a child that already completed from its transcript', async () => {
+		const amp = await loadPlugin({
+			initialConfig: { [CONFIG_KEY]: { 'architect-runners': ['builtin:high'] } },
+		})
+		await tool(amp, 'pstack_run_panel').execute(
+			{ panel: 'architect-runners', prompt: 'provide completed child' },
+			{ thread: { id: 'T-panel-parent' } },
+		)
+		const child = amp.started[0] as { transcriptMessages: Array<Record<string, unknown>> }
+		child.transcriptMessages = [
+			{ id: 'M-prompt', role: 'user', content: [{ type: 'text', text: 'work' }] },
+			{ id: 'M-final', role: 'assistant', content: [{ type: 'text', text: 'already complete' }] },
+		]
+		const native = JSON.parse(await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explorer', prompt: 'work', launchTarget: { kind: 'native-orb', project: 'amp/pstack' } },
+			{ thread: { id: 'T-native-parent' } },
+		))
+		await amp.emit('tool.call', {
+			tool: 'create_thread', toolUseID: 'toolu-late-result', thread: { id: 'T-native-parent' }, input: native.create_thread,
+		})
+		await amp.emit('tool.result', {
+			tool: 'create_thread', toolUseID: 'toolu-late-result', thread: { id: 'T-native-parent' }, status: 'done', output: { threadID: 'T-child' },
+		})
+		await Bun.sleep(0)
+		expect(amp.sent).toContainEqual(expect.objectContaining({
+			threadID: 'T-native-parent',
+			content: expect.stringContaining('already complete'),
+		}))
+	})
+
+	test('pairs concurrent identical native background reservations by distinct tool results', async () => {
+		const amp = await loadPlugin({ initialConfig: { [CONFIG_KEY]: { 'architect-runners': ['builtin:high', 'builtin:medium'] } } })
+		await tool(amp, 'pstack_run_panel').execute(
+			{ panel: 'architect-runners', prompt: 'provide handles' }, { thread: { id: 'T-panel-parent' } },
+		)
+		for (const thread of amp.started as Array<{ transcriptMessages: Array<Record<string, unknown>> }>) {
+			thread.transcriptMessages = [{ id: 'M-prompt', role: 'user', content: [] }]
+		}
+		const start = () => tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explorer', prompt: 'identical', launchTarget: { kind: 'native-orb', project: 'amp/pstack' } },
+			{ thread: { id: 'T-native-parent' } },
+		)
+		const [first, second] = await Promise.all([start(), start()]).then((values) => values.map((value) => JSON.parse(value)))
+		for (const [toolUseID, input] of [['toolu-1', first.create_thread], ['toolu-2', second.create_thread]] as const) {
+			await amp.emit('tool.call', { tool: 'create_thread', toolUseID, thread: { id: 'T-native-parent' }, input })
+		}
+		await amp.emit('tool.result', { tool: 'create_thread', toolUseID: 'toolu-2', thread: { id: 'T-native-parent' }, status: 'done', output: { threadID: 'T-child-2' } })
+		await amp.emit('tool.result', { tool: 'create_thread', toolUseID: 'toolu-1', thread: { id: 'T-native-parent' }, status: 'done', output: { threadID: 'T-child' } })
+		for (const threadID of ['T-child', 'T-child-2']) {
+			expect(await amp.emit('tool.call', { tool: 'apply_patch', thread: { id: threadID }, input: {} }))
+				.toMatchObject({ action: 'reject-and-continue' })
+		}
 	})
 
 	test('design panels require arena-cross-judge and clear after the judge is terminal', async () => {
@@ -2652,6 +3547,72 @@ describe('runtime tool behavior', () => {
 			),
 		)
 		expect(judge.threadID).toBe('T-child-3')
+	})
+
+	test('custom arena count cycles configured seats with unique prompts and gates its complete candidate set', async () => {
+		const amp = await loadPlugin({
+			initialConfig: {
+				[CONFIG_KEY]: {
+					'arena-runners': [
+						{ model: 'openai/gpt-6-sol', effort: 'low' },
+						{ model: 'xai/grok-4.7', effort: 'xhigh' },
+					],
+				},
+			},
+			waitError: new Error('panel wait expired'),
+			waitState: 'running',
+		})
+		const panel = JSON.parse(
+			await tool(amp, 'pstack_run_panel').execute(
+				{ panel: 'arena-runners', prompt: 'compete', count: 6 },
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		expect(panel).toHaveLength(6)
+		expect(panel.map(({ label }: { label: string }) => label)).toEqual([
+			'arena-runners-candidate-1',
+			'arena-runners-candidate-2',
+			'arena-runners-candidate-3',
+			'arena-runners-candidate-4',
+			'arena-runners-candidate-5',
+			'arena-runners-candidate-6',
+		])
+		expect(panel.map(({ model, effort }: { model: string; effort: string }) => [model, effort])).toEqual([
+			['openai/gpt-6-sol', 'low'],
+			['xai/grok-4.7', 'xhigh'],
+			['openai/gpt-6-sol', 'low'],
+			['xai/grok-4.7', 'xhigh'],
+			['openai/gpt-6-sol', 'low'],
+			['xai/grok-4.7', 'xhigh'],
+		])
+		expect(amp.started.map(({ prompt }) => prompt)).toEqual(
+			Array.from(
+				{ length: 6 },
+				(_, index) => `compete\n\nCandidate output label: arena-runners-candidate-${index + 1}`,
+			),
+		)
+		const candidateThreadIDs = panel.map(({ threadID }: { threadID: string }) => threadID)
+		for (let index = 0; index < 6; index += 1) {
+			await expect(
+				tool(amp, 'pstack_start_agent').execute(
+					{ role: 'arena-cross-judge', prompt: 'judge', candidateThreadIDs },
+					{ thread: { id: 'T-parent' } },
+				),
+			).rejects.toThrow('design candidates are still running')
+			;(amp.started[index] as { emit: (state: string) => void }).emit('idle')
+		}
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'arena-cross-judge', prompt: 'stale subset', candidateThreadIDs: candidateThreadIDs.slice(0, 2) },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('do not match the active design run')
+		await expect(
+			tool(amp, 'pstack_start_agent').execute(
+				{ role: 'arena-cross-judge', prompt: 'judge all six', candidateThreadIDs },
+				{ thread: { id: 'T-parent' } },
+			),
+		).resolves.toBeDefined()
 	})
 
 	test('candidate notification retains tracked IDs omitted from the panel result', async () => {
@@ -2848,7 +3809,7 @@ describe('runtime tool behavior', () => {
 			tool: 'create_thread',
 			toolUseID: 'toolu_native_judge',
 			thread: { id: 'T-parent' },
-			input: native.create_thread,
+			input: { ...native.create_thread, unrelated: true },
 		})
 		const awaitingResult = await amp.emit('agent.end', { thread: { id: 'T-parent' } })
 		expect(String((awaitingResult as { userMessage: string }).userMessage)).toContain(

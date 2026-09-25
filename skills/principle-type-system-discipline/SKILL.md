@@ -1,6 +1,6 @@
 ---
 name: principle-type-system-discipline
-description: "Apply when designing types, reviewing a function signature, or writing code in any statically-typed language. Make illegal states unrepresentable, brand semantic primitives, parse external data at boundaries, refuse to lie to the compiler, exhaust variants, derive from authoritative schemas."
+description: "Only use when named or routed by poteto-mode. Makes illegal states unrepresentable and parses boundaries when designing types, signatures, or statically typed code."
 ---
 
 # Type System Discipline

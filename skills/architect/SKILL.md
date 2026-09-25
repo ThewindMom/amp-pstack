@@ -1,6 +1,6 @@
 ---
 name: architect
-description: "Sketch types, signatures, and module structure before code, then stay in the loop while implementation fills in. Use for /architect, 'architect this', 'design this', or non-trivial work where jumping to code would lock in the wrong shape."
+description: "Only use when named or routed by poteto-mode. Sketches types, signatures, and module structure before code for architecture requests and non-trivial work where coding first would lock in the wrong shape."
 builtin-tools:
   - pstack_run_panel
   - pstack_start_agent
@@ -30,7 +30,7 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with runner panel `architect-runners`, in place of `arena-runners`. Follow `../poteto-mode/references/amp-adapter.md`. A missing panel uses `DEFAULT_MODELS`: `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7`, each at high effort. A rejected configured seat is one dropout. Follow the N-1 rule in the **arena** skill's Phase A. The plugin then requires one `arena-cross-judge` before the parent can finish that design run, the design-sketch task, and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`: the caller's usage written first, then the type sketch, function signatures, module map, and prose rationale derived from it.
+Run the **arena** skill with runner panel `architect-runners`, in place of `arena-runners`. Follow `../poteto-mode/references/amp-adapter.md`. A missing panel uses `DEFAULT_MODELS`: `anthropic/claude-opus-5-5` at max, `openai/gpt-6-sol` at max, and `xai/grok-4.7` at xhigh. A rejected configured seat is one dropout. Follow the N-1 rule in the **arena** skill's Phase A. The plugin then requires one `arena-cross-judge` before the parent can finish that design run, the design-sketch task, and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`: the caller's usage written first, then the type sketch, function signatures, module map, and prose rationale derived from it.
 
 Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the **exhaust-the-design-space** principle skill made concrete. Whole-shape alternatives, not point fixes inside one shape.
 

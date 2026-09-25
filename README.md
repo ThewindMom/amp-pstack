@@ -57,32 +57,37 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'` and pins `anthropic/claude-opus-5-5` at medium reasoning. Amp medium tools stay. Grok 4.7 at high effort handles implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) is a root-level single-file plugin so Amp's Mode Dial can list it. It `extends: 'medium'` and pins `anthropic/claude-opus-5-5` at medium reasoning. Amp medium tools stay. Grok 4.7 at xhigh effort handles most implementation and exploration delegates. The standalone `grok47-xhigh` mode is separate and does not load this skill. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The `pstack/` directory plugin still owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Amp's unit is the thread. Default long work (`feature`, `how`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns `threadID` immediately. The child exclusively owns its paths and reports with `pstack_send_to_thread` (steer defaults on). The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits only when this turn cannot proceed without one result. Timeout preserves the live `threadID`; terminal failure returns `status: "error"`.
-- **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now.
-- **Durable child threads.** `pstack_start_agent` launches on the current executor, a fresh orb, or a named runner. Children report through `pstack_send_to_thread`; the parent can steer a live child and relays between siblings. Only work kept on the current executor can depend on its live checkout. Transfer files explicitly whenever either side is an orb. Two orbs do not share a disk.
+- **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now. Its optional `count` accepts 1 through 20 candidates and cycles the configured seats in order.
+- **Durable child threads.** `pstack_start_agent` launches on the current executor, a fresh orb, or a named runner. Children report through `pstack_send_to_thread`; the parent can steer a live child and relays between siblings. If an active child becomes terminal without reporting, pstack inspects the full child transcript and steers the parent with the terminal state and newest assistant text. Failed fallback appends remain pending for reload recovery. This is not a global exactly-once guarantee: the host has no transaction or idempotency key spanning append acknowledgement and local state, so a lost acknowledgement can still produce a duplicate fallback. Only work kept on the current executor can depend on its live checkout. Transfer files explicitly whenever either side is an orb. Two orbs do not share a disk.
 - **Durable ownership.** A transactional SQLite journal outside the plugin checkout permits disjoint paths to overlap, prevents duplicate or prefix-overlapping writers, and restores live claims after plugin reload on the same persistent executor.
-- **Thread-native memory.** Reflection reads the current transcript directly. Recall and personal-mode mining use Amp's thread search and full thread reader.
+- **Thread-native memory.** Reflection reads the current transcript directly. `pstack_read_current_thread` returns `offset`, `total`, and `truncated`; callers page forward until `offset + messages.length` reaches `total`. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and capability webhooks instead of editor polling commands.
 - **External wakeups.** `pstack_create_wake_webhook` persists registration intent, restores its handler on plugin reload, and serializes at-least-once delivery to its owning orb thread. The capability URL is shown through Amp UI, not written into the transcript.
 - **Existing tools.** The legacy orchestration ledger and GitHub PR watcher remain Bun tools. The playbooks invoke the watcher through Bun because synced plugin caches do not preserve executable bits. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
 
 ## Agent and panel defaults
 
-`poteto` is Amp medium tools plus Opus 5.5 at medium reasoning, then pstack playbooks. Builtin `medium` still maps to GPT-5.6 Sol on Amp's Dial, and current builtin `high` is GPT-6 Astra at medium effort, so the parent pins `anthropic/claude-opus-5-5` instead of inheriting a Dial model. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. The parent coordinates at medium effort. Delegates on the three shipped model IDs run at high effort.
+`poteto` is Amp medium tools plus Opus 5.5 at medium reasoning, then pstack playbooks. Builtin `medium` still maps to GPT-5.6 Sol on Amp's Dial, and current builtin `high` is GPT-6 Astra at medium effort, so the parent pins `anthropic/claude-opus-5-5` instead of inheriting a Dial model. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. The standalone `grok47-xhigh` mode still does not load poteto-mode by itself. The parent coordinates at medium effort. Shipped delegate seats use max effort for Opus 5.5 and GPT-6 Sol, and xhigh effort for Grok 4.7.
 
 `index.ts` owns the role map and a separate effort map for `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7`. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there. `builtin:high` is not a stand-in for GPT-6 Sol.
 
 | Seat | Shipped map |
 |---|---|
 | Parent `poteto` | `extends: medium`, model `anthropic/claude-opus-5-5`, `reasoningEffort: medium` |
-| Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` at high |
-| Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `anthropic/claude-opus-5-5` at high |
-| Reflect-tooling | `openai/gpt-6-sol` at high |
-| Panels and arena cross-judge pool | Opus 5.5 high, GPT-6 Sol high, Grok 4.7 high; one cross-judge runs, preferring a known family different from the parent |
+| Hardest code-writing role | `anthropic/claude-opus-5-5` at max |
+| Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` at xhigh |
+| Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `anthropic/claude-opus-5-5` at max |
+| Reflect-tooling | `openai/gpt-6-sol` at max |
+| Panels and arena cross-judge pool | Opus 5.5 max, GPT-6 Sol max, Grok 4.7 xhigh; one cross-judge runs, preferring a known family different from the parent |
 
-Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7` request `reasoningEffort: high`. Other raw model IDs have no thinking override. The standalone `grok47-xhigh` mode remains xhigh. Cursor `inherit-parent` and `auto` are not Amp aliases. Do not use `builtin:high` for GPT-6 Sol. Current builtin high is GPT-6 Astra at medium effort.
+The `hardest` role is the strongest code-writing seat. It is separate from `judgment`, which reviews without owning an implementation diff.
+
+Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A seat may remain a model string or use `{ "model": "provider/model", "effort": "..." }`; panel arrays preserve each seat's model, effort, and order. Configuration layers replace a whole role value rather than merging effort into an earlier string. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp controls these mappings; see [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Bare Opus 5.5 and GPT-6 Sol seats request `reasoningEffort: max`; bare Grok 4.7 seats request `reasoningEffort: xhigh`. Other raw model IDs have no thinking override. The standalone `grok47-xhigh` mode remains xhigh. Cursor `inherit-parent` and `auto` are not Amp aliases. Do not use `builtin:high` for GPT-6 Sol. Current builtin high is GPT-6 Astra at medium effort.
+
+Run `amp plugins show-agent-options --json` before setup. Its model IDs and `capabilities.efforts` are the runtime capability table. An explicit unsupported effort for a known shipped model is an error; pstack does not silently downgrade it. Builtin aliases cannot carry a separate effort.
 
 Later wins:
 
@@ -94,13 +99,13 @@ Later wins:
 
 A workspace file is project policy and beats leftover palette config. Reset clears only Amp user config. A missing plugin file adds nothing. User JSON and workspace JSON stay when present. Orb children inherit the plugin code, not a machine-local user JSON.
 
-Every delegate resolves this stack on every spawn. Amp requires custom remote modes to be active before a tool runs, so pstack registers the current role/model map when the plugin loads and keeps those exact Agents active for the process lifetime. Local launches still create an unregistered Agent from the latest configuration. After changing the map, local launches use it immediately; reload plugins before the next orb or runner launch so Amp can publish the new modes.
+Every delegate resolves this stack on every spawn. Amp requires custom remote modes to be active before a tool runs, so pstack registers the current role, model, and effort map when the plugin loads and keeps those exact Agents active for the process lifetime. Local launches create an unregistered Agent from the latest configuration, so model and effort changes apply to the next local launch. Reload plugins before the next orb or runner launch, including after an effort-only change, so Amp can publish the new modes.
 
 To change the map that orbs see, change `DEFAULT_MODELS` in `index.ts`, push GitHub, then copy the tree into your Amp user-plugins repo and push that too. GitHub push alone does not update personal plugins.
 
 [`.amp/pstack.models.example.json`](./.amp/pstack.models.example.json) is a smaller cheap-plus-high sketch for a machine-local overlay. `.amp/pstack.models.json` is gitignored. `{ "profile": "cheap" }` alone is valid and cheaper, but parks prose on Grok.
 
-A panel value is a JSON array. List length is how many agents `pstack_run_panel` runs. The defaults use three seats. Add another ID only if you want another seat.
+A panel value is a JSON array. Without `count`, the list length is how many agents `pstack_run_panel` runs. The defaults use three seats. With `count`, the tool runs that many candidates and repeats configured seats in order while preserving each seat's effort.
 
 ## Orbs, modes, and sizes
 
@@ -109,6 +114,8 @@ A panel value is a JSON array. List length is how many agents `pstack_run_panel`
 Amp reports plugin placement as `local`, `remote`, or `unknown`; `remote` does not mean orb. Pstack probes the Amp-managed-orb lease capability before choosing a default. A remote non-orb process stays on its current runner. Unknown placement fails closed and requires an explicit target.
 
 Implementation roles require `scopePaths`. Paths identify concrete writable resources; `scope` remains the human-readable brief. Disjoint paths may run concurrently under one parent. The same logical path set cannot gain a second owner, and prefix-overlapping paths in one workspace serialize.
+
+The current parent can call `pstack_stop_agent` for any of its durably tracked children, including a nonimplementation background child whose prompt append acknowledgement was uncertain; another parent cannot cancel it. Implementation children additionally hold scope ownership, which is released only after Amp observes terminal `idle` or `error`. Background tracking is likewise retained until a terminal state is observed. A `named-runner` or `native-orb` redirect must first be paired with the exact child returned by its native `create_thread` result; an unpaired reservation is not stoppable by child ID.
 
 Every child orb starts from the project remote. It does not receive the parent orb's live filesystem. Keep dependent work in the parent thread, or transfer the required files before the child starts. From a local parent, use `current-checkout` for uncommitted files, local services, simulators, devices, or machine-only credentials. Use an orb for clean, independent work. Do not push only to make a file visible to an orb unless the user authorized that push.
 
@@ -150,7 +157,7 @@ amp plugins exec . session.start --data '{"thread":{"id":"T-00000000-0000-0000-0
 
 `bun install` also installs the legacy orchestration and PR-watcher tools under `skills/poteto-mode/scripts`. Bare `bun test`, `bun run test:tools`, and `bun run typecheck:tools` install that package if it is missing, so a fresh clone does not depend on a hidden `node_modules`. Tool typecheck uses that package's `typescript` and `bun-types`, not a global `tsc`.
 
-`amp plugins list` shows the `setup-models` command, the seven pstack tools, the generated `pstack-*` orb adapter modes, and the `poteto` mode. It does not print `export const description`. That string is in `index.ts` and in `package.json`. Thread setup uses `pstack_configure_models` with `action: "profile"` or `pstack:setup-pstack`. The palette command is optional.
+`amp plugins list` shows the `setup-models` command, the eight pstack tools, the generated `pstack-*` orb adapter modes, and the `poteto` mode. It does not print `export const description`. That string is in `index.ts` and in `package.json`. Thread setup uses `pstack_configure_models` with `action: "profile"` or `pstack:setup-pstack`. The palette command is optional.
 
 ## Attribution
 

@@ -1,6 +1,6 @@
 ---
 name: principle-experience-first
-description: "Apply when product, UX, or feature-scope tradeoffs come up. Choose user delight over implementation convenience; ship fewer polished features over more rough ones."
+description: "Only use when named or routed by poteto-mode. Resolves product, UX, or feature-scope tradeoffs in favor of user delight and fewer polished features."
 ---
 
 # Experience First
