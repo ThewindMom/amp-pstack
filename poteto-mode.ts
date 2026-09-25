@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import type { PluginAPI } from '@ampcode/plugin'
 
 export const description =
-	'Poteto mode for Amp: GPT-6 Sol at medium reasoning with Amp medium tools and the full persistent pstack instructions. Pair with the pstack directory plugin for skills and tools.'
+	'Poteto mode for Amp: built-in medium with the full persistent pstack instructions. Inherits medium model, reasoning, and tools. Pair with the pstack directory plugin for skills and tools.'
 
 const skillBase = new URL(existsSync(new URL('skills/poteto-mode/SKILL.md', import.meta.url))
 	? 'skills/poteto-mode/' : 'pstack/skills/poteto-mode/', import.meta.url)
@@ -29,8 +29,6 @@ export default function (amp: PluginAPI) {
 	const agent = amp.createAgent({
 		name: 'poteto',
 		extends: 'medium',
-		model: 'openai/gpt-6-sol',
-		reasoningEffort: 'medium',
 		instructions: COORDINATOR_INSTRUCTIONS,
 		display: { label: 'poteto', color: '#eab308' },
 	})
@@ -39,7 +37,7 @@ export default function (amp: PluginAPI) {
 		key: 'poteto',
 		label: 'poteto',
 		description:
-			'GPT-6 Sol at medium reasoning with Amp medium tools and full persistent pstack instructions. The parent coordinates.',
+			'Built-in medium with full persistent pstack instructions. Inherits medium model, reasoning, and tools. The parent coordinates.',
 		color: '#eab308',
 		agent: agent.definition,
 	})

@@ -39,19 +39,19 @@ describe('poteto mode', () => {
 		}
 	})
 
-	test('uses GPT-6 Sol at medium reasoning for coordination', () => {
+	test('inherits built-in medium without model, reasoning, or tool overrides', () => {
 		const { created, registered } = registerPoteto()
 
 		expect(created).toHaveLength(1)
 		expect(created[0]?.extends).toBe('medium')
-		expect(created[0]?.model).toBe('openai/gpt-6-sol')
-		expect(created[0]?.reasoningEffort).toBe('medium')
+		expect(created[0]).not.toHaveProperty('model')
+		expect(created[0]).not.toHaveProperty('reasoningEffort')
 		expect(created[0]).not.toHaveProperty('tools')
 		expect(registered).toHaveLength(1)
 		expect(registered[0]?.key).toBe('poteto')
 		expect(registered[0]?.agent).toEqual(created[0])
-		expect(description).toContain('GPT-6 Sol at medium reasoning')
-		expect(registered[0]?.description).toContain('GPT-6 Sol at medium reasoning')
+		expect(description).toContain('built-in medium')
+		expect(registered[0]?.description).toContain('Built-in medium')
 	})
 
 	test('documents coordinator, delegate, and child-thread behavior accurately', async () => {
@@ -63,7 +63,7 @@ describe('poteto mode', () => {
 		])
 		const modelProse = `${skill}\n${adapter}`
 
-		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, pinned to `openai/gpt-6-sol` at medium reasoning')
+		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, with no model or reasoning override')
 		expect(adapter).toMatch(/Opus 5\.5 and GPT-6 Sol seats request `reasoningEffort: max`/)
 		expect(adapter).toMatch(/Grok 4\.7 seats request `reasoningEffort: xhigh`/)
 		expect(adapter).toContain('An explicit seat effort overrides that default.')

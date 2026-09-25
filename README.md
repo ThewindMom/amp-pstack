@@ -57,7 +57,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) registers the Mode Dial entry with `openai/gpt-6-sol` at medium reasoning and the full Poteto instructions. Amp medium tools stay. The `pstack/` directory plugin owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) registers the Mode Dial entry with built-in medium and the full Poteto instructions. It inherits medium's model, reasoning, and tools. The `pstack/` directory plugin owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task. Native Amp work uses threads; CLI work uses isolated snapshot worktrees. Default long work (`feature`, `how-explorer`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. For native agents, local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns a delegate ID in `threadID`. The child exclusively owns its paths. Native children report with `send_thread_message`; unreported final text and CLI reports are delivered by the plugin. The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Amp can report `unknown` or `settled` on an empty child while it starts. Never redo or replace a live child. `pstack_run_agent` waits only when this turn cannot proceed without one result. Timeout preserves the live ID; terminal failure returns `status: "error"`.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now. Its optional `count` accepts 1 through 20 candidates and cycles the configured seats in order.
@@ -70,13 +70,13 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` pins `openai/gpt-6-sol` at medium reasoning with Amp medium tools. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions, including its resource base. Reload the plugin to pick up skill edits. The official `gpt6s` mode uses high effort and is not this parent. Shipped delegate seats use max effort for Opus 5.5 and GPT-6 Sol, and xhigh effort for Grok 4.7.
+`poteto` extends built-in `medium` without model, reasoning, or tool overrides. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions, including its resource base. Reload the plugin to pick up skill edits. Shipped delegate seats use max effort for Opus 5.5 and GPT-6 Sol, and xhigh effort for Grok 4.7.
 
 `index.ts` owns the role map and a separate effort map for `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7`. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there. `builtin:high` is not a stand-in for GPT-6 Sol.
 
 | Seat | Shipped map |
 |---|---|
-| Parent `poteto` | `extends: medium`, model `openai/gpt-6-sol`, `reasoningEffort: medium` |
+| Parent `poteto` | `extends: medium`; inherits model, reasoning, and tools |
 | Hardest code-writing role | `anthropic/claude-opus-5-5` at max |
 | Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` at xhigh |
 | Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `anthropic/claude-opus-5-5` at max |
