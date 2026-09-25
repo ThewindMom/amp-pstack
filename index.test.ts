@@ -49,6 +49,7 @@ import pstack, {
 	loadFileLayers,
 	mergeModels,
 	MODEL_REASONING_EFFORT,
+	NATIVE_AGENT_MODES,
 	modelFamily,
 	orbAgentModeFor,
 	orbAgentSpecsFor,
@@ -63,6 +64,7 @@ import pstack, {
 	validateOverrides,
 	workspaceRootPath,
 } from './index'
+import { RuntimeStore } from './runtime-store'
 import { createThreadInputMatches, exactCreateThreadInputMatches } from './workflow-parity'
 import { parseWakeEnvelope, WAKE_ENVELOPE_PREFIX } from './webhook-runtime'
 
@@ -206,11 +208,10 @@ describe('amp-pstack plugin', () => {
 		}
 
 		expect(skills).toEqual([...SKILL_PATHS])
-		expect(modes).toEqual(
-			orbAgentSpecsFor({ ...DEFAULT_MODELS }).map(({ role, model }) =>
-				orbAgentModeFor(role, model).key,
-			),
-		)
+		expect(modes).toEqual([
+			...orbAgentSpecsFor({ ...DEFAULT_MODELS }).map(({ role, model }) => orbAgentModeFor(role, model).key),
+			...NATIVE_AGENT_MODES.map(({ key }) => key),
+		])
 		expect(new Set(modes).size).toBe(modes.length)
 		expect(tools).toEqual([
 			'pstack_run_agent',
@@ -356,11 +357,12 @@ describe('model configuration', () => {
 				['xai/grok-4.7', 'builtin:high', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5'],
 				'xai/grok-4.5',
 			),
-		).toEqual({ model: 'openai/gpt-5.6-sol' })
+		).toEqual({ model: 'openai/gpt-5.6-sol', seat: 3 })
 		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toEqual({
 			model: 'builtin:high',
+			seat: 1,
 		})
-		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'])).toEqual({ model: 'builtin:high' })
+		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'])).toEqual({ model: 'builtin:high', seat: 1 })
 		expect(() => selectPoolModel([])).toThrow('cannot be empty')
 	})
 
@@ -1270,9 +1272,11 @@ describe('runtime tool behavior', () => {
 			'xai/grok-4.7',
 		] as const
 		const expectedModels = [
-			...Array(8).fill('xai/grok-4.7'),
-			...Array(8).fill('anthropic/claude-opus-5-5'),
+			...Array(16).fill('xai/grok-4.7'),
+			...Array(16).fill('anthropic/claude-opus-5-5'),
 			'openai/gpt-6-sol',
+			'openai/gpt-6-sol',
+			...lineup,
 			...lineup,
 			...lineup,
 			...lineup,
@@ -2818,6 +2822,313 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
+	const writeAttempt = (amp: { emit: (event: string, payload: Record<string, unknown>) => Promise<unknown> }, threadID: string) =>
+		amp.emit('tool.call', { tool: 'edit_file', thread: { id: threadID }, input: {} })
+
+	test('blocking strict read-only agent and panel seats stay guarded after plugin reload', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-blocking-readonly-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({ runtimeStateFile })
+			const single = JSON.parse(
+				await tool(first, 'pstack_run_agent').execute(
+					{ role: 'comment-reviewer', prompt: 'review it' },
+					{ thread: { id: 'T-parent' } },
+				),
+			)
+			const panel = JSON.parse(
+				await tool(first, 'pstack_run_panel').execute(
+					{ panel: 'interrogate-reviewers', prompt: 'challenge it' },
+					{ thread: { id: 'T-parent' } },
+				),
+			)
+			expect([single.threadID, ...panel.map(({ threadID }: { threadID: string }) => threadID)]).toEqual([
+				'T-child',
+				'T-child-2',
+				'T-child-3',
+				'T-child-4',
+			])
+			await first.dispose()
+
+			const restored = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'running', 'T-child-2': 'idle', 'T-child-3': 'running', 'T-child-4': 'error' },
+			})
+			await Bun.sleep(0)
+			expect(restored.sent).toHaveLength(0)
+			for (const [threadID, role] of [
+				['T-child', 'comment-reviewer'],
+				['T-child-2', 'interrogate-reviewers-1'],
+				['T-child-3', 'interrogate-reviewers-2'],
+				['T-child-4', 'interrogate-reviewers-3'],
+			]) {
+				const rejected = await writeAttempt(restored, threadID)
+				expect(rejected).toEqual({
+					action: 'reject-and-continue',
+					message: `Strict read-only role ${role} cannot mutate files.`,
+				})
+			}
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('strict read-only children stay guarded after terminal state and re-steer with unchanged fallbacks', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explorer', prompt: 'investigate' },
+			{ thread: { id: 'T-parent' } },
+		)
+		await tool(amp, 'pstack_run_agent').execute(
+			{ role: 'comment-reviewer', prompt: 'review it' },
+			{ thread: { id: 'T-review-parent' } },
+		)
+		const children = amp.started as Array<{ id: string; emit: (state: string) => void }>
+		for (const child of children) child.emit('idle')
+		for (const child of children) {
+			child.emit('running')
+			child.emit('idle')
+		}
+		await Bun.sleep(0)
+		expect(amp.sent).toEqual([{
+			threadID: 'T-parent',
+			content: expect.stringContaining('Child T-child reached terminal state idle'),
+			steer: true,
+		}])
+		for (const child of children) {
+			child.emit('running')
+			expect(await writeAttempt(amp, child.id)).toMatchObject({ action: 'reject-and-continue' })
+			expect(await amp.emit('tool.call', {
+				tool: 'shell_command',
+				thread: { id: child.id },
+				input: { command: "sed -i 's/a/b/' index.ts" },
+				filesModified: ['index.ts'],
+			})).toMatchObject({ action: 'reject-and-continue' })
+			child.emit('error')
+		}
+		await Bun.sleep(0)
+		expect(amp.sent).toHaveLength(1)
+		for (const child of children) {
+			expect(await writeAttempt(amp, child.id)).toMatchObject({ action: 'reject-and-continue' })
+		}
+	})
+
+	test('report and stop clean notification tickets but keep strict read-only identity across reload', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-readonly-cleanup-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({ runtimeStateFile })
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'how-explorer', prompt: 'report then finish' },
+				{ thread: { id: 'T-parent' } },
+			)
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'how-explainer', prompt: 'stop me' },
+				{ thread: { id: 'T-parent' } },
+			)
+			const reporter = first.started[0] as { emit: (state: string) => void }
+			reporter.emit('running')
+			await tool(first, 'pstack_send_to_thread').execute(
+				{ threadID: 'T-parent', message: 'final report' },
+				{ thread: { id: 'T-child' } },
+			)
+			reporter.emit('idle')
+			expect(
+				JSON.parse(
+					await tool(first, 'pstack_stop_agent').execute(
+						{ threadID: 'T-child-2' },
+						{ thread: { id: 'T-parent' } },
+					),
+				),
+			).toMatchObject({ threadID: 'T-child-2', reconciled: true })
+			await Bun.sleep(0)
+			expect(first.sent).toEqual([{ threadID: 'T-parent', content: 'final report', steer: true }])
+			for (const threadID of ['T-child', 'T-child-2']) {
+				expect(await writeAttempt(first, threadID)).toMatchObject({ action: 'reject-and-continue' })
+			}
+			await first.dispose()
+
+			const restored = await loadPlugin({
+				runtimeStateFile,
+				restoredThreadStates: { 'T-child': 'running', 'T-child-2': 'running' },
+			})
+			await Bun.sleep(0)
+			expect(restored.sent).toHaveLength(0)
+			expect(await writeAttempt(restored, 'T-child')).toEqual({
+				action: 'reject-and-continue',
+				message: 'Strict read-only role how-explorer cannot mutate files.',
+			})
+			expect(await writeAttempt(restored, 'T-child-2')).toEqual({
+				action: 'reject-and-continue',
+				message: 'Strict read-only role how-explainer cannot mutate files.',
+			})
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('non-strict children and unrelated threads stay writable after terminal state and reload', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-writable-control-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const first = await loadPlugin({ runtimeStateFile })
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'judgment', prompt: 'review with tests' },
+				{ thread: { id: 'T-parent' } },
+			)
+			await tool(first, 'pstack_start_agent').execute(
+				{ role: 'why-investigator', prompt: 'dig' },
+				{ thread: { id: 'T-parent' } },
+			)
+			await tool(first, 'pstack_run_agent').execute(
+				{ role: 'swarm-worker', prompt: 'cover a slice' },
+				{ thread: { id: 'T-parent' } },
+			)
+			const ids = ['T-child', 'T-child-2', 'T-child-3', 'T-unrelated']
+			for (const child of first.started as Array<{ emit: (state: string) => void }>) {
+				child.emit('running')
+				child.emit('idle')
+			}
+			for (const threadID of ids) {
+				expect(await writeAttempt(first, threadID)).toEqual({ action: 'allow' })
+			}
+			await first.dispose()
+
+			const restored = await loadPlugin({ runtimeStateFile })
+			for (const threadID of ids) {
+				expect(await writeAttempt(restored, threadID)).toEqual({ action: 'allow' })
+			}
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
+	test('blocking strict read-only append failure keeps the guard because delivery is uncertain', async () => {
+		const amp = await loadPlugin({ appendError: new Error('append acknowledgement lost') })
+		await expect(
+			tool(amp, 'pstack_run_agent').execute(
+				{ role: 'comment-reviewer', prompt: 'review it' },
+				{ thread: { id: 'T-parent' } },
+			),
+		).rejects.toThrow('append acknowledgement lost')
+		expect(await writeAttempt(amp, 'T-child')).toEqual({
+			action: 'reject-and-continue',
+			message: 'Strict read-only role comment-reviewer cannot mutate files.',
+		})
+		await Bun.sleep(0)
+		expect(amp.sent).toHaveLength(0)
+	})
+
+	test('native-orb rejects read-only and research agentMode overrides before reserving and keeps judgment overrides', async () => {
+		const amp = await loadPlugin()
+		for (const role of [
+			'how-explorer',
+			'how-explainer',
+			'comment-reviewer',
+			'why-investigator',
+			'why-synthesizer',
+			'reflect-tooling',
+			'reflect-judgment',
+			'reflect-divergent',
+			'reflect-synthesizer',
+		]) {
+			await expect(
+				tool(amp, 'pstack_start_agent').execute(
+					{
+						role,
+						prompt: 'write /tmp/probe',
+						launchTarget: { kind: 'native-orb', project: 'amp/pstack', agentMode: 'medium' },
+					},
+					{ thread: { id: 'T-parent' } },
+				),
+			).rejects.toThrow(`Read-only or research role ${role} must use its registered pstack mode on native-orb; omit agentMode.`)
+		}
+		const overrideInput = {
+			executor: 'orb',
+			agent_mode: 'medium',
+			project: 'amp/pstack',
+			prompt: backgroundChildPrompt('write /tmp/probe', 'T-parent'),
+			intent: 'delegation',
+		}
+		await amp.emit('tool.call', { tool: 'create_thread', toolUseID: 'toolu-override', thread: { id: 'T-parent' }, input: overrideInput })
+		await amp.emit('tool.result', {
+			tool: 'create_thread',
+			toolUseID: 'toolu-override',
+			thread: { id: 'T-parent' },
+			status: 'done',
+			output: { threadID: 'T-override' },
+		})
+		await Bun.sleep(0)
+		expect(amp.sent).toHaveLength(0)
+		expect(await writeAttempt(amp, 'T-override')).toEqual({ action: 'allow' })
+		await expect(
+			tool(amp, 'pstack_stop_agent').execute({ threadID: 'T-override' }, { thread: { id: 'T-parent' } }),
+		).rejects.toThrow('Thread T-override is not a paired implementation child.')
+
+		const custom = JSON.parse(
+			await tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'judgment',
+					prompt: 'review with a custom mode',
+					launchTarget: { kind: 'native-orb', project: 'amp/pstack', agentMode: 'medium' },
+				},
+				{ thread: { id: 'T-parent' } },
+			),
+		)
+		expect(custom).toMatchObject({ agentModeOverride: true, create_thread: { agent_mode: 'medium' } })
+	})
+
+	test('native paired strict read-only children stay guarded after terminal state and reload', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-native-readonly-state-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const completed = {
+				restoredThreadStates: { 'T-native-child': 'idle' as const },
+				restoredThreadMessages: {
+					'T-native-child': [{ id: 'M-final', role: 'assistant', content: [{ type: 'text', text: 'done' }] }],
+				},
+			}
+			const first = await loadPlugin({ runtimeStateFile, ...completed })
+			const native = JSON.parse(
+				await tool(first, 'pstack_start_agent').execute(
+					{
+						role: 'how-explorer',
+						prompt: 'investigate remotely',
+						launchTarget: { kind: 'native-orb', project: 'amp/pstack' },
+					},
+					{ thread: { id: 'T-native-parent' } },
+				),
+			)
+			await first.emit('tool.call', {
+				tool: 'create_thread',
+				toolUseID: 'toolu-native-readonly',
+				thread: { id: 'T-native-parent' },
+				input: native.create_thread,
+			})
+			await first.emit('tool.result', {
+				tool: 'create_thread',
+				toolUseID: 'toolu-native-readonly',
+				thread: { id: 'T-native-parent' },
+				status: 'done',
+				output: { threadID: 'T-native-child' },
+			})
+			await Bun.sleep(0)
+			expect(first.sent.filter(({ threadID }) => threadID === 'T-native-parent')).toHaveLength(1)
+			expect(await writeAttempt(first, 'T-native-child')).toMatchObject({ action: 'reject-and-continue' })
+			await first.dispose()
+
+			const restored = await loadPlugin({ runtimeStateFile, ...completed })
+			await Bun.sleep(0)
+			expect(restored.sent).toHaveLength(0)
+			expect(await writeAttempt(restored, 'T-native-child')).toEqual({
+				action: 'reject-and-continue',
+				message: 'Strict read-only role how-explorer cannot mutate files.',
+			})
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
+
 	test('remote parents keep plugin children in orbs and reject local routing', async () => {
 		const background = await loadPlugin({ executorKind: 'remote' })
 		const implementation = JSON.parse(
@@ -2904,17 +3215,13 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: 'T-parent' } },
 			),
 		)
-		const expectedMode = orbAgentModeFor(
-			'feature',
-			DEFAULT_MODELS.feature,
-		)
 		expect(started).toMatchObject({
 			action: 'use-native-create-thread',
 			launchTarget: { kind: 'named-runner', runnerId: runner.id },
 			create_thread: {
 				executor: 'runner',
 				runner_id: runner.id,
-				agent_mode: expectedMode.key,
+				agent_mode: 'pstack-feature',
 				intent: 'delegation',
 				prompt: backgroundChildPrompt('implement on the hardware runner', 'T-parent'),
 			},
@@ -3077,17 +3384,13 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: 'T-parent' } },
 			),
 		)
-		const expectedMode = orbAgentModeFor(
-			'feature',
-			DEFAULT_MODELS.feature,
-		)
 		expect(native).toMatchObject({
 			action: 'use-native-create-thread',
 			create_thread: {
 				executor: 'orb',
 				orb_size: 'a1.large',
 				project: 'amp/pstack',
-				agent_mode: expectedMode.key,
+				agent_mode: 'pstack-feature',
 				prompt: backgroundChildPrompt('sized orb', 'T-parent'),
 				intent: 'delegation',
 			},
@@ -3097,9 +3400,11 @@ describe('runtime tool behavior', () => {
 		expect(native.next).toContain('steer that same child instead of replacing it')
 		expect(redirected.started).toHaveLength(0)
 		expect(redirected.registeredModes).toHaveLength(redirected.preloadedModeCount)
-		expect(
-			redirected.registeredModes.find(({ key }) => key === expectedMode.key)?.active,
-		).toBe(true)
+		expect(redirected.registeredModes.find(({ key }) => key === 'pstack-feature')).toMatchObject({
+			label: 'pstack-feature',
+			active: true,
+			agent: { model: 'xai/grok-4.7', reasoningEffort: 'xhigh', tools: 'all' },
+		})
 		await expect(
 			tool(redirected, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
 		).rejects.toThrow('conflicts with')
@@ -3406,11 +3711,15 @@ describe('runtime tool behavior', () => {
 			{ thread: { id: 'T-parent' } },
 		)
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
-		const judge = amp.started.at(-1) as { emit: (state: string) => void }
+		const judge = amp.started.at(-1) as { id: string; emit: (state: string) => void }
 		judge.emit('running')
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
 		judge.emit('idle')
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
+		expect(await amp.emit('tool.call', { tool: 'apply_patch', thread: { id: judge.id }, input: {} })).toEqual({
+			action: 'reject-and-continue',
+			message: 'Strict read-only role arena-cross-judge cannot mutate files.',
+		})
 		const startedAfterJudge = amp.started.length
 		await expect(
 			tool(amp, 'pstack_start_agent').execute(
@@ -3827,6 +4136,178 @@ describe('runtime tool behavior', () => {
 		judge.emit('running')
 		judge.emit('idle')
 		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
+		expect(await amp.emit('tool.call', { tool: 'apply_patch', thread: { id: panel[0].threadID }, input: {} })).toEqual({
+			action: 'reject-and-continue',
+			message: 'Strict read-only role arena-cross-judge cannot mutate files.',
+		})
+	})
+
+	const declaredAgentModes = async () =>
+		[...(await Bun.file(join(import.meta.dir, 'index.ts')).text()).matchAll(/^\/\/ @amp-agent-mode (.+)$/gm)].map(
+			([, metadata]) => JSON.parse(metadata!) as { key: string; label: string },
+		)
+
+	const settledDesignCandidates = async (amp: { tools: Map<string, TestTool> }, parentThreadID: string) =>
+		(
+			JSON.parse(
+				await tool(amp, 'pstack_run_panel').execute(
+					{ panel: 'architect-runners', prompt: 'sketch it' },
+					{ thread: { id: parentThreadID } },
+				),
+			) as Array<{ threadID: string }>
+		).map(({ threadID }) => threadID)
+
+	const parentOn = (id: string, model: string) => ({
+		thread: { id, agent: async () => ({ definition: { kind: 'agent-definition', model, instructions: '' } }) },
+	})
+
+	test('static @amp-agent-mode comments declare exactly the stable native mode table', async () => {
+		const declared = await declaredAgentModes()
+		expect(declared).toHaveLength(20)
+		expect(declared).toEqual(NATIVE_AGENT_MODES.map(({ key, label }) => ({ key, label })))
+	})
+
+	test('native-orb and named-runner redirects use the declared stable mode of every native-eligible role', async () => {
+		const expected: Record<string, string> = {
+			hardest: 'pstack-hardest',
+			feature: 'pstack-feature',
+			refactoring: 'pstack-refactoring',
+			'bug-fix': 'pstack-bug-fix',
+			'perf-issue': 'pstack-perf-issue',
+			hillclimb: 'pstack-hillclimb',
+			judgment: 'pstack-judgment',
+			'how-explorer': 'pstack-how-explorer',
+			'how-explainer': 'pstack-how-explainer',
+			'why-investigator': 'pstack-why-investigator',
+			'why-synthesizer': 'pstack-why-synthesizer',
+			'reflect-tooling': 'pstack-reflect-tooling',
+			'reflect-judgment': 'pstack-reflect-judgment',
+			'reflect-divergent': 'pstack-reflect-divergent',
+			'reflect-synthesizer': 'pstack-reflect-synth',
+			'swarm-worker': 'pstack-swarm-worker',
+			'comment-reviewer': 'pstack-comment-reviewer',
+			'arena-cross-judge': 'pstack-cross-judge-1',
+		}
+		const panels = ['arena-runners', 'architect-runners', 'interrogate-reviewers']
+		expect(Object.keys(expected)).toEqual(Object.keys(DEFAULT_MODELS).filter((role) => !panels.includes(role)))
+		const amp = await loadPlugin({ initialConfig: { [CONFIG_KEY]: { 'architect-runners': ['builtin:high'] } } })
+		const observed: string[] = []
+		for (const launchTarget of [
+			{ kind: 'native-orb', project: 'amp/pstack' },
+			{ kind: 'named-runner', runnerId: 'mac-mini' },
+		]) {
+			for (const role of Object.keys(expected)) {
+				const parentThreadID = `T-${launchTarget.kind}-${role}`
+				const redirect = JSON.parse(
+					await tool(amp, 'pstack_start_agent').execute(
+						{
+							role,
+							prompt: 'work',
+							scope: `src/${launchTarget.kind}/${role}.ts`,
+							candidateThreadIDs:
+								role === 'arena-cross-judge' ? await settledDesignCandidates(amp, parentThreadID) : undefined,
+							launchTarget,
+						},
+						{ thread: { id: parentThreadID } },
+					),
+				)
+				observed.push(`${launchTarget.kind} ${role} ${redirect.create_thread.agent_mode}`)
+			}
+		}
+		expect(observed).toEqual(
+			['native-orb', 'named-runner'].flatMap((kind) =>
+				Object.entries(expected).map(([role, key]) => `${kind} ${role} ${key}`),
+			),
+		)
+		const declaredKeys = (await declaredAgentModes()).map(({ key }) => key)
+		expect(Object.values(expected).filter((key) => !declaredKeys.includes(key))).toEqual([])
+	})
+
+	test('native judge redirect uses the stable mode of the selected pool seat', async () => {
+		const amp = await loadPlugin({
+			initialConfig: {
+				[CONFIG_KEY]: {
+					'architect-runners': ['builtin:high'],
+					'arena-cross-judge': ['xai/grok-4.7', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5-5'],
+				},
+			},
+		})
+		const redirect = JSON.parse(
+			await tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge it',
+					candidateThreadIDs: await settledDesignCandidates(amp, 'T-parent'),
+					launchTarget: { kind: 'native-orb', project: 'amp/pstack' },
+				},
+				parentOn('T-parent', 'xai/grok-4.5'),
+			),
+		)
+		expect(redirect).toMatchObject({ model: 'openai/gpt-5.6-sol', create_thread: { agent_mode: 'pstack-cross-judge-2' } })
+		expect(amp.registeredModes.find(({ key }) => key === 'pstack-cross-judge-2')?.agent).toMatchObject({
+			model: 'openai/gpt-5.6-sol',
+		})
+	})
+
+	test('native judge redirect rejects a pool seat without a stable mode and releases the reservation', async () => {
+		const amp = await loadPlugin({
+			initialConfig: {
+				[CONFIG_KEY]: {
+					'architect-runners': ['builtin:high'],
+					'arena-cross-judge': ['xai/grok-4.7', 'builtin:high', 'xai/grok-4.5', 'openai/gpt-5.6-sol'],
+				},
+			},
+		})
+		const candidateThreadIDs = await settledDesignCandidates(amp, 'T-parent')
+		const startJudge = (parentModel: string) =>
+			tool(amp, 'pstack_start_agent').execute(
+				{
+					role: 'arena-cross-judge',
+					prompt: 'judge it',
+					candidateThreadIDs,
+					launchTarget: { kind: 'native-orb', project: 'amp/pstack' },
+				},
+				parentOn('T-parent', parentModel),
+			)
+		await expect(startJudge('xai/grok-4.5')).rejects.toThrow(
+			'arena-cross-judge selected pool seat 4, but native-orb and named-runner redirects support only seats 1-3.',
+		)
+		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toEqual({
+			action: 'continue',
+			userMessage:
+				'Call pstack_start_agent with role arena-cross-judge and candidateThreadIDs before completing this design run. Candidate thread IDs (copy this JSON list into candidateThreadIDs): ["T-child"]. Ignore this request if those IDs belong to a stale design run. Pick, graft, synthesis quality, and verification stay with this parent.',
+		})
+		const retry = JSON.parse(await startJudge('openai/gpt-6-sol'))
+		expect(retry.create_thread.agent_mode).toBe('pstack-cross-judge-1')
+		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toMatchObject({
+			userMessage: expect.stringContaining('Call native create_thread next'),
+		})
+	})
+
+	test('a restored judging run without a stored guard row keeps the judge read-only', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-judging-guard-restore-'))
+		const runtimeStateFile = join(root, 'runtime.sqlite')
+		try {
+			const legacy = new RuntimeStore(runtimeStateFile)
+			legacy.saveDesignRun({
+				state: 'judging',
+				parentThreadID: 'T-parent',
+				panel: 'architect-runners',
+				candidateThreadIDs: ['T-candidate'],
+				judgeThreadID: 'T-judge',
+			})
+			expect(legacy.readonlyGuard('T-judge')).toBeUndefined()
+			legacy.close()
+
+			const restored = await loadPlugin({ runtimeStateFile, restoredThreadStates: { 'T-judge': 'running' } })
+			expect(await writeAttempt(restored, 'T-judge')).toEqual({
+				action: 'reject-and-continue',
+				message: 'Strict read-only role arena-cross-judge cannot mutate files.',
+			})
+			expect(await writeAttempt(restored, 'T-parent')).toEqual({ action: 'allow' })
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
 	})
 
 	test('plugin dispose clears process resources without reopening the disposed instance', async () => {

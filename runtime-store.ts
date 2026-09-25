@@ -7,6 +7,7 @@ import {
 	ownedPathsOverlap,
 	type DesignRun,
 	type ImplementationOwner,
+	type ReadonlyGuard,
 } from './workflow-parity'
 
 type OwnerRow = Readonly<{
@@ -30,6 +31,11 @@ type BackgroundChildRow = Readonly<{
 	active: number
 	reported: number
 	notified: number
+}>
+type ReadonlyGuardRow = Readonly<{
+	thread_id: string
+	parent_thread_id: string
+	role: string
 }>
 type NativeBackgroundReservationRow = Readonly<{
 	reservation_id: string
@@ -219,6 +225,12 @@ export class RuntimeStore {
 				notified INTEGER NOT NULL DEFAULT 0
 			)
 			;
+			CREATE TABLE IF NOT EXISTS readonly_guards (
+				thread_id TEXT PRIMARY KEY,
+				parent_thread_id TEXT NOT NULL,
+				role TEXT NOT NULL
+			)
+			;
 			CREATE TABLE IF NOT EXISTS native_background_reservations (
 				reservation_id TEXT PRIMARY KEY,
 				parent_thread_id TEXT NOT NULL,
@@ -369,6 +381,33 @@ export class RuntimeStore {
 		this.database
 			.query('UPDATE background_children SET notified = 0 WHERE thread_id = ? AND reported = 0')
 			.run(threadID)
+	}
+
+	readonlyGuard(threadID: string): ReadonlyGuard | undefined {
+		const row = this.database
+			.query<ReadonlyGuardRow, [string]>(
+				'SELECT thread_id, parent_thread_id, role FROM readonly_guards WHERE thread_id = ?',
+			)
+			.get(threadID)
+		return row ? { threadID: row.thread_id, parentThreadID: row.parent_thread_id, role: row.role } : undefined
+	}
+
+	claimReadonlyGuard(guard: ReadonlyGuard): void {
+		const claim = this.database.transaction((candidate: ReadonlyGuard) => {
+			const existing = this.readonlyGuard(candidate.threadID)
+			if (!existing) {
+				this.database
+					.query('INSERT INTO readonly_guards (thread_id, parent_thread_id, role) VALUES (?, ?, ?)')
+					.run(candidate.threadID, candidate.parentThreadID, candidate.role)
+				return
+			}
+			if (existing.parentThreadID !== candidate.parentThreadID || existing.role !== candidate.role) {
+				throw new Error(
+					`Thread ${existing.threadID} is already guarded as strict read-only role ${existing.role} for parent ${existing.parentThreadID}.`,
+				)
+			}
+		})
+		claim.immediate(guard)
 	}
 
 	listOwners(): ImplementationOwner[] {

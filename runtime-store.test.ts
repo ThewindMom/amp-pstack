@@ -168,4 +168,34 @@ describe('RuntimeStore', () => {
 		expect(store.listNativeBackgroundReservations().map(({ toolUseID }) => toolUseID)).toEqual(['toolu-1', 'toolu-2'])
 		store.close()
 	})
+
+	test('keeps strict read-only guards across reopen and background cleanup and rejects identity collisions', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-readonly-guard-store-'))
+		const path = join(root, 'runtime.sqlite')
+		const guard = { threadID: 'T-reader', parentThreadID: 'T-parent', role: 'how-explorer' }
+		try {
+			const first = new RuntimeStore(path)
+			first.saveBackgroundChild('T-reader', 'T-parent', 'how-explorer')
+			first.claimReadonlyGuard(guard)
+			first.markBackgroundReported('T-reader', 'T-parent')
+			first.deleteReportedBackgroundChild('T-reader')
+			expect(first.listBackgroundChildren()).toEqual([])
+			first.close()
+
+			const reopened = new RuntimeStore(path)
+			expect(reopened.readonlyGuard('T-reader')).toEqual(guard)
+			expect(reopened.readonlyGuard('T-other')).toBeUndefined()
+			reopened.claimReadonlyGuard(guard)
+			expect(() => reopened.claimReadonlyGuard({ ...guard, role: 'comment-reviewer' })).toThrow(
+				'Thread T-reader is already guarded as strict read-only role how-explorer for parent T-parent.',
+			)
+			expect(() => reopened.claimReadonlyGuard({ ...guard, parentThreadID: 'T-other-parent' })).toThrow(
+				'already guarded',
+			)
+			expect(reopened.readonlyGuard('T-reader')).toEqual(guard)
+			reopened.close()
+		} finally {
+			await rm(root, { recursive: true, force: true })
+		}
+	})
 })

@@ -126,6 +126,17 @@ export type DesignRun =
 			judgeThreadID: string
 	  }
 
+export type ReadonlyGuard = Readonly<{
+	threadID: string
+	parentThreadID: string
+	role: string
+}>
+
+export type ReadonlyGuardRegistry = {
+	claimReadonlyGuard(guard: ReadonlyGuard): void
+	readonlyGuard(threadID: string): ReadonlyGuard | undefined
+}
+
 type ThreadState = 'idle' | 'running' | 'awaiting-approval' | 'error'
 
 type StateThread = {
@@ -462,14 +473,17 @@ export class WorkflowParityPolicy {
 	private designObserver: DesignObserver | undefined
 	private terminalNotifier: TerminalNotifier | undefined
 	private childActiveObserver: ChildActiveObserver | undefined
+	private readonlyGuards: ReadonlyGuardRegistry
 
 	constructor(
+		readonlyGuards: ReadonlyGuardRegistry,
 		candidateNotifier?: CandidateNotifier,
 		ownerObserver?: OwnerObserver,
 		designObserver?: DesignObserver,
 		terminalNotifier?: TerminalNotifier,
 		childActiveObserver?: ChildActiveObserver,
 	) {
+		this.readonlyGuards = readonlyGuards
 		this.candidateNotifier = candidateNotifier
 		this.ownerObserver = ownerObserver
 		this.designObserver = designObserver
@@ -541,6 +555,7 @@ export class WorkflowParityPolicy {
 	async restoreDesign(
 		run: DesignRun,
 		resolveThread: (threadID: string) => StateThread | undefined,
+		log: (message: string) => void,
 	): Promise<void> {
 		this.designs.set(run.parentThreadID, run)
 		if (run.state === 'candidates-running') {
@@ -556,6 +571,15 @@ export class WorkflowParityPolicy {
 			}
 		}
 		if (run.state === 'judging') {
+			try {
+				this.readonlyGuards.claimReadonlyGuard({
+					threadID: run.judgeThreadID,
+					parentThreadID: run.parentThreadID,
+					role: 'arena-cross-judge',
+				})
+			} catch (error) {
+				log(`Could not restore the read-only guard for cross-judge ${run.judgeThreadID}: ${String(error)}`)
+			}
 			const thread = resolveThread(run.judgeThreadID)
 			if (thread) {
 				await this.observe(thread, {
@@ -743,6 +767,7 @@ export class WorkflowParityPolicy {
 		if (run.state !== 'judge-required' || !run.judgeReserved) {
 			throw new Error('No cross-judge reservation to start.')
 		}
+		this.readonlyGuards.claimReadonlyGuard({ threadID: thread.id, parentThreadID, role: 'arena-cross-judge' })
 		const next: DesignRun = {
 			state: 'judging',
 			parentThreadID,
@@ -794,6 +819,7 @@ export class WorkflowParityPolicy {
 		inferFromTranscript = false,
 		previouslyActive = false,
 	): Promise<void> {
+		this.readonlyGuards.claimReadonlyGuard({ threadID: thread.id, parentThreadID, role })
 		await this.observe(thread, { role, parentThreadID, kind: 'strict-readonly' }, previouslyActive, inferFromTranscript)
 	}
 
@@ -853,11 +879,13 @@ export class WorkflowParityPolicy {
 			}
 		}
 
-		const child = this.children.get(event.thread.id)
-		if (child && isStrictReadonlyRole(child.role) && this.isRejectedMutation(event.tool, filesModified)) {
+		const readonlyGuard = this.isRejectedMutation(event.tool, filesModified)
+			? this.readonlyGuards.readonlyGuard(event.thread.id)
+			: undefined
+		if (readonlyGuard) {
 			return {
 				action: 'reject-and-continue',
-				message: `Strict read-only role ${child.role} cannot mutate files.`,
+				message: `Strict read-only role ${readonlyGuard.role} cannot mutate files.`,
 			}
 		}
 

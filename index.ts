@@ -1,3 +1,24 @@
+// @amp-agent-mode {"key":"pstack-hardest","label":"pstack-hardest"}
+// @amp-agent-mode {"key":"pstack-feature","label":"pstack-feature"}
+// @amp-agent-mode {"key":"pstack-refactoring","label":"pstack-refactoring"}
+// @amp-agent-mode {"key":"pstack-bug-fix","label":"pstack-bug-fix"}
+// @amp-agent-mode {"key":"pstack-perf-issue","label":"pstack-perf-issue"}
+// @amp-agent-mode {"key":"pstack-hillclimb","label":"pstack-hillclimb"}
+// @amp-agent-mode {"key":"pstack-judgment","label":"pstack-judgment"}
+// @amp-agent-mode {"key":"pstack-how-explorer","label":"pstack-how-explorer"}
+// @amp-agent-mode {"key":"pstack-how-explainer","label":"pstack-how-explainer"}
+// @amp-agent-mode {"key":"pstack-why-investigator","label":"pstack-why-investigator"}
+// @amp-agent-mode {"key":"pstack-why-synthesizer","label":"pstack-why-synthesizer"}
+// @amp-agent-mode {"key":"pstack-reflect-tooling","label":"pstack-reflect-tooling"}
+// @amp-agent-mode {"key":"pstack-reflect-judgment","label":"pstack-reflect-judgment"}
+// @amp-agent-mode {"key":"pstack-reflect-divergent","label":"pstack-reflect-divergent"}
+// @amp-agent-mode {"key":"pstack-reflect-synth","label":"pstack-reflect-synth"}
+// @amp-agent-mode {"key":"pstack-swarm-worker","label":"pstack-swarm-worker"}
+// @amp-agent-mode {"key":"pstack-comment-reviewer","label":"pstack-comment-reviewer"}
+// @amp-agent-mode {"key":"pstack-cross-judge-1","label":"pstack-cross-judge-1"}
+// @amp-agent-mode {"key":"pstack-cross-judge-2","label":"pstack-cross-judge-2"}
+// @amp-agent-mode {"key":"pstack-cross-judge-3","label":"pstack-cross-judge-3"}
+
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -26,6 +47,7 @@ import {
 	executorForParent,
 	isDesignPanel,
 	isImplementationRole,
+	isResearchRole,
 	isStrictReadonlyRole,
 	launchTargetForParent,
 	nativeRedirect,
@@ -237,6 +259,55 @@ const PANEL_ROLES = new Set([
 ])
 const POOL_ROLES = new Set(['arena-cross-judge'])
 
+export const MAX_NATIVE_JUDGE_SEATS = 3
+
+export type NativeAgentMode = Readonly<{
+	role: keyof typeof DEFAULT_MODELS
+	seat?: number
+	key: string
+	label: string
+}>
+
+export const NATIVE_AGENT_MODES: readonly NativeAgentMode[] = [
+	{ role: 'hardest', key: 'pstack-hardest', label: 'pstack-hardest' },
+	{ role: 'feature', key: 'pstack-feature', label: 'pstack-feature' },
+	{ role: 'refactoring', key: 'pstack-refactoring', label: 'pstack-refactoring' },
+	{ role: 'bug-fix', key: 'pstack-bug-fix', label: 'pstack-bug-fix' },
+	{ role: 'perf-issue', key: 'pstack-perf-issue', label: 'pstack-perf-issue' },
+	{ role: 'hillclimb', key: 'pstack-hillclimb', label: 'pstack-hillclimb' },
+	{ role: 'judgment', key: 'pstack-judgment', label: 'pstack-judgment' },
+	{ role: 'how-explorer', key: 'pstack-how-explorer', label: 'pstack-how-explorer' },
+	{ role: 'how-explainer', key: 'pstack-how-explainer', label: 'pstack-how-explainer' },
+	{ role: 'why-investigator', key: 'pstack-why-investigator', label: 'pstack-why-investigator' },
+	{ role: 'why-synthesizer', key: 'pstack-why-synthesizer', label: 'pstack-why-synthesizer' },
+	{ role: 'reflect-tooling', key: 'pstack-reflect-tooling', label: 'pstack-reflect-tooling' },
+	{ role: 'reflect-judgment', key: 'pstack-reflect-judgment', label: 'pstack-reflect-judgment' },
+	{ role: 'reflect-divergent', key: 'pstack-reflect-divergent', label: 'pstack-reflect-divergent' },
+	{ role: 'reflect-synthesizer', key: 'pstack-reflect-synth', label: 'pstack-reflect-synth' },
+	{ role: 'swarm-worker', key: 'pstack-swarm-worker', label: 'pstack-swarm-worker' },
+	{ role: 'comment-reviewer', key: 'pstack-comment-reviewer', label: 'pstack-comment-reviewer' },
+	...Array.from({ length: MAX_NATIVE_JUDGE_SEATS }, (_, index) => ({
+		role: 'arena-cross-judge' as const,
+		seat: index + 1,
+		key: `pstack-cross-judge-${index + 1}`,
+		label: `pstack-cross-judge-${index + 1}`,
+	})),
+]
+
+const NATIVE_AGENT_MODE_DESCRIPTION =
+	'pstack delegate mode used by pstack_start_agent native redirects (native-orb and named-runner). The child resolves the model from its own pstack configuration.'
+
+export function nativeAgentModeFor(role: string, seat?: number): NativeAgentMode {
+	const mode = NATIVE_AGENT_MODES.find((entry) => entry.role === role && entry.seat === seat)
+	if (mode) return mode
+	if (POOL_ROLES.has(role)) {
+		throw new Error(
+			`arena-cross-judge selected pool seat ${seat}, but native-orb and named-runner redirects support only seats 1-${MAX_NATIVE_JUDGE_SEATS}. Move that model into the first ${MAX_NATIVE_JUDGE_SEATS} arena-cross-judge seats, or use launchTarget parent-project-orb.`,
+		)
+	}
+	throw new Error(`pstack role ${role} has no stable native agent mode.`)
+}
+
 export const ORB_MODE_RELOAD_ERROR =
 	'Orb agents use the role/model map captured when pstack loaded. Reload plugins, then retry this orb launch. Local launches use configuration changes immediately.'
 
@@ -379,18 +450,21 @@ export function modelFamily(model: string): 'claude' | 'gpt' | 'grok' | undefine
 	return undefined
 }
 
-export function selectPoolModel(models: readonly SeatInput[], parentModel?: string): Omit<ResolvedAgentSpec, 'role'> {
+export function selectPoolModel(
+	models: readonly SeatInput[],
+	parentModel?: string,
+): Omit<ResolvedAgentSpec, 'role'> & { seat: number } {
 	if (models.length === 0) throw new Error('A pstack model pool cannot be empty.')
 	const seats = models.map(resolveSeat)
 	const parentFamily = parentModel ? modelFamily(parentModel) : undefined
 	if (parentFamily) {
-		const differentFamily = seats.find(({ model }) => {
+		const differentFamily = seats.findIndex(({ model }) => {
 			const family = modelFamily(model)
 			return family !== undefined && family !== parentFamily
 		})
-		if (differentFamily) return differentFamily
+		if (differentFamily >= 0) return { ...seats[differentFamily]!, seat: differentFamily + 1 }
 	}
-	return seats[0]!
+	return { ...seats[0]!, seat: 1 }
 }
 
 export function isKnownRole(role: string): boolean {
@@ -740,6 +814,7 @@ export default async function pstack(amp: PluginAPI) {
 		else runtimeStore.releaseBackgroundNotification(threadID)
 	}
 	const policy = new WorkflowParityPolicy(
+		runtimeStore,
 		(parentThreadID, message) => {
 			void amp.threads
 				.get(parentThreadID as ThreadID)
@@ -776,13 +851,17 @@ export default async function pstack(amp: PluginAPI) {
 		await policy.restoreImplementation(owner, thread)
 	}
 	for (const run of runtimeStore.listDesignRuns()) {
-		await policy.restoreDesign(run, (threadID) => {
-			try {
-				return amp.threads.get(threadID as ThreadID)
-			} catch {
-				return undefined
-			}
-		})
+		await policy.restoreDesign(
+			run,
+			(threadID) => {
+				try {
+					return amp.threads.get(threadID as ThreadID)
+				} catch {
+					return undefined
+				}
+			},
+			(message) => amp.logger.log(message),
+		)
 	}
 	for (const child of runtimeStore.listBackgroundChildren()) {
 		if (restoredOwnerThreadIDs.has(child.threadID)) continue
@@ -861,7 +940,10 @@ export default async function pstack(amp: PluginAPI) {
 		return storedModelMap(configuration[CONFIG_KEY])
 	}
 
-	const modelFor = async (role: string, parentThread?: Pick<PluginThread, 'agent'>): Promise<Omit<ResolvedAgentSpec, 'role'>> => {
+	const modelFor = async (
+		role: string,
+		parentThread?: Pick<PluginThread, 'agent'>,
+	): Promise<Omit<ResolvedAgentSpec, 'role'> & { seat?: number }> => {
 		const value = (await configuredModels())[role]
 		const seats = Array.isArray(value) ? value : value === undefined ? [] : [value]
 		const invalid = seats.find((seat) => !isSeatInput(seat) || seatError(role, seat) !== undefined)
@@ -972,6 +1054,28 @@ export default async function pstack(amp: PluginAPI) {
 			registerOrbAgent(spec.model, spec.role, spec.effort)
 		} catch (error) {
 			amp.logger.log(`Could not register pstack seat ${spec.role}/${spec.model}: ${String(error)}`)
+		}
+	}
+
+	const nativeModes: Subscription[] = []
+	for (const mode of NATIVE_AGENT_MODES) {
+		try {
+			const configured = startupModels[mode.role]
+			const valid = isValidRoleModel(mode.role, configured)
+			if (!valid) {
+				amp.logger.log(`Stable pstack mode ${mode.key} uses the default ${mode.role} seat because the configured seat is invalid.`)
+			}
+			const value = valid ? configured : DEFAULT_MODELS[mode.role]
+			const pool = Array.isArray(value) ? value : [value]
+			const { model, effort } = resolveSeat(pool[(mode.seat ?? 1) - 1] ?? pool[0]!)
+			nativeModes.push(amp.registerAgentMode({
+				key: mode.key,
+				label: mode.label,
+				description: NATIVE_AGENT_MODE_DESCRIPTION,
+				agent: agentFor(model, mode.role, effort).definition,
+			}))
+		} catch (error) {
+			amp.logger.log(`Could not register stable pstack mode ${mode.key}: ${String(error)}`)
 		}
 	}
 
@@ -1296,6 +1400,15 @@ export default async function pstack(amp: PluginAPI) {
 			if (launchTarget?.kind === 'cloud-base-branch') {
 				return JSON.stringify(cloudBaseBranchUnsupported(launchTarget.branch))
 			}
+			if (
+				launchTarget?.kind === 'native-orb' &&
+				launchTarget.agentMode &&
+				(isStrictReadonlyRole(role) || isResearchRole(role))
+			) {
+				throw new Error(
+					`Read-only or research role ${role} must use its registered pstack mode on native-orb; omit agentMode. An agentMode override replaces the role tool allowlist or write exclusion, and the parent write hook cannot guard a separate orb.`,
+				)
+			}
 			const judgeReserved =
 				role === 'arena-cross-judge'
 					? policy.reserveJudge(ctx.thread.id, candidateThreadIDs)
@@ -1325,21 +1438,10 @@ export default async function pstack(amp: PluginAPI) {
 			}
 			let judgeStarted = false
 			try {
-				const { model, effort } = await modelFor(role, ctx.thread)
+				const { model, effort, seat } = await modelFor(role, ctx.thread)
 				if (launchTarget?.kind === 'native-orb' || launchTarget?.kind === 'named-runner') {
-					if (
-						launchTarget.kind === 'native-orb' &&
-						judgeReserved &&
-						launchTarget.agentMode
-					) {
-						throw new Error(
-							'The required arena-cross-judge must use its registered pstack mode; omit agentMode.',
-						)
-					}
-					const mode = orbAgentModeFor(role, model, effort)
+					const modeKey = nativeAgentModeFor(role, seat).key
 					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id)
-					if (launchTarget.kind === 'named-runner') orbAgentFor(model, role, effort)
-					else if (!launchTarget.agentMode) orbAgentFor(model, role, effort)
 					const redirectBase =
 						launchTarget.kind === 'native-orb'
 							? nativeRedirect({
@@ -1348,7 +1450,7 @@ export default async function pstack(amp: PluginAPI) {
 									parentThreadID: ctx.thread.id,
 									prompt: childPrompt,
 									scope,
-									modeKey: mode.key,
+									modeKey,
 									target: launchTarget,
 								})
 							: {
@@ -1362,7 +1464,7 @@ export default async function pstack(amp: PluginAPI) {
 										executor: 'runner' as const,
 										runner_id: launchTarget.runnerId,
 										working_directory: launchTarget.workingDirectory,
-										agent_mode: mode.key,
+										agent_mode: modeKey,
 										prompt: childPrompt,
 										intent: 'delegation',
 									},
@@ -1792,6 +1894,7 @@ export default async function pstack(amp: PluginAPI) {
 		await wakeWebhooks.close()
 		for (const registration of orbAgents.values()) registration.subscription.unsubscribe()
 		orbAgents.clear()
+		for (const subscription of nativeModes.splice(0)) subscription.unsubscribe()
 		const { discarded } = policy.dispose()
 		if (discarded > 0) {
 			amp.logger.log(
