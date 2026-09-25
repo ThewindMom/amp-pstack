@@ -53,8 +53,10 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 - Two writers in one worktree is shared mutable state. Split the trees.
 - An orb cannot see uncommitted local files. Use local execution, or transfer only what you authorized.
 - `builtin:medium` is still a pstack delegate. It is not a way to strip pstack instructions.
+- Every delegate is a native Amp thread. Amp routes inference through the user's connections; pstack does not bridge CLI subscriptions or alter provider settings.
+- A rejected start or mid-task limit is terminal for that run. Reconcile it before explicitly starting replacement work; there is no automatic retry or model switch.
 - Opening a PR is not a babysit. Shipping is not a babysit. Merge is explicit.
-- A webhook retry is at-least-once. `pstack_create_wake_webhook` appends first, then records the Amp event ID. A crash between those steps is healed by scanning the thread. Deduplicate source-system event IDs too.
+- A native webhook retry is at-least-once. In the task-specific plugin, persist Amp's `event.id` atomically with the business effect and deduplicate source-system event IDs too. Register the stable webhook key from the plugin entry point so reload restores the handler.
 - `amp plugins list` is not a description dump. It shows the command, tools, and `poteto` mode. There is no `--json` flag. The plugin description lives in `index.ts` and `package.json`.
 - `setup-models` is a command-palette action. From a thread, use `pstack_configure_models` with `action: "profile"` (`balanced`, `cheap`, `builtin`, `reset`). For a repo default without Opus 5.5, copy `.amp/pstack.models.example.json` to `.amp/pstack.models.json` and commit that file.
 
@@ -65,4 +67,4 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 - Amp has no Cursor `inherit-parent` or `auto`. A missing role uses the plugin default, not the parent chat model.
 - Amp has no Cursor thinking slugs. Bare Opus 5.5 and GPT-6 Sol seats request max effort; bare Grok 4.7 seats request xhigh. Explicit per-seat effort overrides that default, while other bare model IDs have no effort override. The standalone `grok47-xhigh` mode also requests xhigh. `builtin:high` is GPT-6 Astra at medium effort, not GPT-6 Sol. Opus 5.5 is the balanced judgment default. `builtin:ultra` is not that model.
 - Editor-specific UI and proprietary automation editors have no direct Amp equivalent. Skills, Amp modes, threads, schedules, and webhooks replace them.
-- Runtime delegates are created by [`index.ts`](../../index.ts). `agents/comment-sicko.md` is a runtime prompt resource read by the `comment-reviewer` role, not merely documentation. Native reviewers exclude write tools; CLI reviewers use read-only mode plus a post-run filesystem check.
+- Runtime delegates are created by [`index.ts`](../../index.ts) as native Amp workers. `agents/comment-sicko.md` is a runtime prompt resource read by the `comment-reviewer` role, not merely documentation. Reviewers exclude write tools.

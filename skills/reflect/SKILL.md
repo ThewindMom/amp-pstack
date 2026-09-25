@@ -3,8 +3,9 @@ name: reflect
 description: "Only use when named or routed by poteto-mode. Spawns three parallel reviewers over the active transcript and routes learnings to concrete skill edits for a reflect request."
 builtin-tools:
   - pstack_read_current_thread
-  - pstack_run_agent
   - pstack_start_agent
+  - wait_for_threads
+  - read_thread
 ---
 
 # Reflect
@@ -33,11 +34,11 @@ Each reviewer and the synthesizer name an Amp role. The plugin resolves its mode
 | Tooling | `reflect-tooling` | `openai/gpt-6-sol` | `references/tooling-reviewer.md` |
 | Divergent | `reflect-divergent` | `anthropic/claude-opus-5-5` | `references/divergent-reviewer.md` |
 
-Pass each template verbatim, substituting the transcript JSON or digest where marked. Reviewers return findings in their result text.
+Pass each complete template verbatim, substituting the transcript JSON or digest where marked, without summarizing it. Explicitly tell these read-only reviewers not to load skills. Reviewers return findings in their result text.
 
 ### 3. Synthesize
 
-Run one `pstack_start_agent` call with role `reflect-synthesizer` (default `anthropic/claude-opus-5-5`). Follow `../poteto-mode/references/amp-adapter.md`. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+Run one `pstack_start_agent` call with role `reflect-synthesizer` (default `anthropic/claude-opus-5-5`). Follow `../poteto-mode/references/amp-adapter.md`. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked, and explicitly tell this read-only worker not to load skills. The synthesizer returns a structured Accepted / Rejected / Backlog list.
 
 ### 4. Structural enforcement check
 

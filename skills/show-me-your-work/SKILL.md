@@ -3,8 +3,7 @@ name: show-me-your-work
 description: "Only use when named or routed by poteto-mode. Keeps a reviewable TSV decision trail for show-me-your-work requests, autonomous or multi-phase runs, and work reviewed after the human steps away."
 builtin-tools:
   - pstack_read_current_thread
-  - pstack_run_agent
-  - read_thread
+  - pstack_start_agent
 ---
 
 # Show me your work
@@ -68,7 +67,7 @@ Correct the log, not the story. The audit never edits or removes a row, even an 
 
 ## Cross-model review of the trail
 
-Before handing back, run `pstack_run_agent` on a configured role from a different model family than the one that did the work. Follow `../poteto-mode/references/amp-adapter.md`. Self-review is not a substitute. The agent reads the audit trail and the relevant Amp thread content, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
+Before handing back, use `pstack_start_agent` with `reporting: "final-text"` on a configured role from a different model family than the one that did the work. Follow `../poteto-mode/references/amp-adapter.md`. Because handoff truly needs this review, wait with native `wait_for_threads`, then inspect the result with native `read_thread`. Do not ask the child to send a reply while waiting. Self-review is not a substitute. The agent reads the audit trail and the relevant Amp thread content, then flags what the user should pay attention to. Not a redo of the work, a scan for what's suboptimal or risky.
 
 - Decisions logged with weak or absent evidence.
 - Verification steps skipped or claimed without proof in the transcript.

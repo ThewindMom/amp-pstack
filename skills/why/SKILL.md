@@ -2,8 +2,9 @@
 name: why
 description: "Only use when named or routed by poteto-mode. Queries available evidence sources and returns a cited account of rationale, regressions, postmortems, or data-backed thresholds; use how for runtime behavior."
 builtin-tools:
-  - pstack_run_agent
   - pstack_start_agent
+  - wait_for_threads
+  - read_thread
 ---
 
 # Why
@@ -88,6 +89,8 @@ Each investigator gets:
 4. The code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs)
 5. The user's original question
 
+Inline the complete filled base prompt and source playbook without summarizing either. These are read-only workers: explicitly tell them not to load skills.
+
 ### Investigator roster. One per available evidence category
 
 Spawn one investigator per category that has a matching MCP. Each owns exactly one tool or MCP.
@@ -119,7 +122,7 @@ If your scope assessment suggests a single-commit trivial target where the PR de
 
 ## Step 4. Synthesize
 
-Run one `pstack_start_agent` call with role `why-synthesizer` (default `anthropic/claude-opus-5-5`) and the full synthesis brief. Follow `../poteto-mode/references/amp-adapter.md`. The synthesizer can use `repo-independent-orb` when all evidence is in its brief or available through MCPs. Do not write the synthesis in the parent. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
+Run one `pstack_start_agent` call with role `why-synthesizer` (default `anthropic/claude-opus-5-5`) and the complete filled synthesis template, inlined without summary. Follow `../poteto-mode/references/amp-adapter.md`. The synthesizer can use `repo-independent-orb` when all evidence is in its brief or available through MCPs. Explicitly tell this read-only worker not to load skills. Do not write the synthesis in the parent. Its quality check may spot-verify citations through MCP tools, but its brief forbids writes.
 
 The synthesizer gets:
 1. The investigator findings, including any null results and any categories skipped with justification

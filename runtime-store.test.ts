@@ -103,16 +103,12 @@ describe('RuntimeStore', () => {
 			expect(first.claimBackgroundNotification('T-child')).toBe(false)
 			first.releaseBackgroundNotification('T-child')
 			expect(first.claimBackgroundNotification('T-child')).toBe(true)
-			first.saveBackgroundChild('T-reported', 'T-parent', 'why-investigator')
-			first.markBackgroundReported('T-reported', 'T-parent')
 			first.close()
 
 			const reopened = new RuntimeStore(path)
 			expect(reopened.claimBackgroundNotification('T-child')).toBe(false)
-			expect(reopened.claimBackgroundNotification('T-reported')).toBe(false)
 			expect(reopened.listBackgroundChildren()).toEqual([
 				{ threadID: 'T-child', parentThreadID: 'T-parent', role: 'how-explorer', active: true, reported: false, notified: true },
-				{ threadID: 'T-reported', parentThreadID: 'T-parent', role: 'why-investigator', active: false, reported: true, notified: false },
 			])
 			reopened.deleteBackgroundChild('T-child')
 			expect(reopened.backgroundChild('T-child')).toBeUndefined()
@@ -177,8 +173,7 @@ describe('RuntimeStore', () => {
 			const first = new RuntimeStore(path)
 			first.saveBackgroundChild('T-reader', 'T-parent', 'how-explorer')
 			first.claimReadonlyGuard(guard)
-			first.markBackgroundReported('T-reader', 'T-parent')
-			first.deleteReportedBackgroundChild('T-reader')
+			first.deleteBackgroundChild('T-reader')
 			expect(first.listBackgroundChildren()).toEqual([])
 			first.close()
 

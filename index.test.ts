@@ -1,4 +1,4 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -25,7 +25,6 @@ import pstack, {
 	AGENT_INSTRUCTIONS,
 	ARBITRARY_SHELL_GAP,
 	CODE_IMPLEMENTATION_ROLES,
-	IMPLEMENTATION_BLOCKING_ERROR,
 	START_AGENT_NEXT,
 	CHEAP_MODELS,
 	PLUGIN_MODEL_FILE,
@@ -33,9 +32,7 @@ import pstack, {
 	CONFIG_KEY,
 	DEFAULT_MODELS,
 	DEFAULT_TIMEOUT_MS,
-	RUN_AGENT_MIN_TIMEOUT_MS,
 	ORB_MODE_RELOAD_ERROR,
-	POTETO_DELEGATE_INSTRUCTIONS,
 	REPORTING_READONLY_TOOLS,
 	SKILL_PATHS,
 	STRICT_READONLY_TOOLS,
@@ -64,9 +61,7 @@ import pstack, {
 	workspaceRootPath,
 } from './index'
 import { RuntimeStore } from './runtime-store'
-import { startCliRun } from './cli-backends'
 import { createThreadInputMatches, exactCreateThreadInputMatches } from './workflow-parity'
-import { parseWakeEnvelope, WAKE_ENVELOPE_PREFIX } from './webhook-runtime'
 
 test('native reservation matchers distinguish expected-field subsets from exact background input', () => {
 	const expected = { prompt: 'work', options: { project: 'amp/pstack' } }
@@ -149,81 +144,43 @@ describe('amp-pstack plugin', () => {
 		expect(description.length).toBeLessThanOrEqual(300)
 	})
 
-	test('registers skills, startup orb modes, tools, and setup command', async () => {
+	test('registers skills, startup modes, five tools, and setup command', async () => {
 		const skills: string[] = []
 		const tools: string[] = []
 		const commands: string[] = []
 		const modes: string[] = []
-		const agent = {
-			definition: { kind: 'agent-definition', model: 'test/model', instructions: '' },
-		}
+		const agent = { definition: { kind: 'agent-definition', model: 'test/model', instructions: '' } }
 		const amp = {
-			registerSkill: async ({ path }: { path: string }) => {
-				skills.push(path)
-				return { unsubscribe() {} }
-			},
+			registerSkill: async ({ path }: { path: string }) => { skills.push(path); return { unsubscribe() {} } },
 			createAgent: () => agent,
 			getBuiltinAgent: () => agent,
-			registerAgentMode: ({ key }: { key: string }) => {
-				modes.push(key)
-				return { unsubscribe() {} }
-			},
-			registerTool: ({ name }: { name: string }) => {
-				tools.push(name)
-				return { unsubscribe() {} }
-			},
-			registerCommand: (id: string) => {
-				commands.push(id)
-				return { unsubscribe() {}, setAvailability() {} }
-			},
+			registerAgentMode: ({ key }: { key: string }) => { modes.push(key); return { unsubscribe() {} } },
+			registerTool: ({ name }: { name: string }) => { tools.push(name); return { unsubscribe() {} } },
+			registerCommand: (id: string) => { commands.push(id); return { unsubscribe() {}, setAvailability() {} } },
 			configuration: { get: async () => ({}) },
 			logger: { log() {} },
-			system: {
-				ampURL: new URL('https://ampcode.test'),
-				user: null,
-				workspaceRoot: null,
-				executor: {
-					kind: 'local',
-					async keepAlive() {
-						return { unsubscribe() {} }
-					},
-				},
-			},
+			system: { ampURL: new URL('https://ampcode.test'), user: null, workspaceRoot: null, executor: { kind: 'local', async keepAlive() { return { unsubscribe() {} } } } },
 			helpers: { filePathFromURI: (uri: string) => uri },
-			threads: {
-				get() {
-					throw new Error('No restored threads expected.')
-				},
-			},
+			threads: { get() { throw new Error('No restored threads expected.') } },
 			onDispose: () => ({ unsubscribe() {} }),
 		} as never
-
-		const previousStateFile = process.env.PSTACK_STATE_FILE
+		const previous = process.env.PSTACK_STATE_FILE
 		process.env.PSTACK_STATE_FILE = ':memory:'
-		try {
-			await pstack(amp, { selectBackend: async () => 'amp' })
-		} finally {
-			if (previousStateFile === undefined) delete process.env.PSTACK_STATE_FILE
-			else process.env.PSTACK_STATE_FILE = previousStateFile
+		try { await pstack(amp) }
+		finally {
+			if (previous === undefined) delete process.env.PSTACK_STATE_FILE
+			else process.env.PSTACK_STATE_FILE = previous
 		}
-
 		expect(skills).toEqual([...SKILL_PATHS])
 		expect(modes).toEqual([
 			...orbAgentSpecsFor({ ...DEFAULT_MODELS }).map(({ role, model }) => orbAgentModeFor(role, model).key),
 			...NATIVE_AGENT_MODES.map(({ key }) => key),
 		])
 		expect(new Set(modes).size).toBe(modes.length)
-		expect(tools).toEqual([
-			'pstack_run_agent',
-			'pstack_run_panel',
-			'pstack_start_agent',
-			'pstack_stop_agent',
-			'pstack_read_current_thread',
-			'pstack_configure_models',
-			'pstack_create_wake_webhook',
-		])
+		expect(tools).toEqual(['pstack_run_panel', 'pstack_start_agent', 'pstack_stop_agent', 'pstack_read_current_thread', 'pstack_configure_models'])
 		expect(commands).toEqual(['setup-models'])
 	})
+
 })
 
 describe('transcript formatting', () => {
@@ -376,19 +333,14 @@ describe('model configuration', () => {
 		expect(() => executorFrom(undefined, 'unknown')).toThrow('explicit execution target')
 	})
 
-	test('one-shot delegates cannot undercut the ten-minute floor', () => {
+	test('blocking panel and reviewer timeouts retain their floors', () => {
 		expect(timeoutFrom(undefined)).toBe(DEFAULT_TIMEOUT_MS)
 		expect(timeoutFrom(120_000)).toBe(120_000)
 		expect(timeoutFrom(120_000, { role: 'comment-reviewer' })).toBe(COMMENT_REVIEWER_MIN_TIMEOUT_MS)
 		expect(timeoutFrom(undefined, { role: 'comment-reviewer' })).toBe(COMMENT_REVIEWER_MIN_TIMEOUT_MS)
 		expect(timeoutFrom(20 * 60 * 1000, { role: 'comment-reviewer' })).toBe(20 * 60 * 1000)
-		expect(timeoutFrom(120_000, { role: 'how-explainer', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
-			RUN_AGENT_MIN_TIMEOUT_MS,
-		)
-		expect(timeoutFrom(240_000, { role: 'feature', floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(
-			RUN_AGENT_MIN_TIMEOUT_MS,
-		)
-		expect(timeoutFrom(20 * 60 * 1000, { floor: RUN_AGENT_MIN_TIMEOUT_MS })).toBe(20 * 60 * 1000)
+		expect(timeoutFrom(120_000, { floor: DEFAULT_TIMEOUT_MS })).toBe(DEFAULT_TIMEOUT_MS)
+		expect(timeoutFrom(20 * 60 * 1000, { floor: DEFAULT_TIMEOUT_MS })).toBe(20 * 60 * 1000)
 	})
 
 	test('cheap profile has no Fable or Opus', () => {
@@ -596,7 +548,6 @@ describe('runtime tool behavior', () => {
 		appendError?: Error
 		appendHook?: (threadID: string, content: string) => Promise<void>
 		initialConfig?: Record<string, unknown>
-		backends?: Parameters<typeof pstack>[1]
 		executorKind?: 'local' | 'remote' | 'unknown'
 		keepAliveError?: Error
 		runtimeStateFile?: string
@@ -616,11 +567,6 @@ describe('runtime tool behavior', () => {
 		const pendingOrbSelections: Array<{ key: string; agent: Record<string, unknown> }> = []
 		const config: Record<string, unknown> = { ...options?.initialConfig }
 		const tools = new Map<string, TestTool>()
-		let webhookHandler: ((event: unknown, ctx: unknown) => Promise<void>) | undefined
-		const webhookHandlers = new Map<
-			string,
-			(event: unknown, ctx: unknown) => Promise<void>
-		>()
 		const eventHandlers = new Map<string, Array<(event: any, ctx?: any) => unknown>>()
 		const disposeHandlers: Array<() => void | Promise<void>> = []
 		const logs: string[] = []
@@ -654,10 +600,6 @@ describe('runtime tool behavior', () => {
 					}
 				}
 			},
-			get webhookHandler() {
-				return webhookHandler
-			},
-			webhookHandlers,
 			registerSkill: async () => ({ unsubscribe() {} }),
 			createAgent: (definition: Record<string, unknown>) => {
 				created.push(definition)
@@ -800,17 +742,6 @@ describe('runtime tool behavior', () => {
 					delete config[key]
 				},
 			},
-			createWebhook: async ({
-				key,
-				handler,
-			}: {
-				key: string
-				handler: (event: unknown, ctx: unknown) => Promise<void>
-			}) => {
-				webhookHandler = handler
-				webhookHandlers.set(key, handler)
-				return { url: `https://example.test/hook/${key}` }
-			},
 			logger: {
 				log(message: string) {
 					logs.push(message)
@@ -910,8 +841,6 @@ describe('runtime tool behavior', () => {
 			}
 			appendErrorUsed: boolean
 			flushOrbSelections: () => void
-			webhookHandler?: (event: unknown, ctx: unknown) => Promise<void>
-			webhookHandlers: Map<string, (event: unknown, ctx: unknown) => Promise<void>>
 			system: {
 				ampURL: URL
 				user: null
@@ -933,7 +862,7 @@ describe('runtime tool behavior', () => {
 		const previousStateFile = process.env.PSTACK_STATE_FILE
 		process.env.PSTACK_STATE_FILE = options?.runtimeStateFile ?? ':memory:'
 		try {
-			await pstack(amp as never, options?.backends ?? { selectBackend: async () => 'amp' })
+			await pstack(amp as never)
 		} finally {
 			if (previousStateFile === undefined) delete process.env.PSTACK_STATE_FILE
 			else process.env.PSTACK_STATE_FILE = previousStateFile
@@ -952,59 +881,6 @@ describe('runtime tool behavior', () => {
 		launchTarget: { kind: 'current-checkout' as const },
 	}
 
-	test('CLI role and mixed panel return reports; background CLI remains stoppable', async () => {
-		const root = await mkdtemp(join(tmpdir(), 'pstack-integration-'))
-		const path = process.env.PATH
-		await writeFile(join(root, 'cursor-agent'), '#!/usr/bin/env bun\nconst brief = await Bun.stdin.text(); if (brief.includes("WAIT_FOREVER")) await Bun.sleep(60000); console.log(JSON.stringify({type:"result",is_error:false,result:"CLI fixture report"}));\n')
-		await chmod(join(root, 'cursor-agent'), 0o755)
-		process.env.PATH = `${root}:${path}`
-		const amp = await loadPlugin({ backends: { selectBackend: async (model) => model === 'xai/grok-4.7' ? 'cursor-cli' : 'amp', cliOptions: { stateDir: join(root, 'runs'), launcher: 'local' } } })
-		try {
-			const one = JSON.parse(await tool(amp, 'pstack_run_agent').execute({ role: 'how-explorer', prompt: 'Inspect only' }, { thread: { id: 'T-parent' } }))
-			expect(one.status).toBe('done')
-			expect(one.text).toContain('CLI fixture report')
-			expect(one.threadID).toMatch(/^cli-/)
-			const panel = JSON.parse(await tool(amp, 'pstack_run_panel').execute({ panel: 'interrogate-reviewers', prompt: 'Review only' }, { thread: { id: 'T-parent' } }))
-			expect(panel.map((seat: { status: string }) => seat.status)).toEqual(['done', 'done', 'done'])
-			expect(panel[2].text).toContain('CLI fixture report')
-			await expect(tool(amp, 'pstack_start_agent').execute({ ...implStart, prompt: 'Do not change placement' }, { thread: { id: 'T-parent' } })).rejects.toThrow('Omit executor and launchTarget')
-			await expect(tool(amp, 'pstack_run_agent').execute({ role: 'how-explorer', prompt: 'Inspect only', executor: 'orb' }, { thread: { id: 'T-parent' } })).rejects.toThrow('Omit executor and launchTarget')
-			const child = JSON.parse(await tool(amp, 'pstack_start_agent').execute({ ...implStart, launchTarget: undefined, prompt: 'WAIT_FOREVER' }, { thread: { id: 'T-parent' } }))
-			const stopped = JSON.parse(await tool(amp, 'pstack_stop_agent').execute({ threadID: child.threadID }, { thread: { id: 'T-parent' } }))
-			expect(stopped).toMatchObject({ canceled: true, state: 'error', ownershipReleased: true })
-		} finally {
-			await amp.dispose()
-			process.env.PATH = path
-			await rm(root, { recursive: true, force: true })
-		}
-	}, 30_000)
-
-	test('stopping CLI candidates and judges reconciles the design before a polling tick', async () => {
-		const root = await mkdtemp(join(tmpdir(), 'pstack-design-stop-'))
-		const command = join(root, 'fake-cli')
-		await writeFile(command, '#!/usr/bin/env bun\nawait Bun.stdin.text(); await Bun.sleep(60000)\n')
-		await chmod(command, 0o755)
-		try {
-			for (const kind of ['candidate', 'judge'] as const) {
-				const file = join(root, `${kind}.sqlite`)
-				const stateDir = join(root, kind)
-				const { id } = startCliRun({ role: kind, roleInstructions: 'Read only', brief: 'Wait', access: 'readonly', checkout: import.meta.dir, backend: 'cursor-cli', backends: { 'cursor-cli': { command } } }, { stateDir, launcher: 'local' })
-				const store = new RuntimeStore(file)
-				store.saveBackgroundChild(id, 'T-parent', kind === 'judge' ? 'arena-cross-judge' : 'arena-runners-1')
-				store.saveDesignRun(kind === 'judge' ? {
-					state: 'judging', parentThreadID: 'T-parent', panel: 'arena-runners', candidateThreadIDs: ['T-completed'], judgeThreadID: id,
-				} : {
-					state: 'candidates-running', parentThreadID: 'T-parent', panel: 'arena-runners', candidateThreadIDs: ['T-completed', id], pendingCandidateThreadIDs: [id], completedCandidateThreadIDs: ['T-completed'], failedCandidateThreadIDs: [],
-				})
-				const amp = await loadPlugin({ runtimeStateFile: file, backends: { selectBackend: async () => 'amp', cliOptions: { stateDir, launcher: 'local' } } })
-				try {
-					await tool(amp, 'pstack_stop_agent').execute({ threadID: id }, { thread: { id: 'T-parent' } })
-					expect(store.listDesignRuns()[0]?.state).toBe('judge-required')
-					expect(store.listDesignRuns()[0]?.candidateThreadIDs).toEqual(kind === 'judge' ? ['T-completed'] : ['T-completed', id])
-				} finally { await amp.dispose(); store.close() }
-			}
-		} finally { await rm(root, { recursive: true, force: true }) }
-	}, 30_000)
 
 	test('a terminal background child restarted by a message remains stoppable by its parent', async () => {
 		const root = await mkdtemp(join(tmpdir(), 'pstack-restarted-stop-'))
@@ -1115,58 +991,24 @@ describe('runtime tool behavior', () => {
 		).rejects.toThrow('has no paired child thread ID')
 	})
 
-	test('native Grok rechecks routing on the executing child without cancelling unrelated agents', async () => {
-		let route: 'amp' | 'cursor-cli' = 'amp'
-		const amp = await loadPlugin({ backends: { selectBackend: async () => route } })
-		const definition = { kind: 'agent-definition', ...amp.registeredModes.find((mode) => mode.key === 'pstack-feature')!.agent }
-		let cancels = 0
-		const thread = { id: 'T-destination', agent: async () => ({ definition }), cancel: async () => { cancels++ } }
-		try {
-			await amp.emit('agent.start', { thread })
-			expect(cancels).toBe(0)
-			route = 'cursor-cli'
-			expect(await amp.emit('agent.start', { thread })).toEqual({ message: { display: true, content: 'Stopped before inference: the SuperGrok subscription no longer wins routing. Reconcile this child before starting a Cursor CLI replacement; do not use the proxy route.' } })
-			expect(cancels).toBe(1)
-			for (const role of ['arena-runners-3', 'architect-runners-3', 'interrogate-reviewers-3']) {
-				const seat = amp.registeredModes.find((mode) => mode.agent.model === 'xai/grok-4.7' && String(mode.agent.instructions).endsWith(`Assigned role: ${role}.`))!
-				expect(seat).toBeDefined()
-				Object.assign(definition, seat.agent)
-				await amp.emit('agent.start', { thread })
-			}
-			expect(cancels).toBe(4)
-			Object.assign(definition, { instructions: 'Unrelated custom Grok mode.' })
-			await amp.emit('agent.start', { thread })
-			expect(cancels).toBe(4)
-		} finally { await amp.dispose() }
-	})
-
-	test('builtin roles extend the mode with pstack instructions', async () => {
+	test('builtin roles keep modes lean and task instructions in the supplied prompt', async () => {
 		const amp = await loadPlugin()
 		amp.config[CONFIG_KEY] = { 'bug-fix': 'builtin:high' }
+		const prompt = 'Fix it. Load pstack:typescript-best-practices.\n\n<filled bug template>'
 		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'bug-fix', prompt: 'fix it', scope: 'src/bug.ts', launchTarget: { kind: 'current-checkout' } },
+			{ role: 'bug-fix', prompt, scope: 'src/bug.ts', launchTarget: { kind: 'current-checkout' } },
 			{ thread: { id: 'T-parent' } },
 		)
-		expect(amp.created.at(-1)).toMatchObject({
-			extends: 'high',
-			instructions: `${AGENT_INSTRUCTIONS} ${POTETO_DELEGATE_INSTRUCTIONS} Assigned role: bug-fix.`,
-			tools: 'all',
-		})
+		expect(amp.created.at(-1)).toMatchObject({ extends: 'high', tools: 'all' })
+		const instructions = String(amp.created.at(-1)?.instructions)
+		expect(instructions).toContain(AGENT_INSTRUCTIONS)
+		expect(instructions).toContain('Assigned role: bug-fix')
+		expect(instructions).not.toContain('pstack:tdd')
+		expect(instructions).not.toContain('pstack:poteto-mode')
+		expect(amp.started.at(-1)?.prompt).toStartWith(prompt)
 		expect(amp.created.at(-1)).not.toHaveProperty('reasoningEffort')
 	})
 
-	test('unknown workflow roles give actionable guidance without spawning', async () => {
-		const amp = await loadPlugin()
-		for (const name of ['pstack_start_agent', 'pstack_run_agent']) {
-			await expect(
-				tool(amp, name).execute(
-					{ role: 'how', prompt: 'review and run tests' },
-					{ thread: { id: 'T-parent' } },
-				),
-			).rejects.toThrow('how is a workflow, not a role: use how-explorer')
-		}
-		expect(amp.started).toHaveLength(0)
-	})
 
 	test('poteto-mode.ts registers a parent inheriting built-in medium', async () => {
 		const created: Array<Record<string, unknown>> = []
@@ -1193,7 +1035,7 @@ describe('runtime tool behavior', () => {
 		expect(created[0]).not.toHaveProperty('tools')
 	})
 
-	test('code implementation roles receive the full poteto delegate wrapper', async () => {
+	test('code implementation modes contain only common rules and role', async () => {
 		const amp = await loadPlugin()
 		for (const [index, role] of ['hardest', 'feature', 'refactoring', 'bug-fix', 'perf-issue', 'hillclimb'].entries()) {
 			await tool(amp, 'pstack_start_agent').execute(
@@ -1205,7 +1047,9 @@ describe('runtime tool behavior', () => {
 				},
 				{ thread: { id: `T-parent-${index}` } },
 			)
-			expect(String(amp.created.at(-1)?.instructions)).toContain(POTETO_DELEGATE_INSTRUCTIONS)
+			const instructions = String(amp.created.at(-1)?.instructions)
+			expect(instructions).toContain(`Assigned role: ${role}`)
+			expect(instructions).toBe(`${AGENT_INSTRUCTIONS} Assigned role: ${role}.`)
 			expect(amp.created.at(-1)).toMatchObject({
 				extends: 'medium',
 				model: role === 'hardest' ? 'anthropic/claude-opus-5-5' : 'xai/grok-4.7',
@@ -1217,147 +1061,49 @@ describe('runtime tool behavior', () => {
 		)
 	})
 
-	test('hardest requires scoped background ownership and rejects blocking or colliding work', async () => {
+
+
+
+	test('unknown workflows, empty scopes, and hardest scoped ownership are enforced', async () => {
 		const amp = await loadPlugin()
-		await expect(
-			tool(amp, 'pstack_run_agent').execute(
-				{ role: 'hardest', prompt: 'implement it' },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
-		await expect(
-			tool(amp, 'pstack_start_agent').execute(
-				{ role: 'hardest', prompt: 'implement it' },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('Missing scope')
-		await tool(amp, 'pstack_start_agent').execute(
-			{
-				role: 'hardest',
-				prompt: 'own it',
-				scope: 'index implementation',
-				scopePaths: ['index.ts'],
-				launchTarget: { kind: 'current-checkout' },
-			},
-			{ thread: { id: 'T-hardest-parent' } },
-		)
-		await expect(
-			tool(amp, 'pstack_start_agent').execute(
-				{
-					role: 'feature',
-					prompt: 'collide',
-					scope: 'same file',
-					scopePaths: ['index.ts'],
-					launchTarget: { kind: 'current-checkout' },
-				},
-				{ thread: { id: 'T-feature-parent' } },
-			),
-		).rejects.toThrow('conflicts with')
+		await expect(tool(amp, 'pstack_start_agent').execute({ role: 'how', prompt: 'review it' }, { thread: { id: 'T-parent' } })).rejects.toThrow('how is a workflow, not a role: use how-explorer')
+		await expect(tool(amp, 'pstack_start_agent').execute({ role: 'hardest', prompt: 'implement it' }, { thread: { id: 'T-parent' } })).rejects.toThrow('Missing scope')
+		await tool(amp, 'pstack_start_agent').execute({ role: 'hardest', prompt: 'own it', scope: 'index implementation', scopePaths: ['index.ts'], launchTarget: { kind: 'current-checkout' } }, { thread: { id: 'T-hardest-parent' } })
+		await expect(tool(amp, 'pstack_start_agent').execute({ role: 'feature', prompt: 'collide', scope: 'same file', scopePaths: ['index.ts'], launchTarget: { kind: 'current-checkout' } }, { thread: { id: 'T-feature-parent' } })).rejects.toThrow('conflicts with')
+		expect(amp.started).toHaveLength(1)
 	})
 
-	test('poteto roles conditionally direct principle leaf loading', async () => {
+	test('specialist modes contain no task templates or skill catalog', async () => {
 		const amp = await loadPlugin()
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'judgment', prompt: 'review it' },
-			{ thread: { id: 'T-parent' } },
-		)
-		expect(String(amp.created.at(-1)?.instructions)).toContain(
-			'When applying a principle, load the appropriate pstack:principle-* leaf skill.',
-		)
-
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'why-investigator', prompt: 'investigate it' },
-			{ thread: { id: 'T-parent' } },
-		)
-		expect(String(amp.created.at(-1)?.instructions)).not.toContain('pstack:principle-*')
-	})
-
-	test('specialist and comment roles keep their narrower contracts', async () => {
-		const amp = await loadPlugin()
-		const specialistModels: Record<string, string> = {
-			'how-explorer': 'xai/grok-4.7',
-			'how-explainer': 'anthropic/claude-opus-5-5',
-			'why-investigator': 'xai/grok-4.7',
-			'why-synthesizer': 'anthropic/claude-opus-5-5',
-			'swarm-worker': 'xai/grok-4.7',
-			'reflect-tooling': 'openai/gpt-6-sol',
-			'reflect-judgment': 'anthropic/claude-opus-5-5',
-			'reflect-divergent': 'anthropic/claude-opus-5-5',
-			'reflect-synthesizer': 'anthropic/claude-opus-5-5',
+		for (const role of ['judgment', 'why-investigator', 'how-explorer', 'how-explainer', 'swarm-worker', 'reflect-tooling', 'reflect-judgment', 'reflect-divergent', 'reflect-synthesizer']) {
+			await tool(amp, 'pstack_start_agent').execute({ role, prompt: 'inspect it' }, { thread: { id: 'T-parent' } })
+			const instructions = String(amp.created.at(-1)?.instructions)
+			expect(instructions).toBe(`${AGENT_INSTRUCTIONS} Assigned role: ${role}.`)
+			expect(instructions).not.toContain('pstack:')
 		}
-		for (const [role, model] of Object.entries(specialistModels)) {
-			await tool(amp, 'pstack_run_agent').execute(
-				{ role, prompt: 'inspect it' },
-				{ thread: { id: 'T-parent' } },
-			)
-			expect(String(amp.created.at(-1)?.instructions)).not.toContain(
-				POTETO_DELEGATE_INSTRUCTIONS,
-			)
-			expect(amp.created.at(-1)).toMatchObject({
-				extends: 'medium',
-				model,
-				reasoningEffort: MODEL_REASONING_EFFORT[model as keyof typeof MODEL_REASONING_EFFORT],
-			})
-		}
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'comment-reviewer', prompt: 'review comments', timeoutMs: 120_000 },
-			{ thread: { id: 'T-parent' } },
-		)
-		expect(amp.created.at(-1)).toMatchObject({
-			extends: 'medium',
-			model: 'anthropic/claude-opus-5-5',
-			reasoningEffort: 'max',
-			tools: { include: [...REPORTING_READONLY_TOOLS] },
-		})
-		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
-		expect(STRICT_READONLY_TOOLS).not.toContain('Task')
-		expect(STRICT_READONLY_TOOLS).not.toContain('create_thread')
-		expect(
-			WRITE_TOOLS.every(
-				(name) => !(STRICT_READONLY_TOOLS as readonly string[]).includes(name),
-			),
-		).toBe(true)
+		await tool(amp, 'pstack_start_agent').execute({ role: 'comment-reviewer', prompt: 'review comments' }, { thread: { id: 'T-review-parent' } })
+		expect(amp.created.at(-1)).toMatchObject({ extends: 'medium', model: 'anthropic/claude-opus-5-5', reasoningEffort: 'max', tools: { include: [...REPORTING_READONLY_TOOLS] } })
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
-		expect(String(amp.created.at(-1)?.instructions)).toContain(
-			'otherwise return findings as final text for delivery by the caller',
-		)
-		expect(String(amp.created.at(-1)?.instructions)).toContain(
-			'Use Read and finder to inspect the named scope',
-		)
-		expect(String(amp.created.at(-1)?.instructions)).not.toContain(POTETO_DELEGATE_INSTRUCTIONS)
-		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: COMMENT_REVIEWER_MIN_TIMEOUT_MS })
+		expect(String(amp.created.at(-1)?.instructions)).toContain('Use Read and finder to inspect the named scope')
+		expect(String(amp.created.at(-1)?.instructions)).not.toContain('I hate comments')
+	})
 
-		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'comment-reviewer', prompt: 'review comments in the background' },
-			{ thread: { id: 'T-background-parent' } },
-		)
-		expect(amp.created.at(-1)).toMatchObject({
-			tools: { include: [...REPORTING_READONLY_TOOLS] },
-		})
-		expect(String(amp.created.at(-1)?.instructions)).toContain(
-			'Do not load skills, spawn agents, create threads, or call pstack tools.',
-		)
-		expect(String(amp.started.at(-1)?.prompt)).toContain(
-			'When finished, use native send_thread_message',
-		)
-		const explained = JSON.parse(
-			await tool(amp, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'explain it', timeoutMs: 120_000 },
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(explained).toMatchObject({
-			status: 'done',
-			threadID: amp.started.at(-1)?.id,
-			timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS,
-		})
-		expect(amp.waited.at(-1)).toMatchObject({ timeoutMs: RUN_AGENT_MIN_TIMEOUT_MS })
-		await expect(
-			tool(amp, 'pstack_run_agent').execute(
-				{ role: 'feature', prompt: 'implement it', timeoutMs: 240_000 },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
+	test('strict roles use allowlists, research retains non-write tools, and writers retain all tools', async () => {
+		expect(capabilityFor('how-explorer')).toEqual({ kind: 'strict-readonly', tools: { include: REPORTING_READONLY_TOOLS } })
+		expect(capabilityFor('interrogate-reviewers-2')).toEqual({ kind: 'strict-readonly', tools: { include: STRICT_READONLY_TOOLS } })
+		expect(STRICT_READONLY_TOOLS).toContain('Read')
+		expect(STRICT_READONLY_TOOLS).toContain('read_thread')
+		expect(STRICT_READONLY_TOOLS).not.toContain('send_thread_message')
+		expect(REPORTING_READONLY_TOOLS).toContain('send_thread_message')
+		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
+		expect(capabilityFor('why-investigator')).toEqual({ kind: 'research', tools: { exclude: [...WRITE_TOOLS] } })
+		expect(capabilityFor('reflect-synthesizer').kind).toBe('research')
+		expect(capabilityFor('feature')).toEqual({ kind: 'implementation', tools: 'all' })
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute({ role: 'how-explorer', prompt: 'inspect' }, { thread: { id: 'T-parent' } })
+		expect(amp.created.at(-1)).toMatchObject({ tools: { include: [...REPORTING_READONLY_TOOLS] } })
+		await tool(amp, 'pstack_start_agent').execute({ role: 'why-investigator', prompt: 'research' }, { thread: { id: 'T-parent' } })
+		expect(amp.created.at(-1)).toMatchObject({ tools: { exclude: [...WRITE_TOOLS] } })
 	})
 
 	test('startup registration publishes the shipped lineup at high effort', async () => {
@@ -1417,8 +1163,9 @@ describe('runtime tool behavior', () => {
 		expect(tooling?.agent).toMatchObject({ model: 'openai/gpt-6-sol', reasoningEffort: 'max' })
 	})
 
-	test('panel delegates have distinct threads and preserve poteto wrapper boundaries', async () => {
+	test('panel delegates have distinct threads and preserve caller templates', async () => {
 		const amp = await loadPlugin()
+		const architectPrompt = 'Load pstack:typescript-best-practices.\n\n<FILLED ARCHITECT TEMPLATE>'
 		amp.config[CONFIG_KEY] = {
 			'architect-runners': ['builtin:high', 'builtin:medium'],
 			'interrogate-reviewers': ['builtin:high', 'builtin:medium'],
@@ -1426,7 +1173,7 @@ describe('runtime tool behavior', () => {
 		const firstCreated = amp.created.length
 		const architect = JSON.parse(
 			await tool(amp, 'pstack_run_panel').execute(
-				{ panel: 'architect-runners', prompt: 'sketch it' },
+				{ panel: 'architect-runners', prompt: architectPrompt },
 				{ thread: { id: 'T-parent' } },
 			),
 		)
@@ -1439,8 +1186,10 @@ describe('runtime tool behavior', () => {
 			'T-child-2',
 		])
 		for (const definition of amp.created.slice(firstCreated, firstCreated + 2)) {
-			expect(String(definition.instructions)).toContain(POTETO_DELEGATE_INSTRUCTIONS)
+			expect(String(definition.instructions)).toMatch(/^You are a pstack delegate running in Amp\./)
+			expect(String(definition.instructions)).not.toContain('pstack:')
 		}
+		expect(amp.started.slice(-2).every(({ prompt }) => String(prompt).includes(architectPrompt))).toBe(true)
 
 		const secondCreated = amp.created.length
 		await tool(amp, 'pstack_run_panel').execute(
@@ -1448,7 +1197,7 @@ describe('runtime tool behavior', () => {
 			{ thread: { id: 'T-parent' } },
 		)
 		for (const definition of amp.created.slice(secondCreated, secondCreated + 2)) {
-			expect(String(definition.instructions)).not.toContain(POTETO_DELEGATE_INSTRUCTIONS)
+			expect(String(definition.instructions)).not.toContain('rubric')
 		}
 
 		await tool(amp, 'pstack_start_agent').execute(
@@ -1461,7 +1210,7 @@ describe('runtime tool behavior', () => {
 			},
 			{ thread: { id: 'T-parent' } },
 		)
-		expect(String(amp.created.at(-1)?.instructions)).not.toContain(POTETO_DELEGATE_INSTRUCTIONS)
+		expect(String(amp.created.at(-1)?.instructions)).not.toContain('Read every candidate thread')
 	})
 
 	test('cross-judge selects one known different-family pool model from the parent', async () => {
@@ -1513,59 +1262,15 @@ describe('runtime tool behavior', () => {
 			),
 		).rejects.toThrow('Unknown pstack panel')
 	})
-
-	test('run_agent timeout keeps the child thread as owner', async () => {
-		const amp = await loadPlugin({
-			waitError: new Error('wait expired'),
-			waitState: 'running',
-		})
-		const result = JSON.parse(
-			await tool(amp, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'explain fixture' },
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(result.status).toBe('timeout')
-		expect(result.threadID).toBe('T-child')
-		expect(result.text).toContain('Child thread T-child is still the owner')
-		expect(result.text).toContain('Do not redo the delegated work')
-	})
-
-	test('reports terminal child errors without calling them timeouts', async () => {
-		const terminal = await loadPlugin({
-			waitError: new Error('authentication failed'),
-			waitState: 'error',
-		})
-		const failed = JSON.parse(
-			await tool(terminal, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'explain fixture' },
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(failed).toMatchObject({
-			status: 'error',
-			threadID: 'T-child',
-		})
-		expect(failed.text).toContain('authentication failed')
-		expect(failed.text).not.toContain('Timed out')
-		expect(failed.text).not.toContain('still the owner')
-
-		const unclassified = await loadPlugin({
-			waitError: new Error('transport closed'),
-			waitState: 'idle',
-		})
-		const unknownFailure = JSON.parse(
-			await tool(unclassified, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'explain fixture' },
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(unknownFailure).toMatchObject({
-			status: 'error',
-			threadID: 'T-child',
-		})
-		expect(unknownFailure.text).toContain('transport closed')
-		expect(unknownFailure.text).not.toContain('Timed out')
+	test('registers exactly the five retained tools', async () => {
+		const amp = await loadPlugin()
+		expect([...amp.tools.keys()]).toEqual([
+			'pstack_run_panel',
+			'pstack_start_agent',
+			'pstack_stop_agent',
+			'pstack_read_current_thread',
+			'pstack_configure_models',
+		])
 	})
 
 	test('start_agent returns immediately and tells the child to report', async () => {
@@ -1600,6 +1305,24 @@ describe('runtime tool behavior', () => {
 		)
 		expect(amp.created).toHaveLength(amp.preloadedAgentCount + 1)
 		expect(amp.registeredModes).toHaveLength(amp.preloadedModeCount)
+	})
+
+	test('start_agent final-text reporting supports native wait/read without requesting a reply', async () => {
+		const amp = await loadPlugin({ waitError: new Error('must not wait') })
+		const result = JSON.parse(await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explorer', prompt: 'Inspect only.', reporting: 'final-text' },
+			{ thread: { id: 'T-parent' } },
+		))
+		expect(result.threadID).toBe('T-child')
+		expect(amp.waited).toHaveLength(0)
+		expect(String(amp.started[0]?.prompt)).toContain('return a compact report as final text')
+		expect(String(amp.started[0]?.prompt)).toContain('Do not call send_thread_message')
+		const child = amp.started[0] as { emit: (state: string) => void }
+		child.emit('running')
+		expect(await amp.emit('tool.call', {
+			tool: 'apply_patch', thread: { id: result.threadID }, input: {},
+		})).toMatchObject({ action: 'reject-and-continue' })
+		child.emit('idle')
 	})
 
 	test('start_agent surfaces blocked-report checks on the parent return and child instructions', async () => {
@@ -2186,303 +1909,12 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
-	test('webhook handler appends one structural envelope and keeps the URL out of transcript output', async () => {
-		const amp = await loadPlugin()
-		const appended: string[] = []
-		const notifications: string[] = []
-		const created = JSON.parse(
-			await tool(amp, 'pstack_create_wake_webhook').execute(
-				{ key: 'issue-report', instruction: 'triage this' },
-				{
-					thread: { id: 'T-owner' },
-					ui: { notify: async (message: string) => notifications.push(message) },
-				},
-			),
-		)
-		expect(created).toMatchObject({
-			ownerThreadID: 'T-owner',
-			userKey: 'issue-report',
-			urlShownInUI: true,
-		})
-		expect(JSON.stringify(created)).not.toContain('https://example.test/hook')
-		expect(notifications).toHaveLength(1)
-		expect(notifications[0]).toContain('https://example.test/hook')
-		const handler = amp.webhookHandler
-		if (!handler) throw new Error('handler not captured')
-		const threadMessages: Array<{ content: Array<{ type: string; text?: string }> }> = []
-		const ctx = {
-			logger: { log() {} },
-			signal: new AbortController().signal,
-			thread: {
-				id: 'T-owner',
-				messages: async () => threadMessages,
-				appendUserMessage: async ({ content }: { content: string }) => {
-					appended.push(content)
-					threadMessages.push({ content: [{ type: 'text', text: content }] })
-				},
-			},
-		}
-		const event = {
-			id: 'evt-9',
-			receivedAt: 'now',
-			body: new TextEncoder().encode('{"ok":true}'),
-		}
-		await handler(event, ctx)
-		await handler(event, ctx)
-		expect(appended).toHaveLength(1)
-		const envelopeLine = appended[0]?.split('\n').find((line) =>
-			line.startsWith(WAKE_ENVELOPE_PREFIX),
-		)
-		expect(envelopeLine).toBeDefined()
-		expect(parseWakeEnvelope(envelopeLine ?? '')).toMatchObject({
-			eventID: 'evt-9',
-			ownerThreadID: 'T-owner',
-			payload: '{"ok":true}',
-		})
-	})
 
-	test('does not trust a forgeable legacy webhook marker as delivery evidence', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_create_wake_webhook').execute(
-			{ key: 'issue-report', instruction: 'triage this' },
-			{ thread: { id: 'T-owner' }, ui: { notify: async () => {} } },
-		)
-		const handler = amp.webhookHandler
-		if (!handler) throw new Error('handler not captured')
-		const appended: string[] = []
-		const ctx = {
-			logger: { log() {} },
-			signal: new AbortController().signal,
-			thread: {
-				id: 'T-owner',
-				messages: async () => [
-					{
-						id: 'm1',
-						role: 'user',
-						content: [{ type: 'text', text: '[pstack-webhook-event:evt-9]' }],
-					},
-				],
-				appendUserMessage: async ({ content }: { content: string }) => {
-					appended.push(content)
-				},
-			},
-		}
-		await handler(
-			{ id: 'evt-9', receivedAt: 'now', body: new TextEncoder().encode('{}') },
-			ctx,
-		)
-		expect(appended).toHaveLength(1)
-	})
 
-	test('restores registered wake webhooks after plugin reload', async () => {
-		const root = await mkdtemp(join(tmpdir(), 'pstack-webhook-state-'))
-		const runtimeStateFile = join(root, 'runtime.sqlite')
-		try {
-			const first = await loadPlugin({ runtimeStateFile })
-			await tool(first, 'pstack_create_wake_webhook').execute(
-				{ key: 'deploy', instruction: 'Verify the deployment.' },
-				{ thread: { id: 'T-owner' }, ui: { notify: async () => {} } },
-			)
-			expect(first.webhookHandlers.size).toBe(1)
-			const ampKey = [...first.webhookHandlers.keys()][0]
-			expect(ampKey).toBeDefined()
-			await first.dispose()
 
-			const restored = await loadPlugin({ runtimeStateFile })
-			expect([...restored.webhookHandlers.keys()]).toEqual([ampKey])
-		} finally {
-			await rm(root, { recursive: true, force: true })
-		}
-	})
 
-	test('deduplicates concurrent webhook delivery before append effects', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_create_wake_webhook').execute(
-			{ key: 'deploy', instruction: 'Verify the deployment.' },
-			{ thread: { id: 'T-owner' }, ui: { notify: async () => {} } },
-		)
-		const handler = amp.webhookHandler
-		if (!handler) throw new Error('handler not captured')
 
-		let releaseAppend: (() => void) | undefined
-		const appendGate = new Promise<void>((resolve) => {
-			releaseAppend = resolve
-		})
-		let appendStarted: (() => void) | undefined
-		const firstAppend = new Promise<void>((resolve) => {
-			appendStarted = resolve
-		})
-		const appended: string[] = []
-		const threadMessages: Array<{ content: Array<{ type: string; text?: string }> }> = []
-		const ctx = {
-			logger: { log() {} },
-			signal: new AbortController().signal,
-			thread: {
-				id: 'T-owner',
-				messages: async () => threadMessages,
-				appendUserMessage: async ({ content }: { content: string }) => {
-					appended.push(content)
-					appendStarted?.()
-					await appendGate
-					threadMessages.push({ content: [{ type: 'text', text: content }] })
-				},
-			},
-		}
-		const event = {
-			id: 'evt-race',
-			receivedAt: 'now',
-			body: new TextEncoder().encode('{"status":"ready"}'),
-		}
 
-		const first = handler(event, ctx)
-		await firstAppend
-		const duplicate = handler(event, ctx)
-		for (let turn = 0; turn < 6; turn += 1) await Promise.resolve()
-		const attemptsBeforeRelease = appended.length
-		releaseAppend?.()
-		await Promise.all([first, duplicate])
-
-		expect(attemptsBeforeRelease).toBe(1)
-		expect(appended).toHaveLength(1)
-	})
-
-	test('recovers an appended webhook event beyond the first transcript page', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_create_wake_webhook').execute(
-			{ key: 'deploy', instruction: 'Verify the deployment.' },
-			{ thread: { id: 'T-owner' }, ui: { notify: async () => {} } },
-		)
-		const handler = amp.webhookHandler
-		if (!handler) throw new Error('handler not captured')
-		const messages: Array<{
-			id: string
-			role: 'user'
-			content: Array<{ type: 'text'; text: string }>
-		}> = []
-		const firstContext = {
-			logger: { log() {} },
-			signal: new AbortController().signal,
-			thread: {
-				id: 'T-owner',
-				messages: async () => messages,
-				appendUserMessage: async ({ content }: { content: string }) => {
-					messages.push({
-						id: 'delivered',
-						role: 'user',
-						content: [{ type: 'text', text: content }],
-					})
-					throw new Error('append acknowledgement lost')
-				},
-			},
-		}
-		const event = {
-			id: 'evt-crash-window',
-			receivedAt: 'now',
-			body: new TextEncoder().encode('{"status":"ready"}'),
-		}
-		await expect(handler(event, firstContext)).rejects.toThrow('append acknowledgement lost')
-		for (let index = 0; index < 25; index += 1) {
-			messages.push({
-				id: `later-${index}`,
-				role: 'user',
-				content: [{ type: 'text', text: `later message ${index}` }],
-			})
-		}
-		const duplicateAppends: string[] = []
-		const recoveryContext = {
-			logger: { log() {} },
-			signal: new AbortController().signal,
-			thread: {
-				id: 'T-owner',
-				messages: async ({
-					from = 'end',
-					offset = 0,
-					limit = 10,
-				}: {
-					from?: 'start' | 'end'
-					offset?: number
-					limit?: number
-				}) => {
-					const size = Math.min(limit, 20)
-					if (from === 'start') return messages.slice(offset, offset + size)
-					const end = Math.max(0, messages.length - offset)
-					return messages.slice(Math.max(0, end - size), end)
-				},
-				appendUserMessage: async ({ content }: { content: string }) => {
-					duplicateAppends.push(content)
-				},
-			},
-		}
-
-		await handler(event, recoveryContext)
-
-		expect(duplicateAppends).toHaveLength(0)
-	})
-
-	test('strict read-only roles use an allowlist, research keeps MCP, writers keep all tools', async () => {
-		expect(capabilityFor('how-explorer')).toEqual({
-			kind: 'strict-readonly',
-			tools: { include: REPORTING_READONLY_TOOLS },
-		})
-		expect(capabilityFor('interrogate-reviewers-2')).toEqual({
-			kind: 'strict-readonly',
-			tools: { include: STRICT_READONLY_TOOLS },
-		})
-		expect(capabilityFor('comment-reviewer')).toEqual({
-			kind: 'strict-readonly',
-			tools: { include: REPORTING_READONLY_TOOLS },
-		})
-		expect(capabilityFor('arena-cross-judge')).toEqual({
-			kind: 'strict-readonly',
-			tools: { include: REPORTING_READONLY_TOOLS },
-		})
-		expect(STRICT_READONLY_TOOLS).toContain('Read')
-		expect(STRICT_READONLY_TOOLS).toContain('read_thread')
-		expect(STRICT_READONLY_TOOLS).not.toContain('send_thread_message')
-		expect(REPORTING_READONLY_TOOLS).toContain('send_thread_message')
-		expect(capabilityFor('interrogate-reviewers-2').tools).toEqual({
-			include: STRICT_READONLY_TOOLS,
-		})
-		expect(STRICT_READONLY_TOOLS).not.toContain('shell_command')
-		expect(STRICT_READONLY_TOOLS).not.toContain('mcp__linear__list')
-		expect(capabilityFor('why-investigator')).toEqual({
-			kind: 'research',
-			tools: { exclude: [...WRITE_TOOLS] },
-		})
-		expect(capabilityFor('reflect-judgment').kind).toBe('research')
-		expect(capabilityFor('reflect-divergent').kind).toBe('research')
-		expect(capabilityFor('reflect-synthesizer').kind).toBe('research')
-		expect(capabilityFor('feature')).toEqual({ kind: 'implementation', tools: 'all' })
-		expect(capabilityFor('refactoring')).toEqual({ kind: 'implementation', tools: 'all' })
-		expect(capabilityFor('architect-runners-1')).toEqual({ kind: 'implementation', tools: 'all' })
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'how-explorer', prompt: 'inspect it' },
-			{ thread: { id: 'T-parent' } },
-		)
-		expect(amp.created.at(-1)).toMatchObject({ tools: { include: [...REPORTING_READONLY_TOOLS] } })
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'why-investigator', prompt: 'research it' },
-			{ thread: { id: 'T-parent' } },
-		)
-		expect(amp.created.at(-1)).toMatchObject({ tools: { exclude: [...WRITE_TOOLS] } })
-	})
-
-	test('blocking implementation starts and empty implementation scopes are rejected', async () => {
-		const amp = await loadPlugin()
-		await expect(
-			tool(amp, 'pstack_run_agent').execute(
-				{ role: 'feature', prompt: 'implement it' },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow(IMPLEMENTATION_BLOCKING_ERROR)
-		await expect(
-			tool(amp, 'pstack_start_agent').execute(
-				{ role: 'bug-fix', prompt: 'fix it', launchTarget: { kind: 'current-checkout' } },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('Missing scope')
-	})
 
 	test('one implementation owner wins concurrent starts and names the existing owner', async () => {
 		const amp = await loadPlugin()
@@ -2669,67 +2101,6 @@ describe('runtime tool behavior', () => {
 		).resolves.toContain('T-child-2')
 	})
 
-	test('child state ignores initial idle, retains ownership on timeout, and releases after running', async () => {
-		const amp = await loadPlugin({ waitError: new Error('wait expired') })
-		await tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
-		const child = amp.started[0] as { emit: (state: string) => void }
-		child.emit('idle')
-		await expect(
-			tool(amp, 'pstack_start_agent').execute(
-				{
-					role: 'bug-fix',
-					prompt: 'second',
-					scope: 'other.ts',
-					scopePaths: ['index.ts'],
-					launchTarget: { kind: 'current-checkout' },
-				},
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('Implementation resource')
-
-		const timeout = await loadPlugin({
-			waitError: new Error('wait expired'),
-			waitState: 'running',
-		})
-		const timed = JSON.parse(
-			await tool(timeout, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'explain it' },
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(timed.status).toBe('timeout')
-		await expect(
-			tool(timeout, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
-		).resolves.toBeDefined()
-
-		const released = await loadPlugin()
-		await tool(released, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
-		const running = released.started[0] as { emit: (state: string) => void }
-		running.emit('running')
-		running.emit('idle')
-		const again = JSON.parse(
-			await tool(released, 'pstack_start_agent').execute(
-				{
-					role: 'bug-fix',
-					prompt: 'next',
-					scope: 'other.ts',
-					launchTarget: { kind: 'current-checkout' },
-				},
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(again.role).toBe('bug-fix')
-
-		const errored = await loadPlugin()
-		await tool(errored, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
-		const errChild = errored.started[0] as { emit: (state: string) => void }
-		errChild.emit('awaiting-approval')
-		errChild.emit('error')
-		const afterError = JSON.parse(
-			await tool(errored, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),
-		)
-		expect(afterError.threadID).toBe('T-child-2')
-	})
 
 	test('parent writes and helper-recognized mutations are rejected while an owner is live', async () => {
 		const amp = await loadPlugin()
@@ -2851,93 +2222,49 @@ describe('runtime tool behavior', () => {
 	const writeAttempt = (amp: { emit: (event: string, payload: Record<string, unknown>) => Promise<unknown> }, threadID: string) =>
 		amp.emit('tool.call', { tool: 'edit_file', thread: { id: threadID }, input: {} })
 
-	test('blocking strict read-only agent and panel seats stay guarded after plugin reload', async () => {
-		const root = await mkdtemp(join(tmpdir(), 'pstack-blocking-readonly-state-'))
+	test('child initial idle is ignored and implementation ownership releases only after running terminal state', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
+		const child = amp.started[0] as { emit: (state: string) => void }
+		child.emit('idle')
+		await expect(tool(amp, 'pstack_start_agent').execute({ ...implStart, role: 'bug-fix', prompt: 'second' }, { thread: { id: 'T-other' } })).rejects.toThrow('Implementation resource')
+		child.emit('running')
+		child.emit('idle')
+		await expect(tool(amp, 'pstack_start_agent').execute({ ...implStart, role: 'bug-fix', prompt: 'second' }, { thread: { id: 'T-other' } })).resolves.toContain('T-child-2')
+	})
+
+	test('strict read-only identity is permanent through terminal re-steer and append uncertainty', async () => {
+		const amp = await loadPlugin({ appendError: new Error('append acknowledgement lost') })
+		await expect(tool(amp, 'pstack_start_agent').execute({ role: 'comment-reviewer', prompt: 'review it' }, { thread: { id: 'T-parent' } })).rejects.toThrow('append acknowledgement lost')
+		expect(await writeAttempt(amp, 'T-child')).toMatchObject({ action: 'reject-and-continue' })
+		const normal = await loadPlugin()
+		await tool(normal, 'pstack_start_agent').execute({ role: 'how-explorer', prompt: 'inspect' }, { thread: { id: 'T-parent' } })
+		const child = normal.started[0] as { id: string; emit: (state: string) => void }
+		child.emit('running')
+		child.emit('idle')
+		child.emit('running')
+		expect(await writeAttempt(normal, child.id)).toMatchObject({ action: 'reject-and-continue' })
+		child.emit('error')
+		expect(await writeAttempt(normal, child.id)).toMatchObject({ action: 'reject-and-continue' })
+	})
+
+	test('strict panel seats remain guarded after reload while non-strict and unrelated threads stay writable', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-guard-controls-'))
 		const runtimeStateFile = join(root, 'runtime.sqlite')
 		try {
 			const first = await loadPlugin({ runtimeStateFile })
-			const single = JSON.parse(
-				await tool(first, 'pstack_run_agent').execute(
-					{ role: 'comment-reviewer', prompt: 'review it' },
-					{ thread: { id: 'T-parent' } },
-				),
-			)
-			const panel = JSON.parse(
-				await tool(first, 'pstack_run_panel').execute(
-					{ panel: 'interrogate-reviewers', prompt: 'challenge it' },
-					{ thread: { id: 'T-parent' } },
-				),
-			)
-			expect([single.threadID, ...panel.map(({ threadID }: { threadID: string }) => threadID)]).toEqual([
-				'T-child',
-				'T-child-2',
-				'T-child-3',
-				'T-child-4',
-			])
+			const panel = JSON.parse(await tool(first, 'pstack_run_panel').execute({ panel: 'interrogate-reviewers', prompt: 'review' }, { thread: { id: 'T-parent' } }))
+			await tool(first, 'pstack_start_agent').execute({ role: 'judgment', prompt: 'judge' }, { thread: { id: 'T-parent' } })
+			for (const child of first.started as Array<{ emit: (state: string) => void }>) { child.emit('running'); child.emit('idle') }
 			await first.dispose()
-
-			const restored = await loadPlugin({
-				runtimeStateFile,
-				restoredThreadStates: { 'T-child': 'running', 'T-child-2': 'idle', 'T-child-3': 'running', 'T-child-4': 'error' },
-			})
-			await Bun.sleep(0)
-			expect(restored.sent).toHaveLength(0)
-			for (const [threadID, role] of [
-				['T-child', 'comment-reviewer'],
-				['T-child-2', 'interrogate-reviewers-1'],
-				['T-child-3', 'interrogate-reviewers-2'],
-				['T-child-4', 'interrogate-reviewers-3'],
-			]) {
-				const rejected = await writeAttempt(restored, threadID)
-				expect(rejected).toEqual({
-					action: 'reject-and-continue',
-					message: `Strict read-only role ${role} cannot mutate files.`,
-				})
-			}
-		} finally {
-			await rm(root, { recursive: true, force: true })
-		}
+			const restored = await loadPlugin({ runtimeStateFile })
+			for (const { threadID } of panel) expect(await writeAttempt(restored, threadID)).toMatchObject({ action: 'reject-and-continue' })
+			expect(await writeAttempt(restored, 'T-child-4')).toEqual({ action: 'allow' })
+			expect(await writeAttempt(restored, 'T-unrelated')).toEqual({ action: 'allow' })
+		} finally { await rm(root, { recursive: true, force: true }) }
 	})
 
-	test('strict read-only children stay guarded after terminal state and re-steer with unchanged fallbacks', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'how-explorer', prompt: 'investigate' },
-			{ thread: { id: 'T-parent' } },
-		)
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'comment-reviewer', prompt: 'review it' },
-			{ thread: { id: 'T-review-parent' } },
-		)
-		const children = amp.started as Array<{ id: string; emit: (state: string) => void }>
-		for (const child of children) child.emit('idle')
-		for (const child of children) {
-			child.emit('running')
-			child.emit('idle')
-		}
-		await Bun.sleep(0)
-		expect(amp.sent).toEqual([{
-			threadID: 'T-parent',
-			content: expect.stringContaining('Child T-child reached terminal state idle'),
-			steer: true,
-		}])
-		for (const child of children) {
-			child.emit('running')
-			expect(await writeAttempt(amp, child.id)).toMatchObject({ action: 'reject-and-continue' })
-			expect(await amp.emit('tool.call', {
-				tool: 'shell_command',
-				thread: { id: child.id },
-				input: { command: "sed -i 's/a/b/' index.ts" },
-				filesModified: ['index.ts'],
-			})).toMatchObject({ action: 'reject-and-continue' })
-			child.emit('error')
-		}
-		await Bun.sleep(0)
-		expect(amp.sent).toHaveLength(1)
-		for (const child of children) {
-			expect(await writeAttempt(amp, child.id)).toMatchObject({ action: 'reject-and-continue' })
-		}
-	})
+
 
 	test('report and stop clean notification tickets but keep strict read-only identity across reload', async () => {
 		const root = await mkdtemp(join(tmpdir(), 'pstack-readonly-cleanup-state-'))
@@ -2993,57 +2320,7 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
-	test('non-strict children and unrelated threads stay writable after terminal state and reload', async () => {
-		const root = await mkdtemp(join(tmpdir(), 'pstack-writable-control-state-'))
-		const runtimeStateFile = join(root, 'runtime.sqlite')
-		try {
-			const first = await loadPlugin({ runtimeStateFile })
-			await tool(first, 'pstack_start_agent').execute(
-				{ role: 'judgment', prompt: 'review with tests' },
-				{ thread: { id: 'T-parent' } },
-			)
-			await tool(first, 'pstack_start_agent').execute(
-				{ role: 'why-investigator', prompt: 'dig' },
-				{ thread: { id: 'T-parent' } },
-			)
-			await tool(first, 'pstack_run_agent').execute(
-				{ role: 'swarm-worker', prompt: 'cover a slice' },
-				{ thread: { id: 'T-parent' } },
-			)
-			const ids = ['T-child', 'T-child-2', 'T-child-3', 'T-unrelated']
-			for (const child of first.started as Array<{ emit: (state: string) => void }>) {
-				child.emit('running')
-				child.emit('idle')
-			}
-			for (const threadID of ids) {
-				expect(await writeAttempt(first, threadID)).toEqual({ action: 'allow' })
-			}
-			await first.dispose()
 
-			const restored = await loadPlugin({ runtimeStateFile })
-			for (const threadID of ids) {
-				expect(await writeAttempt(restored, threadID)).toEqual({ action: 'allow' })
-			}
-		} finally {
-			await rm(root, { recursive: true, force: true })
-		}
-	})
-
-	test('blocking strict read-only append failure keeps the guard because delivery is uncertain', async () => {
-		const amp = await loadPlugin({ appendError: new Error('append acknowledgement lost') })
-		await expect(
-			tool(amp, 'pstack_run_agent').execute(
-				{ role: 'comment-reviewer', prompt: 'review it' },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('append acknowledgement lost')
-		expect(await writeAttempt(amp, 'T-child')).toEqual({
-			action: 'reject-and-continue',
-			message: 'Strict read-only role comment-reviewer cannot mutate files.',
-		})
-		await Bun.sleep(0)
-		expect(amp.sent).toHaveLength(0)
-	})
 
 	test('native-orb rejects read-only and research agentMode overrides before reserving and keeps judgment overrides', async () => {
 		const amp = await loadPlugin()
@@ -3155,129 +2432,19 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
-	test('remote parents keep plugin children in orbs and reject local routing', async () => {
-		const background = await loadPlugin({ executorKind: 'remote' })
-		const implementation = JSON.parse(
-			await tool(background, 'pstack_start_agent').execute(
-				{
-					role: 'feature',
-					prompt: 'implement from the parent project base',
-					scope: 'index.ts routing',
-				},
-				{ thread: { id: 'T-remote-parent' } },
-			),
-		)
-		expect(implementation).toMatchObject({
-			executor: 'orb',
-			launchTarget: { kind: 'parent-project-orb' },
-		})
-		expect(background.started[0]).toMatchObject({ executor: 'orb' })
-		background.flushOrbSelections()
-		await expect(
-			tool(background, 'pstack_start_agent').execute(
-				{
-					role: 'bug-fix',
-					prompt: 'incorrectly request the orb checkout as local',
-					scope: 'src/bug.ts',
-					launchTarget: { kind: 'current-checkout' },
-				},
-				{ thread: { id: 'T-other-remote-parent' } },
-			),
-		).rejects.toThrow('current-checkout is unavailable when the parent runs in an orb')
-		await expect(
-			tool(background, 'pstack_start_agent').execute(
-				{
-					role: 'how-explorer',
-					prompt: 'contradictory explicit routing',
-					executor: 'local',
-					launchTarget: { kind: 'repo-independent-orb' },
-				},
-				{ thread: { id: 'T-other-remote-parent' } },
-			),
-		).rejects.toThrow('executor local is unavailable when the parent runs in an Amp-managed orb')
 
-		const blocking = await loadPlugin({ executorKind: 'remote' })
-		await tool(blocking, 'pstack_run_agent').execute(
-			{ role: 'how-explainer', prompt: 'explain it' },
-			{ thread: { id: 'T-remote-parent' } },
-		)
-		expect(blocking.started[0]).toMatchObject({ executor: 'orb' })
-		blocking.flushOrbSelections()
-		await expect(
-			tool(blocking, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'wrong executor', executor: 'local' },
-				{ thread: { id: 'T-remote-parent' } },
-			),
-		).rejects.toThrow('executor local is unavailable when the parent runs in an Amp-managed orb')
 
-		const panel = await loadPlugin({ executorKind: 'remote' })
-		await tool(panel, 'pstack_run_panel').execute(
-			{ panel: 'interrogate-reviewers', prompt: 'review it' },
-			{ thread: { id: 'T-remote-parent' } },
-		)
-		expect(panel.started).not.toHaveLength(0)
-		expect(panel.started.every((thread) => thread.executor === 'orb')).toBe(true)
-		panel.flushOrbSelections()
-		await expect(
-			tool(panel, 'pstack_run_panel').execute(
-				{ panel: 'interrogate-reviewers', prompt: 'wrong executor', executor: 'local' },
-				{ thread: { id: 'T-remote-parent' } },
-			),
-		).rejects.toThrow('executor local is unavailable when the parent runs in an Amp-managed orb')
-	})
-
-	test('routes named runners through native create_thread and rejects blocking recursion', async () => {
-		const runner = { type: 'runner', id: 'mac-mini' }
-
-		const background = await loadPlugin()
-		const started = JSON.parse(
-			await tool(background, 'pstack_start_agent').execute(
-				{
-					role: 'feature',
-					prompt: 'implement on the hardware runner',
-					scope: 'src/hardware.ts',
-					launchTarget: { kind: 'named-runner', runnerId: runner.id },
-				},
-				{ thread: { id: 'T-parent' } },
-			),
-		)
-		expect(started).toMatchObject({
-			action: 'use-native-create-thread',
-			launchTarget: { kind: 'named-runner', runnerId: runner.id },
-			create_thread: {
-				executor: 'runner',
-				runner_id: runner.id,
-				agent_mode: 'pstack-feature',
-				intent: 'delegation',
-				prompt: backgroundChildPrompt('implement on the hardware runner', 'T-parent'),
-			},
-		})
-		expect(started.next).toContain('inspect the actual child tool-call/result status and output')
-		expect(started.next).toContain('steer that same child instead of replacing it')
-		expect(background.started).toHaveLength(0)
-
-		const blocking = await loadPlugin()
-		await expect(
-			tool(blocking, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'explain on the runner', executor: runner },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('pstack_start_agent')
-
-		const panel = await loadPlugin()
-		await expect(
-			tool(panel, 'pstack_run_panel').execute(
-				{ panel: 'arena-runners', prompt: 'review on the runner', executor: runner },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('pstack_start_agent')
-
-		await expect(
-			tool(blocking, 'pstack_run_agent').execute(
-				{ role: 'how-explainer', prompt: 'bad runner', executor: { type: 'runner', id: ' ' } },
-				{ thread: { id: 'T-parent' } },
-			),
-		).rejects.toThrow('runner executor requires a non-empty id')
+	test('remote parents use orbs and named runners use native redirects without blocking recursion', async () => {
+		const remote = await loadPlugin({ executorKind: 'remote' })
+		const child = JSON.parse(await tool(remote, 'pstack_start_agent').execute({ role: 'feature', prompt: 'implement', scope: 'index.ts routing' }, { thread: { id: 'T-remote' } }))
+		expect(child).toMatchObject({ executor: 'orb', launchTarget: { kind: 'parent-project-orb' } })
+		await expect(tool(remote, 'pstack_start_agent').execute({ role: 'how-explorer', prompt: 'wrong route', executor: 'local' }, { thread: { id: 'T-other' } })).rejects.toThrow('executor local is unavailable')
+		const local = await loadPlugin()
+		const redirected = JSON.parse(await tool(local, 'pstack_start_agent').execute({ role: 'feature', prompt: 'hardware', scope: 'src/hardware.ts', launchTarget: { kind: 'named-runner', runnerId: 'mac-mini' } }, { thread: { id: 'T-parent' } }))
+		expect(redirected).toMatchObject({ action: 'use-native-create-thread', create_thread: { executor: 'runner', runner_id: 'mac-mini', agent_mode: 'pstack-feature' } })
+		expect(local.started).toHaveLength(0)
+		await expect(tool(local, 'pstack_run_panel').execute({ panel: 'arena-runners', prompt: 'review', executor: { type: 'runner', id: 'mac-mini' } }, { thread: { id: 'T-parent' } })).rejects.toThrow('pstack_start_agent')
+		await expect(tool(local, 'pstack_start_agent').execute({ role: 'how-explainer', prompt: 'bad runner', launchTarget: { kind: 'named-runner', runnerId: ' ' } }, { thread: { id: 'T-parent' } })).rejects.toThrow('non-empty')
 	})
 
 	test('distinguishes remote runners from Amp orbs', async () => {
@@ -3666,10 +2833,12 @@ describe('runtime tool behavior', () => {
 			{ id: 'M-prompt', role: 'user', content: [{ type: 'text', text: 'work' }] },
 			{ id: 'M-final', role: 'assistant', content: [{ type: 'text', text: 'already complete' }] },
 		]
+		const nativePrompt = 'Do not load skills.\n\n<FILLED READONLY TEMPLATE>'
 		const native = JSON.parse(await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'how-explorer', prompt: 'work', launchTarget: { kind: 'native-orb', project: 'amp/pstack' } },
+			{ role: 'how-explorer', prompt: nativePrompt, launchTarget: { kind: 'native-orb', project: 'amp/pstack' } },
 			{ thread: { id: 'T-native-parent' } },
 		))
+		expect(native.create_thread.prompt).toStartWith(nativePrompt)
 		await amp.emit('tool.call', {
 			tool: 'create_thread', toolUseID: 'toolu-late-result', thread: { id: 'T-native-parent' }, input: native.create_thread,
 		})
@@ -4339,13 +3508,11 @@ describe('runtime tool behavior', () => {
 	test('plugin dispose clears process resources without reopening the disposed instance', async () => {
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } })
-		await tool(amp, 'pstack_run_agent').execute(
-			{ role: 'comment-reviewer', prompt: 'review it', executor: 'orb' },
-			{ thread: { id: 'T-review-parent' } },
-		)
+		await tool(amp, 'pstack_start_agent').execute({ role: 'comment-reviewer', prompt: 'review it', executor: 'orb' }, { thread: { id: 'T-review-parent' } })
 		expect(amp.registeredModes).toHaveLength(amp.preloadedModeCount)
 		await amp.dispose()
 		expect(amp.logs.some((line) => line.includes('Discarding'))).toBe(true)
 		expect(amp.registeredModes.every(({ active }) => !active)).toBe(true)
 	})
+
 })

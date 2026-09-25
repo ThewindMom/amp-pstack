@@ -40,9 +40,6 @@ export type ParentExecutorKind = 'local' | 'orb' | 'runner' | 'remote' | 'unknow
 export const ARBITRARY_SHELL_GAP =
 	'Arbitrary shell_command is not classified as a write. filesModifiedByToolCall recognizes editor calls and limited in-place mutations such as sed, not arbitrary shell, other processes, user edits, or unpaired native threads.'
 
-export const IMPLEMENTATION_BLOCKING_ERROR =
-	'Implementation roles cannot use blocking pstack_run_agent. Use pstack_start_agent with a non-empty scope and a launch target.'
-
 export const REMOTE_LOCAL_EXECUTOR_ERROR =
 	'executor local is unavailable when the parent runs in an Amp-managed orb. Keep work that needs the live orb filesystem in the parent, or use a fresh orb with transferred inputs.'
 
@@ -1116,7 +1113,7 @@ export class WorkflowParityPolicy {
 		if (
 			state &&
 			(state === 'idle' || state === 'error') &&
-			(child.kind === 'implementation' || child.kind === 'strict-readonly' || child.kind === 'background' || threadID.startsWith('cli-'))
+			(child.kind === 'implementation' || child.kind === 'strict-readonly' || child.kind === 'background')
 		) {
 			this.terminalNotifier?.(threadID, child.parentThreadID, state)
 		}

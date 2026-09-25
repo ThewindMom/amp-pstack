@@ -50,7 +50,7 @@ Read `references/reviewer-prompt.md` and fill in the template with:
 3. The review rubric from `references/rubric.md`
 4. The code-quality lens from `references/code-quality-review.md`
 
-The same filled template goes to all reviewers, so every model applies the code-quality lens.
+Inline the same complete filled template in every reviewer prompt without summarizing it, so every model applies the code-quality lens. Explicitly tell these strict read-only reviewers not to load skills.
 
 ## Step 4, Synthesize
 

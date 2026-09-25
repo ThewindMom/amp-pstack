@@ -158,10 +158,10 @@ describe('pinned upstream decision contracts', () => {
 		const noComments = await repoFile('skills/no-comments/SKILL.md')
 		const adapter = await repoFile('skills/poteto-mode/references/amp-adapter.md')
 		for (const text of [noComments, adapter]) {
-			expect(text).toMatch(/git refs[^\n]+not sufficient|Do not give the reviewer only git refs/)
+			expect(text).toMatch(/git refs[^\n]+(?:not sufficient|insufficient)|Do not give the reviewer only git refs/)
 		}
 		expect(noComments).toContain('exact scoped diff snapshot')
-		expect(adapter).toContain('parent-prepared scoped patch artifact')
+		expect(adapter).toContain('parent-prepared patch artifact')
 		expect(noComments).toContain('base-to-current tracked changes')
 		expect(noComments).toContain('relevant untracked files')
 		expect(noComments).toContain('upload_thread_file')

@@ -4,8 +4,8 @@ description: "Only use when named or routed by poteto-mode. Reconstructs recent 
 builtin-tools:
   - find_thread
   - read_thread
-  - pstack_run_agent
   - pstack_start_agent
+  - wait_for_threads
 ---
 
 # Recall

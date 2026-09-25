@@ -2,13 +2,13 @@
 name: poteto-mode
 description: "Only use when named through the poteto Amp mode or a request for pstack, poteto, or poteto-mode. Applies concise, rigorous engineering with routed playbooks, multi-model delegates, simple code, and verified work."
 builtin-tools:
-  - pstack_run_agent
   - pstack_run_panel
   - pstack_start_agent
   - pstack_stop_agent
   - pstack_read_current_thread
   - pstack_configure_models
-  - pstack_create_wake_webhook
+  - wait_for_threads
+  - read_thread
 ---
 
 # Poteto mode

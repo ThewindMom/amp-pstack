@@ -35,13 +35,8 @@ import type {
 } from '@ampcode/plugin'
 
 import { RuntimeStore } from './runtime-store'
-import { BACKEND_CONFIG_KEY, backendPreferences, cliSeat, selectBackend } from './backend-routing'
-import { prepareCliRun, type CliRunOptions, type CliBackendId } from './cli-backends'
-import { cliDelegate, type DelegateThread } from './cli-delegate'
-import { WakeWebhookCoordinator } from './webhook-runtime'
 import {
 	CODE_IMPLEMENTATION_ROLES,
-	IMPLEMENTATION_BLOCKING_ERROR,
 	WRITE_TOOLS,
 	WorkflowParityPolicy,
 	capabilityFor,
@@ -65,7 +60,6 @@ import {
 export {
 	ARBITRARY_SHELL_GAP,
 	CODE_IMPLEMENTATION_ROLES,
-	IMPLEMENTATION_BLOCKING_ERROR,
 	REPORTING_READONLY_TOOLS,
 	REMOTE_CURRENT_CHECKOUT_ERROR,
 	REMOTE_LOCAL_EXECUTOR_ERROR,
@@ -86,7 +80,7 @@ export {
 export type { DelegateExecutor, LaunchTarget, ParentExecutorKind } from './workflow-parity'
 
 export const description =
-	'Ports pstack to Amp with 47 workflow skills, the poteto mode, configurable multi-model delegates, background threads, transcript tools, and wake webhooks.'
+	'Ports pstack to Amp with 47 workflow skills, the poteto mode, configurable multi-model delegates, background threads, and transcript tools.'
 
 export const SKILL_PATHS = [
 	'skills/architect',
@@ -184,7 +178,7 @@ export const MODEL_REASONING_EFFORT = {
 	'xai/grok-4.7': 'xhigh',
 } as const satisfies Record<string, AgentReasoningEffort>
 
-const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox. Blocking pstack_run_agent rejects implementation roles.`
+const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox.`
 
 export const CHEAP_MODELS = {
 	hardest: 'openai/gpt-5.6-sol',
@@ -238,7 +232,6 @@ export const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
 export const MIN_TIMEOUT_MS = 30_000
 export const MAX_TIMEOUT_MS = 60 * 60 * 1000
 export const COMMENT_REVIEWER_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
-export const RUN_AGENT_MIN_TIMEOUT_MS = DEFAULT_TIMEOUT_MS
 export const MAX_PANEL_COUNT = 20
 
 export type Seat = Readonly<{ model: string; effort?: AgentReasoningEffort }>
@@ -375,24 +368,14 @@ export const AGENT_INSTRUCTIONS = [
 	'A blocked report must name the attempted tool and its tool-call/result status and output. If no call was attempted, say not attempted, not unavailable.',
 ].join(' ')
 
-export const POTETO_DELEGATE_INSTRUCTIONS =
-	'Before work, load pstack:poteto-mode and read it in full. Follow its principles while directly owning the delegated scope. When applying a principle, load the appropriate pstack:principle-* leaf skill.'
-
-function usesPotetoDelegateWrapper(role: string): boolean {
-	return (
-		CODE_IMPLEMENTATION_ROLES.has(role) ||
-		role === 'judgment' ||
-		role.startsWith('arena-runners-') ||
-		role.startsWith('architect-runners-')
-	)
-}
-
-export function backgroundChildPrompt(prompt: string, parentThreadID: string): string {
+export function backgroundChildPrompt(prompt: string, parentThreadID: string, reporting: 'message' | 'final-text' = 'message'): string {
 	return [
 		prompt,
 		'',
 		`Parent thread: ${parentThreadID}.`,
-		'When finished, use native send_thread_message to send that parent a compact report. If unavailable, return the report as final text; the plugin forwards it.',
+		reporting === 'final-text'
+			? 'When finished, return a compact report as final text. Do not call send_thread_message; the caller will read the child thread.'
+			: 'When finished, use native send_thread_message to send that parent a compact report. If unavailable, return the report as final text; the plugin forwards it.',
 		'Report outcome, evidence, blockers, and next action. No file dumps.',
 		'Do not spawn another agent for this same scope.',
 		'Do not message sibling threads. The parent may steer you mid-run.',
@@ -404,7 +387,7 @@ const BLOCKED_REPORT_PARENT_GUIDANCE =
 	'Before treating a blocked report as terminal, inspect the actual child tool-call/result status and output; when the result contradicts the claim, steer that same child instead of replacing it.'
 
 export const START_AGENT_NEXT =
-	`The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. Never redo or replace a live child. ${BLOCKED_REPORT_PARENT_GUIDANCE} Use native send_thread_message for reports and steering; the plugin forwards unreported final text. If you must check later, read_thread; zero messages means not started yet, not dead.`
+	`The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task or a second pstack_start_agent for this scope. Never redo or replace a live child. ${BLOCKED_REPORT_PARENT_GUIDANCE} Use native send_thread_message for reports and steering unless reporting final-text was selected; the plugin forwards unreported final text. If you must check later, read_thread; zero messages means not started yet, not dead.`
 
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
@@ -720,22 +703,13 @@ function toolsFor(role: string) {
 
 function instructionsFor(role: string): string {
 	if (role === 'comment-reviewer') return COMMENT_REVIEWER_INSTRUCTIONS
-	if (usesPotetoDelegateWrapper(role)) {
-		return `${AGENT_INSTRUCTIONS} ${POTETO_DELEGATE_INSTRUCTIONS} Assigned role: ${role}.`
-	}
 	return `${AGENT_INSTRUCTIONS} Assigned role: ${role}.`
 }
 
-export default async function pstack(amp: PluginAPI, dependencies: { selectBackend?: typeof selectBackend; cliOptions?: CliRunOptions } = {}) {
+export default async function pstack(amp: PluginAPI) {
 	const runtimeStore = new RuntimeStore(
 		runtimeStatePath(amp.system.ampURL, amp.system.user?.id ?? null),
 	)
-	const getDelegate = (id: string): DelegateThread => id.startsWith('cli-')
-		? cliDelegate(id, dependencies.cliOptions)
-		: amp.threads.get(id as ThreadID)
-	const backendFor = async (model: string) => (dependencies.selectBackend ?? selectBackend)(model,
-		backendPreferences((await amp.configuration.get())[BACKEND_CONFIG_KEY]))
-	const wakeWebhooks = new WakeWebhookCoordinator(amp, runtimeStore)
 	const notificationsInFlight = new Set<Promise<void>>()
 	const terminalTranscript = async (threadID: string, parentThreadID: string) => {
 		const successfulResults = new Set<string>()
@@ -745,7 +719,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		let lastAssistantText = ''
 		let offset = 0
 		while (true) {
-			const messages = await getDelegate(threadID).messages({
+			const messages = await amp.threads.get(threadID as ThreadID).messages({
 				full: true,
 				from: 'end',
 				limit: 20,
@@ -799,7 +773,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		state: 'idle' | 'error',
 	): Promise<void> => {
 		if (!runtimeStore.claimBackgroundNotification(threadID)) {
-			runtimeStore.deleteReportedBackgroundChild(threadID)
 			return
 		}
 		let lastAssistantText = ''
@@ -813,7 +786,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		} catch (error) {
 			amp.logger.log(`Could not read terminal child ${threadID}: ${String(error)}`)
 		}
-		const message = threadID.startsWith('cli-') ? lastAssistantText || `CLI run ${threadID} ended with ${state}.` : `Child ${threadID} reached terminal state ${state} without a successful parent report receipt. Last assistant text: ${lastAssistantText || '(none)'}`
+		const message = `Child ${threadID} reached terminal state ${state} without a successful parent report receipt. Last assistant text: ${lastAssistantText || '(none)'}`
 		let notified = false
 		await amp.threads
 			.get(parentThreadID as ThreadID)
@@ -860,7 +833,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		let thread
 		if (owner.state === 'running') {
 			try {
-				thread = getDelegate(owner.threadID)
+				thread = amp.threads.get(owner.threadID as ThreadID)
 			} catch (error) {
 				amp.logger.log(`Could not reattach owner ${owner.resourceKey}: ${String(error)}`)
 			}
@@ -872,7 +845,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			run,
 			(threadID) => {
 				try {
-					return getDelegate(threadID)
+					return amp.threads.get(threadID as ThreadID)
 				} catch {
 					return undefined
 				}
@@ -885,7 +858,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		if (child.notified) runtimeStore.releaseBackgroundNotification(child.threadID)
 		if (policy.child(child.threadID)) continue
 		try {
-			const thread = getDelegate(child.threadID)
+			const thread = amp.threads.get(child.threadID as ThreadID)
 			if (isStrictReadonlyRole(child.role)) {
 				await policy.trackReadonly(thread, child.role, child.parentThreadID, true, child.active)
 			} else {
@@ -895,7 +868,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			amp.logger.log(`Could not reattach background child ${child.threadID}: ${String(error)}`)
 		}
 	}
-	await wakeWebhooks.restore()
 	await Promise.all(SKILL_PATHS.map((path) => amp.registerSkill({ path })))
 	let detectedParentExecutor: ParentExecutorKind | undefined
 
@@ -1066,11 +1038,8 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 	const startupSpecs = orbAgentSpecsFor(startupModels, (role, message) => {
 		amp.logger.log(`Could not register pstack role ${role}: ${message}`)
 	})
-	const startupBackends = new Map(await Promise.all([...new Set(startupSpecs.map((spec) => spec.model))]
-		.map(async (model) => [model, await backendFor(model)] as const)))
 	for (const spec of startupSpecs) {
 		try {
-			if (startupBackends.get(spec.model) !== 'amp') continue
 			registerOrbAgent(spec.model, spec.role, spec.effort)
 		} catch (error) {
 			amp.logger.log(`Could not register pstack seat ${spec.role}/${spec.model}: ${String(error)}`)
@@ -1088,7 +1057,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			const value = valid ? configured : DEFAULT_MODELS[mode.role]
 			const pool = Array.isArray(value) ? value : [value]
 			const { model, effort } = resolveSeat(pool[(mode.seat ?? 1) - 1] ?? pool[0]!)
-			if (startupBackends.get(model) !== 'amp') continue
 			nativeModes.push(amp.registerAgentMode({
 				key: mode.key,
 				label: mode.label,
@@ -1107,20 +1075,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		prompt: string
 		parentThreadID: ThreadID
 		executor: DelegateExecutor
-		explicitPlacement?: boolean
-	}): Promise<DelegateThread> => {
-		const backend = await backendFor(input.model)
-		const startCli = (backend: CliBackendId) => {
-			if (input.explicitPlacement) throw new Error('This model requires an isolated CLI worktree in the current executor. Omit executor and launchTarget to accept that placement, or select an Amp-native model.')
-			const { id } = prepareCliRun({ role: input.role, roleInstructions: instructionsFor(input.role),
-				brief: input.prompt, checkout: workspaceRootPath(amp) ?? process.cwd(),
-				access: capabilityFor(input.role).kind === 'implementation' && input.role !== 'judgment' ? 'writer' : 'readonly',
-				backend,
-				backends: { [backend]: cliSeat(backend, input.model, input.effort) },
-			}, dependencies.cliOptions)
-			return cliDelegate(id, dependencies.cliOptions)
-		}
-		if (backend !== 'amp') return startCli(backend)
+	}): Promise<PluginThread> => {
 		const agent =
 			input.executor === 'orb' || typeof input.executor === 'object'
 				? orbAgentFor(input.model, input.role, input.effort)
@@ -1135,20 +1090,16 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		prompt: string
 		parentThreadID: ThreadID
 		executor: ReturnType<typeof executorFrom>
-		explicitPlacement?: boolean
 		timeoutMs: number
 		onThread?: (
 			thread: Awaited<ReturnType<typeof createAgentThread>>,
 		) => Promise<void>
 	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' | 'error' }> => {
 		const thread = await createAgentThread(input)
-		if (thread.id.startsWith('cli-')) runtimeStore.saveBackgroundChild(thread.id, input.parentThreadID, input.role)
 		if (input.onThread) {
 			await input.onThread(thread)
 		} else if (isStrictReadonlyRole(input.role)) {
 			await policy.trackReadonly(thread, input.role, input.parentThreadID)
-		} else if (thread.id.startsWith('cli-')) {
-			await policy.trackBackground(thread, input.role, input.parentThreadID)
 		}
 		try {
 			await thread.appendUserMessage({ type: 'user-message', content: input.prompt })
@@ -1180,60 +1131,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			}
 		}
 	}
-
-	amp.registerTool({
-		name: 'pstack_run_agent',
-		title: 'Run pstack delegate',
-		transcriptGroup: { active: 'Running pstack delegate', complete: 'Ran pstack delegate' },
-		description:
-			'Run one configured pstack role in a child Amp thread and wait for its report. Use only when this turn has nothing else to do and needs one result, such as comment-reviewer. Implementation roles, including hardest, are rejected: start them with pstack_start_agent and a scope. Local parents default to local; orb parents default to orb and reject executor local because it cannot target the parent orb filesystem. Always returns threadID. On timeout the child remains the owner; read that thread instead of redoing the work.',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				role: { type: 'string', description: ROLE_GUIDANCE },
-				prompt: { type: 'string', description: 'Complete standalone task brief.' },
-				executor: {
-					oneOf: [
-						{ type: 'string', enum: ['local', 'orb'] },
-						{
-							type: 'object',
-							properties: {
-								type: { type: 'string', enum: ['runner'] },
-								id: { type: 'string' },
-							},
-							required: ['type', 'id'],
-						},
-					],
-				},
-				timeoutMs: { type: 'number' },
-			},
-			required: ['role', 'prompt'],
-		},
-		async execute(input, ctx) {
-			const role = text(input.role, 'role')
-			if (isImplementationRole(role)) throw new Error(IMPLEMENTATION_BLOCKING_ERROR)
-			const prompt = text(input.prompt, 'prompt')
-			const { model, effort } = await modelFor(role, ctx.thread)
-			const timeoutMs = timeoutFrom(input.timeoutMs, { role, floor: RUN_AGENT_MIN_TIMEOUT_MS })
-			const executor = executorFrom(input.executor, await parentExecutorKind())
-			if (typeof executor === 'object') {
-				throw new Error(
-					'Named runner delegation cannot use blocking pstack_run_agent because Amp forbids recursive plugin-agent runner creation. Use pstack_start_agent with launchTarget named-runner, then call the returned native create_thread redirect.',
-				)
-			}
-			const result = await runOnThread({
-				model,
-				effort,
-				role,
-				prompt,
-				parentThreadID: ctx.thread.id,
-				executor,
-				explicitPlacement: input.executor !== undefined,
-				timeoutMs,
-			})
-			return JSON.stringify({ role, model, timeoutMs, ...result })
-		},
-	})
 
 	amp.registerTool({
 		name: 'pstack_run_panel',
@@ -1281,7 +1178,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			const configuredSeats = await panelFor(panel)
 			const count = input.count === undefined ? configuredSeats.length : Number(input.count)
 			const models = Array.from({ length: count }, (_, index) => configuredSeats[index % configuredSeats.length]!)
-			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: RUN_AGENT_MIN_TIMEOUT_MS })
+			const timeoutMs = timeoutFrom(input.timeoutMs, { floor: DEFAULT_TIMEOUT_MS })
 			const executor = executorFrom(input.executor, await parentExecutorKind())
 			if (typeof executor === 'object') {
 				throw new Error(
@@ -1303,7 +1200,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 						prompt: candidatePrompt,
 						parentThreadID: ctx.thread.id,
 						executor,
-						explicitPlacement: input.executor !== undefined,
 						timeoutMs,
 						onThread: isDesignPanel(panel)
 							? (thread) => policy.trackCandidate(ctx.thread.id, thread, role)
@@ -1388,12 +1284,19 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 					},
 				},
 				cloudBaseBranch: { type: 'string' },
+				reporting: {
+					type: 'string',
+					enum: ['message', 'final-text'],
+					description: 'message asks the child to report to the parent; final-text leaves the report in the child for native read/wait workflows.',
+				},
 			},
 			required: ['role', 'prompt'],
 		},
 		async execute(input, ctx) {
 			const role = text(input.role, 'role')
 			const prompt = text(input.prompt, 'prompt')
+			const reporting = input.reporting === undefined ? 'message' : text(input.reporting, 'reporting')
+			if (reporting !== 'message' && reporting !== 'final-text') throw new Error('reporting must be message or final-text.')
 			const candidateThreadIDs = (() => {
 				if (role !== 'arena-cross-judge') return []
 				if (
@@ -1478,11 +1381,8 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			try {
 				const { model, effort, seat } = await modelFor(role, ctx.thread)
 				if (launchTarget?.kind === 'native-orb' || launchTarget?.kind === 'named-runner') {
-					if (await backendFor(model) !== 'amp') {
-						throw new Error('This model currently requires a CLI backend. Omit native-orb/named-runner to run in an isolated worktree, or select an Amp-native model. Native redirects cannot bypass backend safety routing.')
-					}
 					const modeKey = nativeAgentModeFor(role, seat).key
-					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id)
+					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id, reporting)
 					const redirectBase =
 						launchTarget.kind === 'native-orb'
 							? nativeRedirect({
@@ -1540,9 +1440,8 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 					prompt,
 					parentThreadID: ctx.thread.id,
 					executor,
-					explicitPlacement: input.executor !== undefined || input.launchTarget !== undefined,
 				})
-				if (!judgeReserved || thread.id.startsWith('cli-')) runtimeStore.saveBackgroundChild(thread.id, ctx.thread.id, role)
+				if (!judgeReserved) runtimeStore.saveBackgroundChild(thread.id, ctx.thread.id, role)
 				if (owner) await policy.attachRunning(owner.resourceKey, thread)
 				else if (judgeReserved) {
 					await policy.startJudge(ctx.thread.id, thread)
@@ -1555,7 +1454,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 				try {
 					await thread.appendUserMessage({
 						type: 'user-message',
-						content: backgroundChildPrompt(prompt, ctx.thread.id),
+						content: backgroundChildPrompt(prompt, ctx.thread.id, reporting),
 					})
 				} catch (error) {
 					if (owner) {
@@ -1580,10 +1479,10 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 					parentThreadID: ctx.thread.id,
 					scope: scope || undefined,
 					scopePaths: scopePaths.length > 0 ? scopePaths : undefined,
-					executor: thread.id.startsWith('cli-') ? 'cli-worktree' : executor,
-					launchTarget: thread.id.startsWith('cli-') ? { kind: 'cli-worktree' } : launchTarget,
+					executor,
+					launchTarget,
 					next:
-						thread.id.startsWith('cli-') ? 'The worker runs in an isolated snapshot worktree in this executor, not a child orb. Its final report and patch path will arrive here. Review writer patches before applying. CLI runs cannot be steered. pstack_stop_agent accepts this cli run ID.' : launchTarget?.kind === 'repo-independent-orb'
+						launchTarget?.kind === 'repo-independent-orb'
 							? `${START_AGENT_NEXT} This work must not depend on a checkout.`
 							: launchTarget?.kind === 'parent-project-orb'
 								? `${START_AGENT_NEXT} This fresh orb inherits the parent project, not the parent executor's live filesystem. Required state must exist in the project remote or be transferred explicitly.`
@@ -1610,7 +1509,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		},
 		async execute(input, ctx) {
 			const threadID = text(input.threadID, 'threadID')
-			if (!threadID.startsWith('T-') && !threadID.startsWith('cli-')) throw new Error('Invalid delegate ID.')
+			if (!threadID.startsWith('T-')) throw new Error('Invalid Amp thread ID.')
 			const owners = runtimeStore.listOwners()
 			const owner = owners.find(
 				(candidate) => candidate.state === 'running' && candidate.threadID === threadID,
@@ -1618,7 +1517,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			if (!owner) {
 				const background = runtimeStore.childParent(threadID)
 				if (background?.parentThreadID === ctx.thread.id) {
-					const child = getDelegate(threadID)
+					const child = amp.threads.get(threadID as ThreadID)
 					await child.cancel()
 					const state = await child.state.get()
 					if (state === 'idle' || state === 'error') {
@@ -1645,7 +1544,7 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			if (owner.parentThreadID !== ctx.thread.id) {
 				throw new Error(`Thread ${threadID} is owned by a different parent.`)
 			}
-			const child = getDelegate(threadID)
+			const child = amp.threads.get(threadID as ThreadID)
 			await child.cancel()
 			const state = await child.state.get()
 			if (state === 'idle' || state === 'error') {
@@ -1726,7 +1625,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 			properties: {
 				action: { type: 'string', enum: ['show', 'set', 'reset', 'profile'] },
 				overrides: { type: 'object' },
-				backends: { type: 'object', description: 'Backend preferences: opus is claude-code (default) or amp; grokBuild is false by default. Grok native routing is always subscription-gated.' },
 				profile: {
 					type: 'string',
 					enum: ['balanced', 'cheap', 'builtin', 'reset'],
@@ -1737,12 +1635,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		},
 		async execute(input) {
 			const action = text(input.action, 'action')
-			if (input.backends !== undefined) {
-				if (action !== 'set') throw new Error('backends requires action set.')
-				const preferences = backendPreferences(input.backends)
-				await amp.configuration.update({ [BACKEND_CONFIG_KEY]: preferences }, 'global')
-				if (input.overrides === undefined) return JSON.stringify({ backends: preferences })
-			}
 			if (action === 'reset') {
 				await amp.configuration.delete(CONFIG_KEY, 'global')
 				return JSON.stringify(await resolvedFrom(undefined), null, 2)
@@ -1766,38 +1658,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 				return JSON.stringify(await configuredModels(), null, 2)
 			}
 			throw new Error('action must be show, set, reset, or profile.')
-		},
-	})
-
-	amp.registerTool({
-		name: 'pstack_create_wake_webhook',
-		title: 'Create pstack wake webhook',
-		transcriptGroup: { active: 'Creating wake webhook', complete: 'Created wake webhook' },
-		description:
-			'Create an orb-owned wake webhook. Registration intent and event receipts persist on the current executor; delivery is serialized and recovered from structural transcript envelopes.',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				key: { type: 'string', description: 'User-facing key namespaced to the owner thread.' },
-				instruction: { type: 'string', description: 'Trusted instruction prepended to each event.' },
-			},
-			required: ['key', 'instruction'],
-		},
-		async execute(input, ctx) {
-			const key = text(input.key, 'key')
-			const instruction = text(input.instruction, 'instruction')
-			const result = await wakeWebhooks.register({
-				ownerThreadID: ctx.thread.id,
-				userKey: key,
-				instruction,
-			})
-			await ctx.ui.notify(`Wake webhook URL (credential): ${result.remote.url}`)
-			return JSON.stringify({
-				ampKey: result.registration.ampKey,
-				ownerThreadID: result.registration.ownerThreadID,
-				userKey: result.registration.userKey,
-				urlShownInUI: true,
-			})
 		},
 	})
 
@@ -1834,18 +1694,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 	)
 
 	if (typeof amp.on === 'function') {
-		amp.on('agent.start', async (_event, ctx) => {
-			const { definition } = await ctx.thread.agent()
-			if (definition.kind !== 'agent-definition' || !definition.instructions) return {}
-			const panelRole = definition.instructions.match(/ Assigned role: ((?:arena-runners|architect-runners|interrogate-reviewers)-[1-9]\d*)\.$/)?.[1]
-			const isDelegate = [...Object.keys(DEFAULT_MODELS), ...(panelRole ? [panelRole] : [])]
-				.some((role) => instructionsFor(role) === definition.instructions)
-			if (!isDelegate || definition.model !== 'xai/grok-4.7') return {}
-			// Check on the executing child, not only when its parent registered the mode.
-			if (await backendFor(definition.model) === 'amp') return {}
-			await ctx.thread.cancel()
-			return { message: { display: true, content: 'Stopped before inference: the SuperGrok subscription no longer wins routing. Reconcile this child before starting a Cursor CLI replacement; do not use the proxy route.' } }
-		})
 		amp.on('tool.call', (event) => {
 			if (event.tool === 'create_thread' && event.toolUseID) {
 				const reservation = runtimeStore.listNativeBackgroundReservations().find(
@@ -1903,7 +1751,6 @@ export default async function pstack(amp: PluginAPI, dependencies: { selectBacke
 		})
 	}
 	amp.onDispose(async () => {
-		await wakeWebhooks.close()
 		for (const registration of orbAgents.values()) registration.subscription.unsubscribe()
 		orbAgents.clear()
 		for (const subscription of nativeModes.splice(0)) subscription.unsubscribe()

@@ -15,14 +15,6 @@ type OwnerRow = Readonly<{
 	owner_json: string
 }>
 
-type WakeRegistrationRow = Readonly<{
-	amp_key: string
-	owner_thread_id: string
-	user_key: string
-	instruction: string
-}>
-
-type WakeEventRow = Readonly<{ state: string }>
 type DesignRow = Readonly<{ run_json: string }>
 type BackgroundChildRow = Readonly<{
 	thread_id: string
@@ -61,15 +53,6 @@ export type NativeBackgroundReservation = Readonly<{
 	expectedNative: Record<string, unknown>
 	toolUseID?: string
 }>
-
-export type WakeRegistration = Readonly<{
-	ampKey: string
-	ownerThreadID: string
-	userKey: string
-	instruction: string
-}>
-
-export type WakeEventState = 'pending' | 'delivered'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -364,22 +347,8 @@ export class RuntimeStore {
 		return row ? { parentThreadID: row.parent_thread_id, role: row.role } : this.backgroundChild(threadID)
 	}
 
-	markBackgroundReported(threadID: string, parentThreadID: string): void {
-		this.database
-			.query(
-				'UPDATE background_children SET reported = 1 WHERE thread_id = ? AND parent_thread_id = ?',
-			)
-			.run(threadID, parentThreadID)
-	}
-
 	deleteBackgroundChild(threadID: string): void {
 		this.database.query('DELETE FROM background_children WHERE thread_id = ?').run(threadID)
-	}
-
-	deleteReportedBackgroundChild(threadID: string): void {
-		this.database
-			.query('DELETE FROM background_children WHERE thread_id = ? AND reported = 1')
-			.run(threadID)
 	}
 
 	claimBackgroundNotification(threadID: string): boolean {
@@ -491,70 +460,6 @@ export class RuntimeStore {
 		this.database
 			.query('DELETE FROM implementation_owners WHERE resource_key = ?')
 			.run(resourceKey)
-	}
-
-	listWakeRegistrations(): WakeRegistration[] {
-		return this.database
-			.query<WakeRegistrationRow, []>(
-				`SELECT amp_key, owner_thread_id, user_key, instruction
-				 FROM wake_registrations ORDER BY amp_key`,
-			)
-			.all()
-			.map((row) => ({
-				ampKey: row.amp_key,
-				ownerThreadID: row.owner_thread_id,
-				userKey: row.user_key,
-				instruction: row.instruction,
-			}))
-	}
-
-	saveWakeRegistration(registration: WakeRegistration): void {
-		this.database
-			.query(
-				`INSERT INTO wake_registrations
-					(amp_key, owner_thread_id, user_key, instruction)
-				 VALUES (?, ?, ?, ?)
-				 ON CONFLICT(amp_key) DO UPDATE SET
-					owner_thread_id = excluded.owner_thread_id,
-					user_key = excluded.user_key,
-					instruction = excluded.instruction`,
-			)
-			.run(
-				registration.ampKey,
-				registration.ownerThreadID,
-				registration.userKey,
-				registration.instruction,
-			)
-	}
-
-	claimWakeEvent(ampKey: string, eventID: string): WakeEventState {
-		const claim = this.database.transaction((registrationKey: string, id: string) => {
-			this.database
-				.query(
-					`INSERT OR IGNORE INTO wake_events (amp_key, event_id, state)
-					 VALUES (?, ?, 'pending')`,
-				)
-				.run(registrationKey, id)
-			const row = this.database
-				.query<WakeEventRow, [string, string]>(
-					'SELECT state FROM wake_events WHERE amp_key = ? AND event_id = ?',
-				)
-				.get(registrationKey, id)
-			if (!row || (row.state !== 'pending' && row.state !== 'delivered')) {
-				throw new Error('Wake event claim did not produce a valid state.')
-			}
-			return row.state
-		})
-		return claim.immediate(ampKey, eventID)
-	}
-
-	markWakeDelivered(ampKey: string, eventID: string): void {
-		this.database
-			.query(
-				`UPDATE wake_events SET state = 'delivered'
-				 WHERE amp_key = ? AND event_id = ?`,
-			)
-			.run(ampKey, eventID)
 	}
 
 	listDesignRuns(): DesignRun[] {

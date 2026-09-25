@@ -2,8 +2,9 @@
 name: how
 description: "Only use when named or routed by poteto-mode. Explains subsystem architecture and runtime flow for code walkthroughs and placement, ownership, or layering questions; use why for motivation."
 builtin-tools:
-  - pstack_run_agent
   - pstack_start_agent
+  - wait_for_threads
+  - read_thread
 ---
 
 # How
@@ -25,19 +26,19 @@ When in doubt, take the simple path.
 
 Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer` (default `xai/grok-4.7`). Follow `../poteto-mode/references/amp-adapter.md`. Give each explorer a distinct angle and a read-only brief.
 
-Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in. Then go to Step 3.
+Each explorer gets the complete prompt in `references/explorer-prompt.md` with every placeholder filled, inlined without summary. Explicitly tell this read-only worker not to load skills. Then go to Step 3.
 
 ## Step 2b. Direct Explain (simple questions)
 
 Run one `pstack_start_agent` call with role `how-explainer` (default `anthropic/claude-opus-5-5`) and a read-only brief that explores and explains in one pass. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
 
-Build its prompt from `references/explainer-prompt.md`. Set its path context to direct exploration and omit the explorer-findings section. Go to Step 4.
+Build its prompt from the complete `references/explainer-prompt.md`, fill every placeholder, and inline it without summary. Set its path context to direct exploration and omit the explorer-findings section. Explicitly tell this read-only worker not to load skills. Go to Step 4.
 
 ## Step 3. Synthesize (complex questions only)
 
 Once all explorers have returned, run one `pstack_start_agent` call with role `how-explainer` (default `anthropic/claude-opus-5-5`) to synthesize their findings into one explanation. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
 
-Build its prompt from `references/explainer-prompt.md`. Set its path context to synthesis and fill in every explorer's findings.
+Build its prompt from the complete `references/explainer-prompt.md`, fill every placeholder, and inline it without summary. Set its path context to synthesis and fill in every explorer's findings. Explicitly tell this read-only worker not to load skills.
 
 ## Step 4. Present
 

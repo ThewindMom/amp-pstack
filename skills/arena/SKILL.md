@@ -2,9 +2,10 @@
 name: arena
 description: "Only use when named or routed by poteto-mode. Spawns N parallel candidates, picks a base, and grafts the strongest parts for arena requests or non-trivial artifacts that need competing attempts."
 builtin-tools:
-  - pstack_run_agent
   - pstack_run_panel
   - pstack_start_agent
+  - wait_for_threads
+  - read_thread
 ---
 
 # Arena

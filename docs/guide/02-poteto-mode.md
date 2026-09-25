@@ -46,6 +46,8 @@ Fix the root cause, then prove it on the real export.
 
 Selecting **poteto** in Amp's mode picker keeps the full skill instructions in the mode. Loading the skill in another mode gives it to that conversation without changing the selected mode.
 
+Poteto coordinates; workers execute. Delegated tasks receive completed templates inline rather than loading `pstack:poteto-mode`, `pstack:how`, or `pstack:arena`. Writable and research workers load only explicitly applicable qualified execution skills. Strict read-only workers cannot load skills and receive their full role contract in their mode instructions.
+
 ## Switch tasks explicitly
 
 When changing subjects in a long thread, say `new task` so the coordinator re-matches the playbook instead of continuing the old one:
@@ -58,15 +60,18 @@ The last sentence pins this task to Investigation. To resume earlier work instea
 
 ## Parallel work
 
-The plugin exposes three levels:
+The plugin exposes two launch levels:
 
 1. `pstack_start_agent` is the default. It creates a durable child thread and returns immediately. The child reports with native `send_thread_message`, or the plugin forwards its final text and wakes the parent.
 2. `pstack_run_panel` waits for the same brief across a configured model panel. Use it when this turn must rank seats now.
-3. `pstack_run_agent` waits for one role. Use it only when this turn cannot proceed without that result, such as comment-reviewer.
+
+For one role, always start with `pstack_start_agent`. Only when the parent truly cannot proceed without its result, use native `wait_for_threads`, then native `read_thread`. Never wait as a startup probe, and never request a reply while also waiting for it.
 
 The parent executor decides the safe default. A local parent runs implementation in `current-checkout`. An orb parent starts a fresh `parent-project-orb`, and the plugin rejects local child routing. From a local parent, choose `parent-project-orb` for clean work from the project remote. Use `repo-independent-orb` only when the brief does not depend on a checkout. When project, size, or a custom mode matters, `native-orb` requires `project` and returns a complete native `create_thread` redirect. Amp has no cloud base branch.
 
-The parent can steer a live Amp child with native `send_thread_message`. CLI delegates cannot be steered; reconcile their terminal result before requesting another run. Children report only to the parent. Do not let siblings message each other. Only a same-machine local parent and local child share the checkout, so cite paths. A child orb inherits the parent project, not the parent orb's files. If either thread is an orb, transfer files with `upload_thread_file` (4 MiB) or `download_thread_file`. Do not paste file bodies into briefs when a transfer can carry them.
+The parent can steer a live Amp child with native `send_thread_message`. Children report only to the parent; do not let siblings message each other. Only a same-machine parent and child share the checkout, so cite paths. A child orb inherits the parent project, not the parent orb's files. If either thread is an orb, transfer files with `upload_thread_file` (4 MiB) or `download_thread_file`. Do not paste file bodies into briefs when a transfer can carry them.
+
+Every worker is a native Amp thread. Amp owns inference routing, and model access and billing follow the user's connected providers. Pstack does not invoke subscription CLIs, bridge subscriptions, or change provider settings. If a start fails or a run hits a limit, report and reconcile it; never retry automatically or silently switch models.
 
 Independent writers need disjoint owned paths or separate worktrees. Never assign overlapping paths to live writers. A local parent and child can share the current checkout when their write scopes are disjoint; a child orb has a separate checkout and needs explicit file transfer for unpushed work.
 

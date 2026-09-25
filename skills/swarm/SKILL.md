@@ -2,9 +2,10 @@
 name: swarm
 description: "Only use when named or routed by poteto-mode. Fans out N parallel workers and returns one report for swarm requests, coverage, races, gauntlets, or exploration."
 builtin-tools:
-  - pstack_run_agent
   - pstack_run_panel
   - pstack_start_agent
+  - wait_for_threads
+  - read_thread
 ---
 
 # Swarm
@@ -34,7 +35,7 @@ Launch all workers concurrently with `pstack_start_agent`, role `swarm-worker`. 
 
 Coverage slices that only read and report use `a1.tiny` or `a1.small`. Live visual lanes, browsers, or CPU-heavy tests use `a1.large`.
 
-Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence. A worker that can prove a defect reports `ISSUES` and lists every issue it can prove, not only the first.
+Every brief stands alone. Include the goal, scope, exact slice or race arm, how to verify, and what to report. For writable slices, name and explicitly require only the qualified execution skills applicable to that slice. For read-only slices, inline all instructions and tell the worker not to load skills. Never send a coordinator skill. Reports use `PASS`, `ISSUES`, or `BLOCKED` with evidence. A worker that can prove a defect reports `ISSUES` and lists every issue it can prove, not only the first.
 
 If a worker drops out, proceed with N-1 and note it. If an orb needs a non-default branch, include that branch in the brief and ensure it exists remotely before spawning; do not push merely to enable delegation without user authorization.
 
