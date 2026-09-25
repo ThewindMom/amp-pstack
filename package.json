@@ -10,6 +10,7 @@
 	},
 	"scripts": {
 		"postinstall": "bun install --frozen-lockfile --cwd skills/poteto-mode/scripts",
+		"build:selector": "bun build poteto-mode.ts --target bun --banner '// @amp-agent-mode {\"key\":\"poteto\",\"label\":\"poteto\"}' --outfile .amp/tmp/poteto-mode.ts",
 		"test": "bun skills/poteto-mode/scripts/with-tools.ts test",
 		"test:tools": "bun skills/poteto-mode/scripts/with-tools.ts test skills/poteto-mode/scripts/orch skills/poteto-mode/scripts/watch-pr skills/poteto-mode/scripts/worktree-audit.test.ts",
 		"typecheck:plugin": "bun skills/poteto-mode/scripts/node_modules/typescript/bin/tsc --ignoreConfig --noEmit --moduleResolution bundler --module esnext --target esnext --resolveJsonModule --types bun-types --typeRoots ./skills/poteto-mode/scripts/node_modules --strict amp-plugin-compat.d.ts index.ts workflow-parity.ts runtime-store.ts webhook-runtime.ts poteto-mode.ts poteto-mode.test.ts upstream-parity.test.ts index.test.ts runtime-store.test.ts webhook-runtime.test.ts cli-backends.ts cli-backends.test.ts scripts/cli-backends-smoke.ts",

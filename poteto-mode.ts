@@ -1,13 +1,10 @@
 // @amp-agent-mode {"key":"poteto","label":"poteto"}
 
-import { existsSync, readFileSync } from 'node:fs'
 import type { PluginAPI } from '@ampcode/plugin'
+import potetoSkill from './skills/poteto-mode/SKILL.md' with { type: 'text' }
 
 export const description =
 	'Poteto mode for Amp: built-in medium with the full persistent pstack instructions. Inherits medium model, reasoning, and tools. Pair with the pstack directory plugin for skills and tools.'
-
-const skillBase = new URL(existsSync(new URL('skills/poteto-mode/SKILL.md', import.meta.url))
-	? 'skills/poteto-mode/' : 'pstack/skills/poteto-mode/', import.meta.url)
 
 export const COORDINATOR_INSTRUCTIONS = `Playbook match or rigor needed: load pstack:poteto-mode and follow its matched playbook. Casual turn or user opts out: do not. After load, read references/amp-adapter.md from the loaded skill for Amp executors, ownership, transfers, models, schedules, and blocking-tool exceptions.
 
@@ -21,9 +18,9 @@ Respect Amp host and user restrictions. Do not invent extra tool gates or model 
 
 Use Amp child threads, orbs, named runners, and schedules for durable work. Details live in the adapter.
 
-The full Poteto skill below is part of this mode's persistent instructions. Its resource base is ${skillBase.pathname}. Read playbooks and references from that directory.
+The full Poteto skill below is part of this mode's persistent instructions. Load pstack:poteto-mode to resolve its resource base, then read playbooks and references from the loaded skill directory.
 
-${readFileSync(new URL('SKILL.md', skillBase), 'utf8')}`
+${potetoSkill}`
 
 export default function (amp: PluginAPI) {
 	const agent = amp.createAgent({

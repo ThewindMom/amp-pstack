@@ -14,12 +14,13 @@ Amp permissions and higher-priority instructions still apply. The mode supplies 
 
 pstack is a directory plugin. Amp's URL installer (`amp plugins add`) only accepts a single `.ts` file, so do not use it here.
 
-**Personal plugins (recommended).** This loads on every machine and in orbs. Clone your Amp user-plugins repo, copy this tree in as `pstack/`, and copy [`poteto-mode.ts`](./poteto-mode.ts) to the **root** of that repo (next to `pstack/`, not inside it). Amp's Mode Dial catalog only lists root-level `.ts` plugins, which is why the custom Grok mode appears and `poteto` did not.
+**Personal plugins (recommended).** This loads on every machine and in orbs. Clone your Amp user-plugins repo, copy this tree in as `pstack/`, and build the selector for the **root** of that repo (next to `pstack/`, not inside it). The single-file selector must bundle the skill text: Amp isolates root plugins from sibling files at runtime.
 
 ```bash
 amp clone user-plugins
 rsync -a --delete --exclude .git ./ /path/to/user-plugins/pstack/
-cp poteto-mode.ts /path/to/user-plugins/poteto-mode.ts
+bun run build:selector
+cp .amp/tmp/poteto-mode.ts /path/to/user-plugins/poteto-mode.ts
 ```
 
 Then reload plugins. Open Settings → Mode Dial → Build Dial and drag **poteto** into a bay. A system clone at `~/.config/amp/plugins/pstack` beats a personal copy, so do not keep both.
@@ -70,7 +71,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` extends built-in `medium` without model, reasoning, or tool overrides. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions, including its resource base. Reload the plugin to pick up skill edits. Shipped delegate seats use max effort for Opus 5.5 and GPT-6 Sol, and xhigh effort for Grok 4.7.
+`poteto` extends built-in `medium` without model, reasoning, or tool overrides. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions and resolves resource paths through the skill loader. Rebuild and republish the selector after skill edits, then reload the plugin. Shipped delegate seats use max effort for Opus 5.5 and GPT-6 Sol, and xhigh effort for Grok 4.7.
 
 `index.ts` owns the role map and a separate effort map for `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7`. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there. `builtin:high` is not a stand-in for GPT-6 Sol.
 

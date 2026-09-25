@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -24,16 +24,16 @@ function registerPoteto() {
 }
 
 describe('poteto mode', () => {
-	test('loads the complete skill from the published root-selector layout', () => {
+	test('loads the bundled selector alone without sibling skill files', () => {
 		const root = mkdtempSync(join(tmpdir(), 'pstack-selector-'))
 		try {
-			mkdirSync(join(root, 'pstack/skills/poteto-mode'), { recursive: true })
-			copyFileSync(join(import.meta.dir, 'poteto-mode.ts'), join(root, 'poteto-mode.ts'))
-			copyFileSync(join(import.meta.dir, 'skills/poteto-mode/SKILL.md'), join(root, 'pstack/skills/poteto-mode/SKILL.md'))
+			const build = Bun.spawnSync([process.execPath, 'run', 'build:selector'], { cwd: import.meta.dir })
+			expect(build.exitCode).toBe(0)
+			copyFileSync(join(import.meta.dir, '.amp/tmp/poteto-mode.ts'), join(root, 'poteto-mode.ts'))
+			expect(readFileSync(join(root, 'poteto-mode.ts'), 'utf8')).toContain('// @amp-agent-mode {"key":"poteto","label":"poteto"}')
 			const result = Bun.spawnSync([process.execPath, '-e', `import { COORDINATOR_INSTRUCTIONS } from './poteto-mode.ts'; console.log(COORDINATOR_INSTRUCTIONS)`], { cwd: root })
 			expect(result.exitCode).toBe(0)
-			expect(result.stdout.toString()).toContain(`${root}/pstack/skills/poteto-mode/`)
-			expect(result.stdout.toString().trimEnd()).toBe(COORDINATOR_INSTRUCTIONS.replace(new URL('skills/poteto-mode/', import.meta.url).pathname, `${root}/pstack/skills/poteto-mode/`).trimEnd())
+			expect(result.stdout.toString().trimEnd()).toBe(COORDINATOR_INSTRUCTIONS.trimEnd())
 		} finally {
 			rmSync(root, { recursive: true, force: true })
 		}
@@ -78,12 +78,12 @@ describe('poteto mode', () => {
 		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 	})
 
-	test('persists the complete skill in mode instructions and names its resource base', async () => {
+	test('persists the complete skill and resolves resources through the skill loader', async () => {
 		const { created } = registerPoteto()
 		expect(created[0]?.instructions).toBe(COORDINATOR_INSTRUCTIONS)
 		const skill = await Bun.file(new URL('skills/poteto-mode/SKILL.md', import.meta.url)).text()
 		expect(COORDINATOR_INSTRUCTIONS.endsWith(skill)).toBe(true)
-		expect(COORDINATOR_INSTRUCTIONS).toContain(new URL('skills/poteto-mode/', import.meta.url).pathname)
+		expect(COORDINATOR_INSTRUCTIONS).toContain('Load pstack:poteto-mode to resolve its resource base')
 		expect(COORDINATOR_INSTRUCTIONS).toContain('load pstack:poteto-mode')
 		expect(COORDINATOR_INSTRUCTIONS).toContain('Casual turn or user opts out')
 		expect(COORDINATOR_INSTRUCTIONS).toContain('read references/amp-adapter.md from the loaded skill')
