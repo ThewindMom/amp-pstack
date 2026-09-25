@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -57,7 +57,6 @@ import pstack, {
 	readJsonFile,
 	resolveModels,
 	selectPoolModel,
-	steerFrom,
 	storedModelMap,
 	timeoutFrom,
 	validateModel,
@@ -65,6 +64,7 @@ import pstack, {
 	workspaceRootPath,
 } from './index'
 import { RuntimeStore } from './runtime-store'
+import { startCliRun } from './cli-backends'
 import { createThreadInputMatches, exactCreateThreadInputMatches } from './workflow-parity'
 import { parseWakeEnvelope, WAKE_ENVELOPE_PREFIX } from './webhook-runtime'
 
@@ -201,7 +201,7 @@ describe('amp-pstack plugin', () => {
 		const previousStateFile = process.env.PSTACK_STATE_FILE
 		process.env.PSTACK_STATE_FILE = ':memory:'
 		try {
-			await pstack(amp)
+			await pstack(amp, { selectBackend: async () => 'amp' })
 		} finally {
 			if (previousStateFile === undefined) delete process.env.PSTACK_STATE_FILE
 			else process.env.PSTACK_STATE_FILE = previousStateFile
@@ -218,7 +218,6 @@ describe('amp-pstack plugin', () => {
 			'pstack_run_panel',
 			'pstack_start_agent',
 			'pstack_stop_agent',
-			'pstack_send_to_thread',
 			'pstack_read_current_thread',
 			'pstack_configure_models',
 			'pstack_create_wake_webhook',
@@ -597,6 +596,7 @@ describe('runtime tool behavior', () => {
 		appendError?: Error
 		appendHook?: (threadID: string, content: string) => Promise<void>
 		initialConfig?: Record<string, unknown>
+		backends?: Parameters<typeof pstack>[1]
 		executorKind?: 'local' | 'remote' | 'unknown'
 		keepAliveError?: Error
 		runtimeStateFile?: string
@@ -861,6 +861,7 @@ describe('runtime tool behavior', () => {
 					if (existing) return existing
 					return {
 						id: threadID,
+						async cancel() { sent.push({ threadID, canceled: true }) },
 						async messages({
 							from = 'end',
 							limit = 10,
@@ -932,7 +933,7 @@ describe('runtime tool behavior', () => {
 		const previousStateFile = process.env.PSTACK_STATE_FILE
 		process.env.PSTACK_STATE_FILE = options?.runtimeStateFile ?? ':memory:'
 		try {
-			await pstack(amp as never)
+			await pstack(amp as never, options?.backends ?? { selectBackend: async () => 'amp' })
 		} finally {
 			if (previousStateFile === undefined) delete process.env.PSTACK_STATE_FILE
 			else process.env.PSTACK_STATE_FILE = previousStateFile
@@ -950,6 +951,77 @@ describe('runtime tool behavior', () => {
 		scopePaths: ['index.ts'],
 		launchTarget: { kind: 'current-checkout' as const },
 	}
+
+	test('CLI role and mixed panel return reports; background CLI remains stoppable', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-integration-'))
+		const path = process.env.PATH
+		await writeFile(join(root, 'cursor-agent'), '#!/usr/bin/env bun\nconst brief = await Bun.stdin.text(); if (brief.includes("WAIT_FOREVER")) await Bun.sleep(60000); console.log(JSON.stringify({type:"result",is_error:false,result:"CLI fixture report"}));\n')
+		await chmod(join(root, 'cursor-agent'), 0o755)
+		process.env.PATH = `${root}:${path}`
+		const amp = await loadPlugin({ backends: { selectBackend: async (model) => model === 'xai/grok-4.7' ? 'cursor-cli' : 'amp', cliOptions: { stateDir: join(root, 'runs'), launcher: 'local' } } })
+		try {
+			const one = JSON.parse(await tool(amp, 'pstack_run_agent').execute({ role: 'how-explorer', prompt: 'Inspect only' }, { thread: { id: 'T-parent' } }))
+			expect(one.status).toBe('done')
+			expect(one.text).toContain('CLI fixture report')
+			expect(one.threadID).toMatch(/^cli-/)
+			const panel = JSON.parse(await tool(amp, 'pstack_run_panel').execute({ panel: 'interrogate-reviewers', prompt: 'Review only' }, { thread: { id: 'T-parent' } }))
+			expect(panel.map((seat: { status: string }) => seat.status)).toEqual(['done', 'done', 'done'])
+			expect(panel[2].text).toContain('CLI fixture report')
+			await expect(tool(amp, 'pstack_start_agent').execute({ ...implStart, prompt: 'Do not change placement' }, { thread: { id: 'T-parent' } })).rejects.toThrow('Omit executor and launchTarget')
+			await expect(tool(amp, 'pstack_run_agent').execute({ role: 'how-explorer', prompt: 'Inspect only', executor: 'orb' }, { thread: { id: 'T-parent' } })).rejects.toThrow('Omit executor and launchTarget')
+			const child = JSON.parse(await tool(amp, 'pstack_start_agent').execute({ ...implStart, launchTarget: undefined, prompt: 'WAIT_FOREVER' }, { thread: { id: 'T-parent' } }))
+			const stopped = JSON.parse(await tool(amp, 'pstack_stop_agent').execute({ threadID: child.threadID }, { thread: { id: 'T-parent' } }))
+			expect(stopped).toMatchObject({ canceled: true, state: 'error', ownershipReleased: true })
+		} finally {
+			await amp.dispose()
+			process.env.PATH = path
+			await rm(root, { recursive: true, force: true })
+		}
+	}, 30_000)
+
+	test('stopping CLI candidates and judges reconciles the design before a polling tick', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-design-stop-'))
+		const command = join(root, 'fake-cli')
+		await writeFile(command, '#!/usr/bin/env bun\nawait Bun.stdin.text(); await Bun.sleep(60000)\n')
+		await chmod(command, 0o755)
+		try {
+			for (const kind of ['candidate', 'judge'] as const) {
+				const file = join(root, `${kind}.sqlite`)
+				const stateDir = join(root, kind)
+				const { id } = startCliRun({ role: kind, roleInstructions: 'Read only', brief: 'Wait', access: 'readonly', checkout: import.meta.dir, backend: 'cursor-cli', backends: { 'cursor-cli': { command } } }, { stateDir, launcher: 'local' })
+				const store = new RuntimeStore(file)
+				store.saveBackgroundChild(id, 'T-parent', kind === 'judge' ? 'arena-cross-judge' : 'arena-runners-1')
+				store.saveDesignRun(kind === 'judge' ? {
+					state: 'judging', parentThreadID: 'T-parent', panel: 'arena-runners', candidateThreadIDs: ['T-completed'], judgeThreadID: id,
+				} : {
+					state: 'candidates-running', parentThreadID: 'T-parent', panel: 'arena-runners', candidateThreadIDs: ['T-completed', id], pendingCandidateThreadIDs: [id], completedCandidateThreadIDs: ['T-completed'], failedCandidateThreadIDs: [],
+				})
+				const amp = await loadPlugin({ runtimeStateFile: file, backends: { selectBackend: async () => 'amp', cliOptions: { stateDir, launcher: 'local' } } })
+				try {
+					await tool(amp, 'pstack_stop_agent').execute({ threadID: id }, { thread: { id: 'T-parent' } })
+					expect(store.listDesignRuns()[0]?.state).toBe('judge-required')
+					expect(store.listDesignRuns()[0]?.candidateThreadIDs).toEqual(kind === 'judge' ? ['T-completed'] : ['T-completed', id])
+				} finally { await amp.dispose(); store.close() }
+			}
+		} finally { await rm(root, { recursive: true, force: true }) }
+	}, 30_000)
+
+	test('a terminal background child restarted by a message remains stoppable by its parent', async () => {
+		const root = await mkdtemp(join(tmpdir(), 'pstack-restarted-stop-'))
+		const file = join(root, 'runtime.sqlite')
+		const store = new RuntimeStore(file)
+		store.saveBackgroundChild('T-restarted', 'T-parent', 'judgment')
+		store.deleteBackgroundChild('T-restarted')
+		store.close()
+		const amp = await loadPlugin({ runtimeStateFile: file, restoredThreadStates: { 'T-restarted': 'running' } })
+		try {
+			expect(JSON.parse(await tool(amp, 'pstack_stop_agent').execute({ threadID: 'T-restarted' }, { thread: { id: 'T-parent' } }))).toMatchObject({ canceled: true })
+			await expect(tool(amp, 'pstack_stop_agent').execute({ threadID: 'T-restarted' }, { thread: { id: 'T-other' } })).rejects.toThrow('not a paired')
+		} finally {
+			await amp.dispose()
+			await rm(root, { recursive: true, force: true })
+		}
+	})
 
 	test('reads a 450-message transcript in stable offset pages with truncation metadata', async () => {
 		const amp = await loadPlugin()
@@ -1043,6 +1115,31 @@ describe('runtime tool behavior', () => {
 		).rejects.toThrow('has no paired child thread ID')
 	})
 
+	test('native Grok rechecks routing on the executing child without cancelling unrelated agents', async () => {
+		let route: 'amp' | 'cursor-cli' = 'amp'
+		const amp = await loadPlugin({ backends: { selectBackend: async () => route } })
+		const definition = { kind: 'agent-definition', ...amp.registeredModes.find((mode) => mode.key === 'pstack-feature')!.agent }
+		let cancels = 0
+		const thread = { id: 'T-destination', agent: async () => ({ definition }), cancel: async () => { cancels++ } }
+		try {
+			await amp.emit('agent.start', { thread })
+			expect(cancels).toBe(0)
+			route = 'cursor-cli'
+			expect(await amp.emit('agent.start', { thread })).toEqual({ message: { display: true, content: 'Stopped before inference: the SuperGrok subscription no longer wins routing. Reconcile this child before starting a Cursor CLI replacement; do not use the proxy route.' } })
+			expect(cancels).toBe(1)
+			for (const role of ['arena-runners-3', 'architect-runners-3', 'interrogate-reviewers-3']) {
+				const seat = amp.registeredModes.find((mode) => mode.agent.model === 'xai/grok-4.7' && String(mode.agent.instructions).endsWith(`Assigned role: ${role}.`))!
+				expect(seat).toBeDefined()
+				Object.assign(definition, seat.agent)
+				await amp.emit('agent.start', { thread })
+			}
+			expect(cancels).toBe(4)
+			Object.assign(definition, { instructions: 'Unrelated custom Grok mode.' })
+			await amp.emit('agent.start', { thread })
+			expect(cancels).toBe(4)
+		} finally { await amp.dispose() }
+	})
+
 	test('builtin roles extend the mode with pstack instructions', async () => {
 		const amp = await loadPlugin()
 		amp.config[CONFIG_KEY] = { 'bug-fix': 'builtin:high' }
@@ -1071,7 +1168,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.started).toHaveLength(0)
 	})
 
-	test('poteto-mode.ts registers Opus 5.5 at medium reasoning on a medium parent', async () => {
+	test('poteto-mode.ts registers GPT-6 Sol at medium reasoning on a medium parent', async () => {
 		const created: Array<Record<string, unknown>> = []
 		const modes: string[] = []
 		const amp = {
@@ -1090,7 +1187,7 @@ describe('runtime tool behavior', () => {
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
 			extends: 'medium',
-			model: 'anthropic/claude-opus-5-5',
+			model: 'openai/gpt-6-sol',
 			reasoningEffort: 'medium',
 		})
 		expect(created[0]).not.toHaveProperty('tools')
@@ -1222,7 +1319,7 @@ describe('runtime tool behavior', () => {
 		).toBe(true)
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
 		expect(String(amp.created.at(-1)?.instructions)).toContain(
-			'otherwise return findings normally to the blocking caller',
+			'otherwise return findings as final text for delivery by the caller',
 		)
 		expect(String(amp.created.at(-1)?.instructions)).toContain(
 			'Use Read and finder to inspect the named scope',
@@ -1238,10 +1335,10 @@ describe('runtime tool behavior', () => {
 			tools: { include: [...REPORTING_READONLY_TOOLS] },
 		})
 		expect(String(amp.created.at(-1)?.instructions)).toContain(
-			'pstack tools other than pstack_send_to_thread',
+			'Do not load skills, spawn agents, create threads, or call pstack tools.',
 		)
 		expect(String(amp.started.at(-1)?.prompt)).toContain(
-			'When finished, call pstack_send_to_thread',
+			'When finished, use native send_thread_message',
 		)
 		const explained = JSON.parse(
 			await tool(amp, 'pstack_run_agent').execute(
@@ -1471,12 +1568,6 @@ describe('runtime tool behavior', () => {
 		expect(unknownFailure.text).not.toContain('Timed out')
 	})
 
-	test('steer defaults on and can be declined', () => {
-		expect(steerFrom(undefined)).toBe(true)
-		expect(steerFrom(true)).toBe(true)
-		expect(steerFrom(false)).toBe(false)
-	})
-
 	test('start_agent returns immediately and tells the child to report', async () => {
 		const amp = await loadPlugin({ waitError: new Error('must not wait') })
 		const result = JSON.parse(
@@ -1503,7 +1594,7 @@ describe('runtime tool behavior', () => {
 		expect(amp.started[0]?.prompt).toBe(
 			backgroundChildPrompt('implement fixture', 'T-parent'),
 		)
-		expect(String(amp.started[0]?.prompt)).toContain('pstack_send_to_thread')
+		expect(String(amp.started[0]?.prompt)).toContain('send_thread_message')
 		expect(String(tool(amp, 'pstack_start_agent').description)).toContain(
 			'Continue independent parent work',
 		)
@@ -1767,23 +1858,6 @@ describe('runtime tool behavior', () => {
 		})
 	})
 
-	test('send_to_thread steers the parent unless steer is false', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_send_to_thread').execute({
-			threadID: 'T-parent',
-			message: 'done',
-		})
-		await tool(amp, 'pstack_send_to_thread').execute({
-			threadID: 'T-parent',
-			message: 'note',
-			steer: false,
-		})
-		expect(amp.sent).toEqual([
-			{ threadID: 'T-parent', content: 'done', steer: true },
-			{ threadID: 'T-parent', content: 'note', steer: false },
-		])
-	})
-
 	test('terminal background children notify once with state and last assistant text', async () => {
 		for (const [role, terminal] of [
 			['feature', 'idle'],
@@ -1964,23 +2038,6 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
-	test('successful child report suppresses the terminal fallback', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'how-explainer', prompt: 'explain it' },
-			{ thread: { id: 'T-parent' } },
-		)
-		await tool(amp, 'pstack_send_to_thread').execute(
-			{ threadID: 'T-parent', message: 'reported' },
-			{ thread: { id: 'T-child' } },
-		)
-		const child = amp.started[0] as { emit: (state: string) => void }
-		child.emit('running')
-		child.emit('idle')
-		await Bun.sleep(0)
-		expect(amp.sent).toEqual([{ threadID: 'T-parent', content: 'reported', steer: true }])
-	})
-
 	test('cross-orb transcript evidence suppresses only a successful report to the actual parent across pages', async () => {
 		for (const [status, fallbackExpected] of [['done', false], ['error', true]] as const) {
 			const amp = await loadPlugin()
@@ -2014,6 +2071,29 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
+	test('native message receipts suppress duplicate reports without trusting printed text or another target', async () => {
+		for (const [target, status, type, expected] of [
+			['T-parent', 'done', 'amp_builtin_call', 0],
+			['T-other', 'done', 'amp_builtin_call', 1],
+			['T-parent', 'error', 'amp_builtin_call', 1],
+			['T-parent', 'done', 'text', 1],
+		] as const) {
+			const amp = await loadPlugin()
+			await tool(amp, 'pstack_start_agent').execute({ role: 'how-explainer', prompt: 'Report through native messaging' }, { thread: { id: 'T-parent' } })
+			const child = amp.started[0] as { emit(state: string): void; transcriptMessages: Array<Record<string, unknown>> }
+			child.transcriptMessages = [
+				{ role: 'assistant', content: [{ type: 'tool_use', id: 'TU-native', name: 'code_exec', input: { code: 'native call' } }] },
+				...Array.from({ length: 20 }, () => ({ role: 'user', content: [{ type: 'text', text: 'page boundary' }] })),
+				{ role: 'user', content: [{ type: 'tool_result', toolUseID: 'TU-native', status: 'done', output: JSON.stringify([{ type, toolName: 'send_thread_message', status, args: { thread: target }, result: { threadID: target } }]) }] },
+			]
+			child.emit('running')
+			child.emit('idle')
+			await Bun.sleep(0)
+			expect(amp.sent).toHaveLength(expected)
+			await amp.dispose()
+		}
+	})
+
 	test('failed terminal fallback append returns the durable claim to pending and retries after reload', async () => {
 		const root = await mkdtemp(join(tmpdir(), 'pstack-notification-retry-'))
 		const runtimeStateFile = join(root, 'runtime.sqlite')
@@ -2043,61 +2123,6 @@ describe('runtime tool behavior', () => {
 		} finally {
 			await rm(root, { recursive: true, force: true })
 		}
-	})
-
-	test('a successful report to a different thread does not suppress the parent fallback', async () => {
-		const amp = await loadPlugin()
-		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'how-explainer', prompt: 'explain it' },
-			{ thread: { id: 'T-parent' } },
-		)
-		await tool(amp, 'pstack_send_to_thread').execute(
-			{ threadID: 'T-other', message: 'side note' },
-			{ thread: { id: 'T-child' } },
-		)
-		const child = amp.started[0] as { emit: (state: string) => void }
-		child.emit('running')
-		child.emit('idle')
-		await Bun.sleep(0)
-		expect(amp.sent).toHaveLength(2)
-		expect(amp.sent[1]).toMatchObject({ threadID: 'T-parent' })
-	})
-
-	test('concurrent child reports retain all in-flight tracking and only the actual parent suppresses fallback', async () => {
-		let releaseSuccess: (() => void) | undefined
-		let releaseFailure: (() => void) | undefined
-		const amp = await loadPlugin({
-			appendHook: async (_threadID, content) => {
-				if (content === 'success') await new Promise<void>((resolve) => { releaseSuccess = resolve })
-				if (content === 'failure') {
-					await new Promise<void>((resolve) => { releaseFailure = resolve })
-					throw new Error('send failed')
-				}
-			},
-		})
-		await tool(amp, 'pstack_start_agent').execute(
-			{ role: 'how-explainer', prompt: 'race reports' },
-			{ thread: { id: 'T-parent' } },
-		)
-		const success = tool(amp, 'pstack_send_to_thread').execute(
-			{ threadID: 'T-parent', message: 'success' },
-			{ thread: { id: 'T-child' } },
-		)
-		const failure = tool(amp, 'pstack_send_to_thread').execute(
-			{ threadID: 'T-parent', message: 'failure' },
-			{ thread: { id: 'T-child' } },
-		)
-		const child = amp.started[0] as { emit: (state: string) => void }
-		child.emit('running')
-		child.emit('idle')
-		releaseFailure?.()
-		releaseSuccess?.()
-		expect((await Promise.allSettled([success, failure])).map(({ status }) => status).sort()).toEqual([
-			'fulfilled',
-			'rejected',
-		])
-		await Bun.sleep(0)
-		expect(amp.sent).toEqual([{ threadID: 'T-parent', content: 'success', steer: true }])
 	})
 
 	test('configure set stores overrides only and unknown actions fail', async () => {
@@ -2413,8 +2438,8 @@ describe('runtime tool behavior', () => {
 		})
 		expect(STRICT_READONLY_TOOLS).toContain('Read')
 		expect(STRICT_READONLY_TOOLS).toContain('read_thread')
-		expect(STRICT_READONLY_TOOLS).not.toContain('pstack_send_to_thread')
-		expect(REPORTING_READONLY_TOOLS).toContain('pstack_send_to_thread')
+		expect(STRICT_READONLY_TOOLS).not.toContain('send_thread_message')
+		expect(REPORTING_READONLY_TOOLS).toContain('send_thread_message')
 		expect(capabilityFor('interrogate-reviewers-2').tools).toEqual({
 			include: STRICT_READONLY_TOOLS,
 		})
@@ -2784,10 +2809,10 @@ describe('runtime tool behavior', () => {
 				{ thread: { id: 'T-parent' } },
 			)
 			;(first.started[0] as { emit: (state: string) => void }).emit('running')
-			await tool(first, 'pstack_send_to_thread').execute(
-				{ threadID: 'T-parent', message: 'interim report' },
-				{ thread: { id: 'T-child' } },
-			)
+			first.started[0]!.transcriptMessages = [
+				{ role: 'assistant', content: [{ type: 'tool_use', id: 'TU-native', name: 'code_exec' }] },
+				{ role: 'user', content: [{ type: 'tool_result', toolUseID: 'TU-native', status: 'done', output: JSON.stringify([{ type: 'amp_builtin_call', toolName: 'send_thread_message', status: 'done', result: { threadID: 'T-parent' } }]) }] },
+			]
 			await first.dispose()
 
 			const restored = await loadPlugin({
@@ -2806,6 +2831,7 @@ describe('runtime tool behavior', () => {
 			const terminal = await loadPlugin({
 				runtimeStateFile,
 				restoredThreadStates: { 'T-child': 'idle' },
+				restoredThreadMessages: { 'T-child': first.started[0]!.transcriptMessages as Array<Record<string, unknown>> },
 			})
 			await Bun.sleep(0)
 			expect(terminal.sent).toHaveLength(0)
@@ -2928,10 +2954,10 @@ describe('runtime tool behavior', () => {
 			)
 			const reporter = first.started[0] as { emit: (state: string) => void }
 			reporter.emit('running')
-			await tool(first, 'pstack_send_to_thread').execute(
-				{ threadID: 'T-parent', message: 'final report' },
-				{ thread: { id: 'T-child' } },
-			)
+			first.started[0]!.transcriptMessages = [
+				{ role: 'assistant', content: [{ type: 'tool_use', id: 'TU-native', name: 'code_exec' }] },
+				{ role: 'user', content: [{ type: 'tool_result', toolUseID: 'TU-native', status: 'done', output: JSON.stringify([{ type: 'amp_builtin_call', toolName: 'send_thread_message', status: 'done', result: { threadID: 'T-parent' } }]) }] },
+			]
 			reporter.emit('idle')
 			expect(
 				JSON.parse(
@@ -2942,7 +2968,7 @@ describe('runtime tool behavior', () => {
 				),
 			).toMatchObject({ threadID: 'T-child-2', reconciled: true })
 			await Bun.sleep(0)
-			expect(first.sent).toEqual([{ threadID: 'T-parent', content: 'final report', steer: true }])
+			expect(first.sent).toEqual([])
 			for (const threadID of ['T-child', 'T-child-2']) {
 				expect(await writeAttempt(first, threadID)).toMatchObject({ action: 'reject-and-continue' })
 			}

@@ -35,6 +35,9 @@ import type {
 } from '@ampcode/plugin'
 
 import { RuntimeStore } from './runtime-store'
+import { BACKEND_CONFIG_KEY, backendPreferences, cliSeat, selectBackend } from './backend-routing'
+import { prepareCliRun, type CliRunOptions, type CliBackendId } from './cli-backends'
+import { cliDelegate, type DelegateThread } from './cli-delegate'
 import { WakeWebhookCoordinator } from './webhook-runtime'
 import {
 	CODE_IMPLEMENTATION_ROLES,
@@ -384,17 +387,12 @@ function usesPotetoDelegateWrapper(role: string): boolean {
 	)
 }
 
-export function steerFrom(value: unknown): boolean {
-	return value !== false
-}
-
 export function backgroundChildPrompt(prompt: string, parentThreadID: string): string {
 	return [
 		prompt,
 		'',
 		`Parent thread: ${parentThreadID}.`,
-		'When finished, call pstack_send_to_thread with that thread ID and a compact report.',
-		'Omit steer unless you must not wake the parent (steer defaults to true).',
+		'When finished, use native send_thread_message to send that parent a compact report. If unavailable, return the report as final text; the plugin forwards it.',
 		'Report outcome, evidence, blockers, and next action. No file dumps.',
 		'Do not spawn another agent for this same scope.',
 		'Do not message sibling threads. The parent may steer you mid-run.',
@@ -406,14 +404,14 @@ const BLOCKED_REPORT_PARENT_GUIDANCE =
 	'Before treating a blocked report as terminal, inspect the actual child tool-call/result status and output; when the result contradicts the claim, steer that same child instead of replacing it.'
 
 export const START_AGENT_NEXT =
-	`The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. Never redo or replace a live child. ${BLOCKED_REPORT_PARENT_GUIDANCE} The child reports through pstack_send_to_thread, and the parent may steer it. If you must check later, read_thread; zero messages means not started yet, not dead.`
+	`The child exclusively owns the delegated scope. Continue only work that is independent of that scope; end this turn when the child blocks further progress. Do not call wait_for_threads to judge startup. Amp reports unknown/settled with an empty transcript while the child is still starting; that is not failure. Do not spawn Task, pstack_run_agent, or a second pstack_start_agent for this scope. Never redo or replace a live child. ${BLOCKED_REPORT_PARENT_GUIDANCE} Use native send_thread_message for reports and steering; the plugin forwards unreported final text. If you must check later, read_thread; zero messages means not started yet, not dead.`
 
 const COMMENT_REVIEWER_INSTRUCTIONS = [
 	AGENT_INSTRUCTIONS,
 	'Assigned role: comment-reviewer.',
 	'You are a terminal report-only reviewer.',
-	'Do not load skills, spawn agents, create threads, or call pstack tools other than pstack_send_to_thread.',
-	'Use pstack_send_to_thread only when the task prompt tells you to report to the parent; otherwise return findings normally to the blocking caller.',
+	'Do not load skills, spawn agents, create threads, or call pstack tools.',
+	'Use native send_thread_message only when available and the task prompt asks for a parent report; otherwise return findings as final text for delivery by the caller.',
 	'Use Read and finder to inspect the named scope; do not use git or shell commands.',
 	'Do not edit files or run mutating shell.',
 	'Return findings and MUST KILL symbols. Never apply a patch.',
@@ -728,19 +726,26 @@ function instructionsFor(role: string): string {
 	return `${AGENT_INSTRUCTIONS} Assigned role: ${role}.`
 }
 
-export default async function pstack(amp: PluginAPI) {
+export default async function pstack(amp: PluginAPI, dependencies: { selectBackend?: typeof selectBackend; cliOptions?: CliRunOptions } = {}) {
 	const runtimeStore = new RuntimeStore(
 		runtimeStatePath(amp.system.ampURL, amp.system.user?.id ?? null),
 	)
+	const getDelegate = (id: string): DelegateThread => id.startsWith('cli-')
+		? cliDelegate(id, dependencies.cliOptions)
+		: amp.threads.get(id as ThreadID)
+	const backendFor = async (model: string) => (dependencies.selectBackend ?? selectBackend)(model,
+		backendPreferences((await amp.configuration.get())[BACKEND_CONFIG_KEY]))
 	const wakeWebhooks = new WakeWebhookCoordinator(amp, runtimeStore)
-	const reportsInFlight = new Map<string, Set<Promise<void>>>()
+	const notificationsInFlight = new Set<Promise<void>>()
 	const terminalTranscript = async (threadID: string, parentThreadID: string) => {
 		const successfulResults = new Set<string>()
 		const reports = new Map<string, string>()
+		const codeExecCalls = new Set<string>()
+		const nativeReceipts = new Set<string>()
 		let lastAssistantText = ''
 		let offset = 0
 		while (true) {
-			const messages = await amp.threads.get(threadID as ThreadID).messages({
+			const messages = await getDelegate(threadID).messages({
 				full: true,
 				from: 'end',
 				limit: 20,
@@ -751,6 +756,16 @@ export default async function pstack(amp: PluginAPI) {
 				for (const block of message.content) {
 					if (block.type === 'tool_result' && block.status === 'done') {
 						successfulResults.add(block.toolUseID)
+						if (typeof block.output === 'string') {
+							try {
+								const output: unknown = JSON.parse(block.output)
+								if (Array.isArray(output) && output.some((receipt) => isRecord(receipt) &&
+									receipt.type === 'amp_builtin_call' && receipt.toolName === 'send_thread_message' && receipt.status === 'done' &&
+									isRecord(receipt.result) && receipt.result.threadID === parentThreadID)) nativeReceipts.add(block.toolUseID)
+							} catch { /* Ordinary tool output is not a native call receipt. */ }
+						}
+					} else if (block.type === 'tool_use' && block.name === 'code_exec') {
+						codeExecCalls.add(block.id)
 					} else if (
 						block.type === 'tool_use' &&
 						block.name === 'pstack_send_to_thread' &&
@@ -775,7 +790,7 @@ export default async function pstack(amp: PluginAPI) {
 			lastAssistantText,
 			reportedToParent: [...reports].some(
 				([toolUseID, target]) => target === parentThreadID && successfulResults.has(toolUseID),
-			),
+			) || [...nativeReceipts].some((id) => codeExecCalls.has(id)),
 		}
 	}
 	const notifyUnreportedChild = async (
@@ -783,7 +798,6 @@ export default async function pstack(amp: PluginAPI) {
 		parentThreadID: string,
 		state: 'idle' | 'error',
 	): Promise<void> => {
-		await Promise.allSettled([...(reportsInFlight.get(threadID) ?? [])])
 		if (!runtimeStore.claimBackgroundNotification(threadID)) {
 			runtimeStore.deleteReportedBackgroundChild(threadID)
 			return
@@ -799,7 +813,7 @@ export default async function pstack(amp: PluginAPI) {
 		} catch (error) {
 			amp.logger.log(`Could not read terminal child ${threadID}: ${String(error)}`)
 		}
-		const message = `Child ${threadID} reached terminal state ${state} without successfully reporting via pstack_send_to_thread. Last assistant text: ${lastAssistantText || '(none)'}`
+		const message = threadID.startsWith('cli-') ? lastAssistantText || `CLI run ${threadID} ended with ${state}.` : `Child ${threadID} reached terminal state ${state} without a successful parent report receipt. Last assistant text: ${lastAssistantText || '(none)'}`
 		let notified = false
 		await amp.threads
 			.get(parentThreadID as ThreadID)
@@ -832,7 +846,10 @@ export default async function pstack(amp: PluginAPI) {
 			else runtimeStore.releaseDesignRun(parentThreadID)
 		},
 		(threadID, parentThreadID, state) => {
-			void notifyUnreportedChild(threadID, parentThreadID, state)
+			const pending = notifyUnreportedChild(threadID, parentThreadID, state)
+				.catch((error) => amp.logger.log(`Terminal notification failed for ${threadID}: ${String(error)}`))
+				.finally(() => notificationsInFlight.delete(pending))
+			notificationsInFlight.add(pending)
 		},
 		(threadID) => runtimeStore.markBackgroundActive(threadID),
 	)
@@ -843,7 +860,7 @@ export default async function pstack(amp: PluginAPI) {
 		let thread
 		if (owner.state === 'running') {
 			try {
-				thread = amp.threads.get(owner.threadID as ThreadID)
+				thread = getDelegate(owner.threadID)
 			} catch (error) {
 				amp.logger.log(`Could not reattach owner ${owner.resourceKey}: ${String(error)}`)
 			}
@@ -855,7 +872,7 @@ export default async function pstack(amp: PluginAPI) {
 			run,
 			(threadID) => {
 				try {
-					return amp.threads.get(threadID as ThreadID)
+					return getDelegate(threadID)
 				} catch {
 					return undefined
 				}
@@ -868,7 +885,7 @@ export default async function pstack(amp: PluginAPI) {
 		if (child.notified) runtimeStore.releaseBackgroundNotification(child.threadID)
 		if (policy.child(child.threadID)) continue
 		try {
-			const thread = amp.threads.get(child.threadID as ThreadID)
+			const thread = getDelegate(child.threadID)
 			if (isStrictReadonlyRole(child.role)) {
 				await policy.trackReadonly(thread, child.role, child.parentThreadID, true, child.active)
 			} else {
@@ -1049,8 +1066,11 @@ export default async function pstack(amp: PluginAPI) {
 	const startupSpecs = orbAgentSpecsFor(startupModels, (role, message) => {
 		amp.logger.log(`Could not register pstack role ${role}: ${message}`)
 	})
+	const startupBackends = new Map(await Promise.all([...new Set(startupSpecs.map((spec) => spec.model))]
+		.map(async (model) => [model, await backendFor(model)] as const)))
 	for (const spec of startupSpecs) {
 		try {
+			if (startupBackends.get(spec.model) !== 'amp') continue
 			registerOrbAgent(spec.model, spec.role, spec.effort)
 		} catch (error) {
 			amp.logger.log(`Could not register pstack seat ${spec.role}/${spec.model}: ${String(error)}`)
@@ -1068,6 +1088,7 @@ export default async function pstack(amp: PluginAPI) {
 			const value = valid ? configured : DEFAULT_MODELS[mode.role]
 			const pool = Array.isArray(value) ? value : [value]
 			const { model, effort } = resolveSeat(pool[(mode.seat ?? 1) - 1] ?? pool[0]!)
+			if (startupBackends.get(model) !== 'amp') continue
 			nativeModes.push(amp.registerAgentMode({
 				key: mode.key,
 				label: mode.label,
@@ -1079,21 +1100,32 @@ export default async function pstack(amp: PluginAPI) {
 		}
 	}
 
-	const createAgentThread = (input: {
+	const createAgentThread = async (input: {
 		model: string
 		effort?: AgentReasoningEffort
 		role: string
+		prompt: string
 		parentThreadID: ThreadID
 		executor: DelegateExecutor
-	}) => {
+		explicitPlacement?: boolean
+	}): Promise<DelegateThread> => {
+		const backend = await backendFor(input.model)
+		const startCli = (backend: CliBackendId) => {
+			if (input.explicitPlacement) throw new Error('This model requires an isolated CLI worktree in the current executor. Omit executor and launchTarget to accept that placement, or select an Amp-native model.')
+			const { id } = prepareCliRun({ role: input.role, roleInstructions: instructionsFor(input.role),
+				brief: input.prompt, checkout: workspaceRootPath(amp) ?? process.cwd(),
+				access: capabilityFor(input.role).kind === 'implementation' && input.role !== 'judgment' ? 'writer' : 'readonly',
+				backend,
+				backends: { [backend]: cliSeat(backend, input.model, input.effort) },
+			}, dependencies.cliOptions)
+			return cliDelegate(id, dependencies.cliOptions)
+		}
+		if (backend !== 'amp') return startCli(backend)
 		const agent =
 			input.executor === 'orb' || typeof input.executor === 'object'
 				? orbAgentFor(input.model, input.role, input.effort)
 				: agentFor(input.model, input.role, input.effort)
-		return agent.createThread({
-			parentThreadID: input.parentThreadID,
-			executor: input.executor,
-		})
+		return agent.createThread({ parentThreadID: input.parentThreadID, executor: input.executor })
 	}
 
 	const runOnThread = async (input: {
@@ -1103,16 +1135,20 @@ export default async function pstack(amp: PluginAPI) {
 		prompt: string
 		parentThreadID: ThreadID
 		executor: ReturnType<typeof executorFrom>
+		explicitPlacement?: boolean
 		timeoutMs: number
 		onThread?: (
 			thread: Awaited<ReturnType<typeof createAgentThread>>,
 		) => Promise<void>
 	}): Promise<{ threadID: string; text: string; status: 'done' | 'timeout' | 'error' }> => {
 		const thread = await createAgentThread(input)
+		if (thread.id.startsWith('cli-')) runtimeStore.saveBackgroundChild(thread.id, input.parentThreadID, input.role)
 		if (input.onThread) {
 			await input.onThread(thread)
 		} else if (isStrictReadonlyRole(input.role)) {
 			await policy.trackReadonly(thread, input.role, input.parentThreadID)
+		} else if (thread.id.startsWith('cli-')) {
+			await policy.trackBackground(thread, input.role, input.parentThreadID)
 		}
 		try {
 			await thread.appendUserMessage({ type: 'user-message', content: input.prompt })
@@ -1192,6 +1228,7 @@ export default async function pstack(amp: PluginAPI) {
 				prompt,
 				parentThreadID: ctx.thread.id,
 				executor,
+				explicitPlacement: input.executor !== undefined,
 				timeoutMs,
 			})
 			return JSON.stringify({ role, model, timeoutMs, ...result })
@@ -1266,6 +1303,7 @@ export default async function pstack(amp: PluginAPI) {
 						prompt: candidatePrompt,
 						parentThreadID: ctx.thread.id,
 						executor,
+						explicitPlacement: input.executor !== undefined,
 						timeoutMs,
 						onThread: isDesignPanel(panel)
 							? (thread) => policy.trackCandidate(ctx.thread.id, thread, role)
@@ -1293,7 +1331,7 @@ export default async function pstack(amp: PluginAPI) {
 		title: 'Start pstack background agent',
 		transcriptGroup: { active: 'Starting pstack agent', complete: 'Started pstack agent' },
 		description:
-			'Start a durable background pstack agent in a child thread and return immediately. Use hardest for the strongest implementation model; all implementation roles require a non-empty scope. Local parents default implementation to current-checkout; orb parents and explicit executor orb use a fresh parent-project-orb. current-checkout is rejected from an orb parent because it cannot share that orb filesystem. repo-independent-orb is for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with pstack_send_to_thread (steer defaults on). Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
+			'Start a durable background pstack agent in a child thread and return immediately. Use hardest for the strongest implementation model; all implementation roles require a non-empty scope. Local parents default implementation to current-checkout; orb parents and explicit executor orb use a fresh parent-project-orb. current-checkout is rejected from an orb parent because it cannot share that orb filesystem. repo-independent-orb is for work that does not depend on a checkout. native-orb requires a project and redirects to Amp create_thread for project, orb size, or custom mode. The child exclusively owns its delegated scope and reports with native send_thread_message or final text forwarded by the plugin. Continue independent parent work, then end the turn when blocked on the child. Never use wait_for_threads to judge startup, redo the scope, or replace a live child.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -1440,6 +1478,9 @@ export default async function pstack(amp: PluginAPI) {
 			try {
 				const { model, effort, seat } = await modelFor(role, ctx.thread)
 				if (launchTarget?.kind === 'native-orb' || launchTarget?.kind === 'named-runner') {
+					if (await backendFor(model) !== 'amp') {
+						throw new Error('This model currently requires a CLI backend. Omit native-orb/named-runner to run in an isolated worktree, or select an Amp-native model. Native redirects cannot bypass backend safety routing.')
+					}
 					const modeKey = nativeAgentModeFor(role, seat).key
 					const childPrompt = backgroundChildPrompt(prompt, ctx.thread.id)
 					const redirectBase =
@@ -1496,10 +1537,12 @@ export default async function pstack(amp: PluginAPI) {
 					model,
 					effort,
 					role,
+					prompt,
 					parentThreadID: ctx.thread.id,
 					executor,
+					explicitPlacement: input.executor !== undefined || input.launchTarget !== undefined,
 				})
-				if (!judgeReserved) runtimeStore.saveBackgroundChild(thread.id, ctx.thread.id, role)
+				if (!judgeReserved || thread.id.startsWith('cli-')) runtimeStore.saveBackgroundChild(thread.id, ctx.thread.id, role)
 				if (owner) await policy.attachRunning(owner.resourceKey, thread)
 				else if (judgeReserved) {
 					await policy.startJudge(ctx.thread.id, thread)
@@ -1537,10 +1580,10 @@ export default async function pstack(amp: PluginAPI) {
 					parentThreadID: ctx.thread.id,
 					scope: scope || undefined,
 					scopePaths: scopePaths.length > 0 ? scopePaths : undefined,
-					executor,
-					launchTarget,
+					executor: thread.id.startsWith('cli-') ? 'cli-worktree' : executor,
+					launchTarget: thread.id.startsWith('cli-') ? { kind: 'cli-worktree' } : launchTarget,
 					next:
-						launchTarget?.kind === 'repo-independent-orb'
+						thread.id.startsWith('cli-') ? 'The worker runs in an isolated snapshot worktree in this executor, not a child orb. Its final report and patch path will arrive here. Review writer patches before applying. CLI runs cannot be steered. pstack_stop_agent accepts this cli run ID.' : launchTarget?.kind === 'repo-independent-orb'
 							? `${START_AGENT_NEXT} This work must not depend on a checkout.`
 							: launchTarget?.kind === 'parent-project-orb'
 								? `${START_AGENT_NEXT} This fresh orb inherits the parent project, not the parent executor's live filesystem. Required state must exist in the project remote or be transferred explicitly.`
@@ -1567,20 +1610,20 @@ export default async function pstack(amp: PluginAPI) {
 		},
 		async execute(input, ctx) {
 			const threadID = text(input.threadID, 'threadID')
-			if (!threadID.startsWith('T-')) throw new Error('Invalid Amp thread ID.')
+			if (!threadID.startsWith('T-') && !threadID.startsWith('cli-')) throw new Error('Invalid delegate ID.')
 			const owners = runtimeStore.listOwners()
 			const owner = owners.find(
 				(candidate) => candidate.state === 'running' && candidate.threadID === threadID,
 			)
 			if (!owner) {
-				const background = runtimeStore.backgroundChild(threadID)
+				const background = runtimeStore.childParent(threadID)
 				if (background?.parentThreadID === ctx.thread.id) {
-					const child = amp.threads.get(threadID as ThreadID)
+					const child = getDelegate(threadID)
 					await child.cancel()
 					const state = await child.state.get()
 					if (state === 'idle' || state === 'error') {
-						policy.untrack(threadID)
 						runtimeStore.deleteBackgroundChild(threadID)
+						policy.releaseObserved(threadID, state)
 					}
 					return JSON.stringify({
 						threadID,
@@ -1602,11 +1645,12 @@ export default async function pstack(amp: PluginAPI) {
 			if (owner.parentThreadID !== ctx.thread.id) {
 				throw new Error(`Thread ${threadID} is owned by a different parent.`)
 			}
-			const child = amp.threads.get(threadID as ThreadID)
+			const child = getDelegate(threadID)
 			await child.cancel()
 			const state = await child.state.get()
 			if (state === 'idle' || state === 'error') {
-				policy.release(owner.resourceKey)
+				runtimeStore.deleteBackgroundChild(threadID)
+				policy.releaseObserved(threadID, state)
 				return JSON.stringify({ threadID, state, canceled: true, ownershipReleased: true })
 			}
 			return JSON.stringify({
@@ -1616,57 +1660,6 @@ export default async function pstack(amp: PluginAPI) {
 				ownershipReleased: false,
 				next: 'Cancellation is asynchronous. The ownership claim remains until the observed child state is idle or error.',
 			})
-		},
-	})
-
-	amp.registerTool({
-		name: 'pstack_send_to_thread',
-		title: 'Report to pstack thread',
-		transcriptGroup: { active: 'Reporting to parent', complete: 'Reported to parent' },
-		description:
-			'Send a delegate report or steering message to a known Amp thread. steer defaults to true so the parent wakes. Pass false only for a non-waking note.',
-		inputSchema: {
-			type: 'object',
-			properties: {
-				threadID: { type: 'string' },
-				message: { type: 'string' },
-				steer: { type: 'boolean' },
-			},
-			required: ['threadID', 'message'],
-		},
-		async execute(input, ctx) {
-			const threadID = text(input.threadID, 'threadID')
-			if (!threadID.startsWith('T-')) throw new Error('Invalid Amp thread ID.')
-			const childID = ctx?.thread.id
-			const message = text(input.message, 'message')
-			const child = childID ? runtimeStore.backgroundChild(childID) : undefined
-			let settleReport: (() => void) | undefined
-			let reportPromise: Promise<void> | undefined
-			if (childID) {
-				reportPromise = new Promise<void>((resolve) => {
-					settleReport = resolve
-				})
-				const reports = reportsInFlight.get(childID) ?? new Set<Promise<void>>()
-				reports.add(reportPromise)
-				reportsInFlight.set(childID, reports)
-			}
-			try {
-				await amp.threads.get(threadID as ThreadID).appendUserMessage(
-					{ type: 'user-message', content: message },
-					{ steer: steerFrom(input.steer) },
-				)
-				if (child?.parentThreadID === threadID) {
-					runtimeStore.markBackgroundReported(childID, threadID)
-				}
-			} finally {
-				settleReport?.()
-				if (childID && reportPromise) {
-					const reports = reportsInFlight.get(childID)
-					reports?.delete(reportPromise)
-					if (reports?.size === 0) reportsInFlight.delete(childID)
-				}
-			}
-			return `Sent report to ${threadID}.`
 		},
 	})
 
@@ -1733,6 +1726,7 @@ export default async function pstack(amp: PluginAPI) {
 			properties: {
 				action: { type: 'string', enum: ['show', 'set', 'reset', 'profile'] },
 				overrides: { type: 'object' },
+				backends: { type: 'object', description: 'Backend preferences: opus is claude-code (default) or amp; grokBuild is false by default. Grok native routing is always subscription-gated.' },
 				profile: {
 					type: 'string',
 					enum: ['balanced', 'cheap', 'builtin', 'reset'],
@@ -1743,6 +1737,12 @@ export default async function pstack(amp: PluginAPI) {
 		},
 		async execute(input) {
 			const action = text(input.action, 'action')
+			if (input.backends !== undefined) {
+				if (action !== 'set') throw new Error('backends requires action set.')
+				const preferences = backendPreferences(input.backends)
+				await amp.configuration.update({ [BACKEND_CONFIG_KEY]: preferences }, 'global')
+				if (input.overrides === undefined) return JSON.stringify({ backends: preferences })
+			}
 			if (action === 'reset') {
 				await amp.configuration.delete(CONFIG_KEY, 'global')
 				return JSON.stringify(await resolvedFrom(undefined), null, 2)
@@ -1834,6 +1834,18 @@ export default async function pstack(amp: PluginAPI) {
 	)
 
 	if (typeof amp.on === 'function') {
+		amp.on('agent.start', async (_event, ctx) => {
+			const { definition } = await ctx.thread.agent()
+			if (definition.kind !== 'agent-definition' || !definition.instructions) return {}
+			const panelRole = definition.instructions.match(/ Assigned role: ((?:arena-runners|architect-runners|interrogate-reviewers)-[1-9]\d*)\.$/)?.[1]
+			const isDelegate = [...Object.keys(DEFAULT_MODELS), ...(panelRole ? [panelRole] : [])]
+				.some((role) => instructionsFor(role) === definition.instructions)
+			if (!isDelegate || definition.model !== 'xai/grok-4.7') return {}
+			// Check on the executing child, not only when its parent registered the mode.
+			if (await backendFor(definition.model) === 'amp') return {}
+			await ctx.thread.cancel()
+			return { message: { display: true, content: 'Stopped before inference: the SuperGrok subscription no longer wins routing. Reconcile this child before starting a Cursor CLI replacement; do not use the proxy route.' } }
+		})
 		amp.on('tool.call', (event) => {
 			if (event.tool === 'create_thread' && event.toolUseID) {
 				const reservation = runtimeStore.listNativeBackgroundReservations().find(
@@ -1896,6 +1908,7 @@ export default async function pstack(amp: PluginAPI) {
 		orbAgents.clear()
 		for (const subscription of nativeModes.splice(0)) subscription.unsubscribe()
 		const { discarded } = policy.dispose()
+		await Promise.allSettled([...notificationsInFlight])
 		if (discarded > 0) {
 			amp.logger.log(
 				`Discarding ${discarded} process-local subscriptions on plugin reload; durable owner and design state remains in the runtime journal.`,

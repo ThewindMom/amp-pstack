@@ -23,9 +23,21 @@ Do not invent Amp tools, aliases, or `inherit-parent` / `auto` model values. Sch
 
 ## Join
 
+Choose the backend before applying the native placement guidance below. Grok uses `cursor-agent --model grok-4.7-xhigh-fast` unless the active SuperGrok connection wins Amp routing. Opus defaults to Claude Code; `pstack_configure_models` accepts `action: "set", backends: { opus: "amp", grokBuild: false }`. No provider settings are changed. Grok Build is off by default.
+
+CLI delegates run in isolated snapshot worktrees on the current executor. Omit explicit `executor` and `launchTarget` for CLI routing; explicit native placement is rejected, not replaced silently. A snapshot includes tracked edits and non-ignored untracked files. CLI workers have no Amp tools, cannot be steered, and return final text through the plugin. Their `cli-` IDs are not Amp thread IDs; use `pstack_stop_agent` to stop them. Read-only runs use CLI read-only mode and filesystem checks, with a private dependency copy linked as `node_modules`. Writer patches need parent review before applying; writers install dependencies only as directed in the brief. Orb services retain running work across plugin reload. Finished run data expires after seven days; stopped services without results become errors. Mid-task limits are reported, never replayed.
+
+### Why a CLI adapter currently exists
+
+Amp has built-in external Claude Code and Cursor terminal agents, with installation, new/resume commands, `$p` for the prompt, and `$m` for the chosen model. Those capabilities could replace custom installation, terminal lifecycle, and orb provisioning. They are not evidence that every CLI lifecycle must be custom.
+
+The currently exposed native `create_thread` schema accepts `agent_mode: string` but advertises built-in, plugin, and custom modes; it exposes no model, external-agent command, or terminal-session argument. A repository-scoped `list_agent_modes` inspection returned only built-in and plugin modes, not `external-agent:<key>`. This does not prove the server rejects arbitrary external-mode strings; no unsupported launch was attempted. The plugin SDK exposes `createAgent` and built-in agent handles, but no external-agent constructor. Its documented message, state, result, and cancellation contracts concern Amp turns, not external terminal sessions.
+
+Until an advertised external-agent launch and result/cancel contract covers these requirements, the CLI adapter supplies model selection, isolated snapshots, final-report collection, cancellation, and reviewed writer patches. The built-in external commands also bypass permissions, and Cursor's default uses `agent` rather than `cursor-agent`; those defaults do not preserve this adapter's read-only contract unchanged. Prefer a native replacement once these gaps are resolved; do not change account configuration to work around them without authorization.
+
 Default to `pstack_start_agent`. Writable roles require a human-readable `scope` and concrete `scopePaths`. Route from the actual executor, not the word `remote`. Local and runner parents default to `current-checkout`. An Amp-managed orb parent defaults to a fresh `parent-project-orb`. Unknown placement requires an explicit target. Use `named-runner` with `runnerId` for hardware, credentials, private networks, or machine-bound tools. Use `repo-independent-orb` only when the brief does not depend on a checkout. Use `native-orb` with a required `project` when project, orb size, or a custom mode matters.
 
-The child exclusively owns its declared paths and reports with `pstack_send_to_thread` (steer defaults on). Continue parent work that is independent of those paths, then end the turn when blocked. Never call `wait_for_threads` to judge startup. Amp can return `unknown` or `settled` with an empty transcript while the child is still starting. That is not failure. Do not spawn a second owner for equal or prefix-overlapping paths. Disjoint paths may run concurrently.
+The child exclusively owns its declared paths and reports with native `send_thread_message` when available. Otherwise the plugin forwards its final text, including CLI reports. Continue parent work that is independent of those paths, then end the turn when blocked. Never call `wait_for_threads` to judge startup. Amp can return `unknown` or `settled` with an empty transcript while the child is still starting. That is not failure. Do not spawn a second owner for equal or prefix-overlapping paths. Disjoint paths may run concurrently.
 
 ## Blocking wait
 
@@ -39,7 +51,9 @@ A timeout, a late report, `wait_for_threads` `unknown`, or a live child is not a
 
 ## Steer
 
-The parent may message a live child with `pstack_send_to_thread` or Amp `send_thread_message` (`steer: true`) to tighten scope, share a sibling finding, or stop a wrong path. Do not spawn a second child for the same scope. Children do not chat with siblings. They report to the parent. The parent relays.
+The parent messages a live Amp child with native `send_thread_message` to tighten scope, share a sibling finding, or stop a wrong path. CLI workers cannot receive steering messages. Do not spawn a second child for the same scope. Children do not chat with siblings. They report to the parent. The parent relays.
+
+Reports use native `send_thread_message`; the duplicate messaging wrapper is removed. A live orb probe found no plugin event for the native call inside `code_exec`, but its transcript result carries a structured `amp_builtin_call` receipt. Terminal recovery recognizes that receipt only for a successful send to the actual parent, across transcript pages. Restricted reviewers can return final text for the plugin to forward. Absence of a receipt keeps fallback notification enabled. Recovery still recognizes old wrapper receipts in already-running threads.
 
 Use `pstack_stop_agent` to cancel any durably tracked child owned by the current parent, including a nonimplementation background child whose prompt append acknowledgement was uncertain. Implementation children separately hold scope ownership; cancellation does not release that claim until Amp observes terminal `idle` or `error`. Background tracking also remains until a terminal state is observed. The strict read-only guard is permanent per thread. The write hook keeps rejecting file writes from a strict read-only child after a terminal state, a re-steer, `pstack_stop_agent`, or a plugin reload on the same executor. For a `named-runner` or `native-orb` redirect, first complete the returned native `create_thread` call so the plugin can pair that exact thread ID with the reservation; then stop the paired child ID. A reservation with no paired native child cannot be canceled through this tool. Reconcile the native create result first.
 
@@ -93,21 +107,40 @@ Pick size from this table unless the user named one. The user-named size always 
 
 ## Briefs
 
-Compact: paths, named data shape, success criteria, how to report. No file dumps. Name only verification skills and tools known to be available, and require reports to distinguish a skill run from direct shell tests. Include the parent thread ID and require `pstack_send_to_thread` with a compact report. Playbooks live with **poteto-mode**. After load, Amp names the skill base directory. Open `playbooks/<name>.md` and `references/amp-adapter.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
+Compact: paths, named data shape, success criteria, how to report. No file dumps. Name only verification skills and tools known to be available, and require reports to distinguish a skill run from direct shell tests. Include the parent thread ID and require a compact report through native `send_thread_message` when available, otherwise final text; CLI workers always return final text. Playbooks live with **poteto-mode**. After load, Amp names the skill base directory. Open `playbooks/<name>.md` and `references/amp-adapter.md` from that directory. Never `cat ~/.config/amp/plugins/pstack/...`.
 
 ## Models
+
+Each run selects one backend. A startup rejection or mid-task limit is terminal, with evidence for the parent. There is no automatic retry or successor run. The parent must reconcile the result before explicitly launching replacement work.
 
 Role-based, configurable through **setup-pstack**, `pstack_configure_models`, an optional plugin `pstack.models.json`, `.amp/pstack.models.json`, or `~/.config/amp/pstack.models.json`. The repo does not ship a plugin model file. Code delegates default to `xai/grok-4.7`. The `hardest` role and prose or judgment roles default to `anthropic/claude-opus-5-5`; configure `hardest` separately when the strongest implementation seat should differ from review and prose. Panels are Opus 5.5, GPT-6 Sol, and Grok 4.7. Bare Opus 5.5 and GPT-6 Sol seats request `reasoningEffort: max`; bare Grok 4.7 seats request `reasoningEffort: xhigh`. An explicit seat effort overrides that default. Feature and refactoring are independently configurable. A seat may be a model string or `{ "model": "provider/model", "effort": "..." }`; panels preserve each seat's model and effort. A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate and cannot carry a separate effort. Use `amp plugins show-agent-options --json` as the runtime source for supported concrete efforts. The standalone `grok47-xhigh` mode remains xhigh. `builtin:*` are Amp modes, not Cursor thinking slugs. `builtin:high` is GPT-6 Astra at medium effort, not GPT-6 Sol.
 
 Each spawn names an Amp role or panel, not a Cursor Task `model` slug. `pstack_start_agent` and `pstack_run_panel` have no per-call model argument. `modelFor` and `panelFor` resolve the configured map. A missing role uses `DEFAULT_MODELS`. Cursor `inherit-parent` and `auto` are not Amp values, so do not pass them. A rejected single-role spawn stops. Report the rejection. Do not retry that role with another model on that call. A rejected panel seat is one terminal dropout. `pstack_run_panel` settles the other seats. Arena proceeds with N-1 when at least one candidate completed, then starts the cross-judge. Interrogate completes the remaining reviewers. Do not stop the whole panel for one seat. A replacement model is a persistent config write. Do it only when the user asks, through `pstack_configure_models` or **setup-pstack**, using an ID from `amp plugins show-agent-options --json`. Reload plugins before the next orb spawn. Do not pretend a same-family fallback ran on that call. Code playbooks read `feature`, `refactoring`, `bug-fix`, `perf-issue`, and `hillclimb`. The hardest implementation changes read `hardest`. Prose and review judgment read `judgment`.
 
-The `poteto` parent is Amp builtin `medium` plus **poteto-mode**, pinned to `anthropic/claude-opus-5-5` at medium reasoning. It does not copy ultra tools. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. Grok stays on code and explorer workers. Do not start pstack work in official `grok46`. Never call `public_artifact_url` except for an image or video the user asked to share. Never call `painter` unless the user asked for an image.
+The `poteto` parent is Amp builtin `medium` plus **poteto-mode**, pinned to `openai/gpt-6-sol` at medium reasoning. The full Poteto SKILL.md is persisted in its registered mode instructions. Reload the plugin after changing that skill. It does not copy ultra tools. The official `gpt6s` mode is GPT-6 Sol at high effort and is not this parent. Grok stays on code and explorer workers. Do not start pstack work in official `grok46`. Never call `public_artifact_url` except for an image or video the user asked to share. Never call `painter` unless the user asked for an image.
 
 ## Schedules and webhooks
 
 For work that must wake later, use an Amp schedule only when the user requested ongoing or later work. When the condition should resolve in minutes, wait in the current turn. For an outside system that must wake an orb thread, use `pstack_create_wake_webhook` after that authorization. Amp shows the capability URL through UI rather than transcript output. Webhooks are orb-only, at least once, and recover on the same persistent executor. Validate payload domains and make downstream actions idempotent.
 
 ## Workflow pointers
+
+### Retained custom surface
+
+| Component | Required behavior and reason it remains |
+|---|---|
+| `pstack_start_agent`, `pstack_run_agent`, role configuration | Upstream role/model selection and background or blocking delegation. Native `create_thread` has no per-call model/effort parameters; the plugin builds configured agents through Amp's SDK. Threads, messages, and files remain native. |
+| `pstack_run_panel` and design state | Arena/Architect require parallel candidates, dropout handling, and a read-only cross-judge after candidates finish. The gate's durable enforcement is an Amp addition, not an upstream storage format. |
+| `pstack_stop_agent` | Autopilot requires stopping stale workers before replacing them. The exposed native tools have no verified cancel operation; this tool calls SDK `cancel` or stops the CLI service. |
+| `pstack_read_current_thread` | Reflect inspects current-thread history and tool results, including compacted messages. Native `read_thread` is for other threads or message/selection links, not an equivalent full current-thread transcript export. |
+| `pstack_configure_models` | Upstream persistent role maps and budgets, adapted to supported Amp model IDs and separate reasoning effort. |
+| `pstack_create_wake_webhook` | User-requested retained generic external wake capability. It wraps Amp's native webhook API with private URL display and delivery recovery, not a separate webhook server. |
+| CLI adapter | Separately requested Cursor/Claude subscription routing; the external-agent API gap is documented above. One backend, one snapshot, final report, explicit cancellation, no automatic retries. |
+| Runtime journal and tool guards | Upstream asks for isolated owners and read-only reviewers. Transactional overlap claims, permanent per-thread guards, and reload recovery are extra Amp enforcement, including the user's requested read-only and stop fixes; they are not claims of full filesystem confinement. |
+| Terminal report recovery | Preserves background result delivery when a worker cannot send its own report. Native receipt inspection replaces the removed messaging wrapper; acknowledgement loss can still duplicate a notification. |
+| Poteto selector | Separately requested full skill instructions persisted in the mode, with GPT-6 Sol at medium reasoning. |
+
+Native `send_thread_message`, thread search/read/status, file transfers, schedules, and portals need no pstack transport wrappers. Do not add duplicate tools for them. Replacing the retained launch/panel tools requires preserving role selection and workflow ordering, not merely renaming the native entrypoint.
 
 | Workflow | Tool | Role |
 |---|---|---|

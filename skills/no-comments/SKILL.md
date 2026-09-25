@@ -4,7 +4,6 @@ description: "Only use when named or routed by poteto-mode. Spawns Comment Sicko
 builtin-tools:
   - pstack_run_agent
   - pstack_start_agent
-  - pstack_send_to_thread
 ---
 
 # No comments
@@ -21,7 +20,7 @@ Use the caller's files or diff. Otherwise use the current diff against the base 
 
 1. In the parent, resolve the requested scope. For a diff review, prepare an exact scoped diff snapshot: include base-to-current tracked changes (so committed and working-tree changes are represented) plus relevant untracked files, write it as a readable patch artifact, and record the scoped file paths. For an explicit whole-file review, use the caller's named files instead. Do not give the reviewer only git refs: the strict read-only role cannot run git or compute the diff, and a whole-file review cannot recover deleted comments from a diff.
 
-   Spawn Comment Sicko independently. Follow `../poteto-mode/references/amp-adapter.md`. Do not run the comment audit in the parent. Pass the patch artifact path and scoped file paths for a diff review, or the named file paths for an explicit whole-file review, plus the path `../../agents/comment-sicko.md`. Do not paste the rules file. Do not ask it to edit. The reviewer uses `Read` and `finder` for inspection, and `pstack_send_to_thread` only to report from a background child; no shell, file writes, spawn tools, MCP, or other pstack tools.
+   Spawn Comment Sicko independently. Follow `../poteto-mode/references/amp-adapter.md`. Do not run the comment audit in the parent. Pass the patch artifact path and scoped file paths for a diff review, or the named file paths for an explicit whole-file review, plus the path `../../agents/comment-sicko.md`. Do not paste the rules file. Do not ask it to edit. The reviewer uses `Read` and `finder` for inspection, and native `send_thread_message` when available to report from a background child. Otherwise the plugin forwards its final text. No shell, file writes, spawn tools, MCP, or pstack tools.
 
    Use blocking `pstack_run_agent` with role `comment-reviewer`, omit `executor`, and pass no `timeoutMs` only for a same-checkout local child that can already read the patch artifact or named files. A blocking wait starts work immediately and cannot receive files during the wait.
 

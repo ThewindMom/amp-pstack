@@ -38,4 +38,6 @@ Load pstack:recall and catch me up on last week's export work.
 
 [`pstack:recall`](../../skills/recall/SKILL.md) searches Amp threads with `find_thread` and reads them with `read_thread`. It also sweeps the shared record through why when the topic names a feature or bug. Cite every finding with an Amp thread link.
 
+For a mid-flight branch, use the [Session pickup playbook](../../skills/poteto-mode/playbooks/session-pickup.md): reconstruct the branch state and decisions, name the resume point, and do not redo completed work. Verify inherited claims against the original goal before continuing.
+
 Next: [Design the change](./04-design.md).

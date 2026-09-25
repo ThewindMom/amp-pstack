@@ -18,6 +18,8 @@ Load pstack:automate-me. Update my mode skill with everything since its last edi
 
 ## Capture a session's lessons with `pstack:reflect`
 
+Mode updates mine only history since the skill's last edit. Keep uncontradicted rules, revise rules when new evidence warrants it, and add sections only for new patterns.
+
 Right after a task that taught you something, run:
 
 ```text
@@ -34,10 +36,12 @@ When you already know the workflow you want to capture:
 Use pstack:poteto-mode. Write a skill for verifying database migrations in this repo.
 ```
 
-Writing a skill matches the [Authoring or modifying a skill playbook](../../skills/poteto-mode/playbooks/authoring-a-skill.md), which loads Amp's `building-skills`, validates the frontmatter and links, and ships the result through Opening a PR.
+Writing a skill matches the [Authoring or modifying a skill playbook](../../skills/poteto-mode/playbooks/authoring-a-skill.md), which loads Amp's `building-skills` and validates the frontmatter and links. Use the normal review workflow; creating or editing a PR requires explicit user approval.
 
 ## Eval a skill change before you trust it
 
 The [Eval playbook](../../skills/poteto-mode/playbooks/eval.md) runs N candidates, then grades chain-following from each candidate's Amp thread with `read_thread`, not from self-report.
+
+Keep candidates blind in sanitized environments. Give one blind judge neutral labels and a private rubric, then read every output before accepting its verdict.
 
 Next: [Recipes and pitfalls](./10-recipes-and-pitfalls.md).

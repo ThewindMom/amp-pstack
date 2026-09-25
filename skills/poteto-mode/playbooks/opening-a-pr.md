@@ -2,7 +2,7 @@
 
 Invoked at the end of every other playbook.
 
-**Worktree.** Work from a git worktree off main. Children inherit it. Multiple writers on the same branch each get their own worktree. Dirty branch with unrelated work: patch out, fresh worktree, apply. Never reset or overwrite another actor's work.
+**Worktree.** Work from a git worktree off main. Only same-checkout local Amp children inherit that checkout. Orbs need committed inputs or explicit transfers; CLI children receive a snapshot and return a patch. Multiple writers on the same branch each get their own worktree. Dirty branch with unrelated work: preserve the patch, create a fresh worktree, and apply it there. Reset only your own disposable worktree after preserving the work. Never reset or overwrite another actor's work.
 
 **Commits.** Commit liberally. Rebase into small, ordered commits before opening PRs. Each commit is a future PR: landable, ordered to tell the story. Amend when the fix belongs in a just-made commit. New commit when separable.
 

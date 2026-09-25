@@ -43,26 +43,26 @@ searcher=${AMP_THREADS_SEARCH:-}
 search_threads() {
 	local query="$1"
 	if [ -n "$searcher" ]; then
-		"$searcher" "$query" 2>/dev/null || echo "[]"
+		"$searcher" "$query" 2>/dev/null
 	else
-		amp threads search --json -n 5 "$query" 2>/dev/null || echo "[]"
+		amp threads search --json -n 5 "$query" 2>/dev/null
 	fi
 }
 
 newest_thread() {
 	local wt="$1" branch="$2"
 	local json hits="[]"
-	json=$(search_threads "file:${wt}")
+	json=$(search_threads "file:${wt}") || return 1
 	if [ -n "$branch" ]; then
-		hits=$(search_threads "$branch")
-		json=$(jq -s 'add' <(printf '%s' "$json") <(printf '%s' "$hits") 2>/dev/null || echo "[]")
+		hits=$(search_threads "$branch") || return 1
+		json=$(jq -s 'if all(.[]; type == "array") then add else error("invalid search response") end' <(printf '%s' "$json") <(printf '%s' "$hits") 2>/dev/null) || return 1
 	fi
 	printf '%s' "$json" | jq -r --arg now "$now" '
-		if type != "array" then empty
+		if type != "array" then error("invalid search response")
 		elif length == 0 then empty
 		else
 			(sort_by(.updatedAt) | reverse | .[0]) as $t
-			| ($t.updatedAt | fromdateiso8601? // 0) as $ts
+			| ($t.updatedAt | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601? // ($now | tonumber)) as $ts
 			| "\($t.id // "-")\t\($ts)"
 		end
 	' 2>/dev/null
@@ -101,8 +101,11 @@ git worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r wt;
 		'.[] | select(.headRefName==$b) | "#\(.number)/\(.state)"' "$prs" 2>/dev/null | head -1)
 	[ -z "$pr" ] && pr="-"
 
-	thread_row=$(newest_thread "$wt" "$branch")
-	if [ -z "$thread_row" ]; then
+	if ! thread_row=$(newest_thread "$wt" "$branch"); then
+		last="unavailable"
+		last_ts=0
+		amp_ok=no
+	elif [ -z "$thread_row" ]; then
 		if [ -n "$searcher" ] || command -v amp >/dev/null 2>&1; then
 			last="-"
 			last_ts=0

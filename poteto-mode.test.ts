@@ -1,4 +1,7 @@
 import { describe, expect, test } from 'bun:test'
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import potetoMode, { COORDINATOR_INSTRUCTIONS, description } from './poteto-mode'
 
@@ -21,19 +24,34 @@ function registerPoteto() {
 }
 
 describe('poteto mode', () => {
-	test('uses Opus 5.5 at medium reasoning for coordination', () => {
+	test('loads the complete skill from the published root-selector layout', () => {
+		const root = mkdtempSync(join(tmpdir(), 'pstack-selector-'))
+		try {
+			mkdirSync(join(root, 'pstack/skills/poteto-mode'), { recursive: true })
+			copyFileSync(join(import.meta.dir, 'poteto-mode.ts'), join(root, 'poteto-mode.ts'))
+			copyFileSync(join(import.meta.dir, 'skills/poteto-mode/SKILL.md'), join(root, 'pstack/skills/poteto-mode/SKILL.md'))
+			const result = Bun.spawnSync([process.execPath, '-e', `import { COORDINATOR_INSTRUCTIONS } from './poteto-mode.ts'; console.log(COORDINATOR_INSTRUCTIONS)`], { cwd: root })
+			expect(result.exitCode).toBe(0)
+			expect(result.stdout.toString()).toContain(`${root}/pstack/skills/poteto-mode/`)
+			expect(result.stdout.toString().trimEnd()).toBe(COORDINATOR_INSTRUCTIONS.replace(new URL('skills/poteto-mode/', import.meta.url).pathname, `${root}/pstack/skills/poteto-mode/`).trimEnd())
+		} finally {
+			rmSync(root, { recursive: true, force: true })
+		}
+	})
+
+	test('uses GPT-6 Sol at medium reasoning for coordination', () => {
 		const { created, registered } = registerPoteto()
 
 		expect(created).toHaveLength(1)
 		expect(created[0]?.extends).toBe('medium')
-		expect(created[0]?.model).toBe('anthropic/claude-opus-5-5')
+		expect(created[0]?.model).toBe('openai/gpt-6-sol')
 		expect(created[0]?.reasoningEffort).toBe('medium')
 		expect(created[0]).not.toHaveProperty('tools')
 		expect(registered).toHaveLength(1)
 		expect(registered[0]?.key).toBe('poteto')
 		expect(registered[0]?.agent).toEqual(created[0])
-		expect(description).toContain('Opus 5.5 at medium reasoning')
-		expect(registered[0]?.description).toContain('Opus 5.5 at medium reasoning')
+		expect(description).toContain('GPT-6 Sol at medium reasoning')
+		expect(registered[0]?.description).toContain('GPT-6 Sol at medium reasoning')
 	})
 
 	test('documents coordinator, delegate, and child-thread behavior accurately', async () => {
@@ -45,7 +63,7 @@ describe('poteto mode', () => {
 		])
 		const modelProse = `${skill}\n${adapter}`
 
-		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, pinned to `anthropic/claude-opus-5-5` at medium reasoning')
+		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, pinned to `openai/gpt-6-sol` at medium reasoning')
 		expect(adapter).toMatch(/Opus 5\.5 and GPT-6 Sol seats request `reasoningEffort: max`/)
 		expect(adapter).toMatch(/Grok 4\.7 seats request `reasoningEffort: xhigh`/)
 		expect(adapter).toContain('An explicit seat effort overrides that default.')
@@ -60,13 +78,15 @@ describe('poteto mode', () => {
 		expect(shipping).toContain('bun <loaded-skill-base>/scripts/watch-pr/watch-pr')
 	})
 
-	test('loads the skill then the adapter from the loaded skill base', () => {
+	test('persists the complete skill in mode instructions and names its resource base', async () => {
 		const { created } = registerPoteto()
 		expect(created[0]?.instructions).toBe(COORDINATOR_INSTRUCTIONS)
+		const skill = await Bun.file(new URL('skills/poteto-mode/SKILL.md', import.meta.url)).text()
+		expect(COORDINATOR_INSTRUCTIONS.endsWith(skill)).toBe(true)
+		expect(COORDINATOR_INSTRUCTIONS).toContain(new URL('skills/poteto-mode/', import.meta.url).pathname)
 		expect(COORDINATOR_INSTRUCTIONS).toContain('load pstack:poteto-mode')
 		expect(COORDINATOR_INSTRUCTIONS).toContain('Casual turn or user opts out')
 		expect(COORDINATOR_INSTRUCTIONS).toContain('read references/amp-adapter.md from the loaded skill')
 		expect(COORDINATOR_INSTRUCTIONS).not.toContain('skills/poteto-mode/references/amp-adapter.md')
-		expect(COORDINATOR_INSTRUCTIONS).not.toContain('before acting')
 	})
 })

@@ -6,7 +6,6 @@ builtin-tools:
   - pstack_run_panel
   - pstack_start_agent
   - pstack_stop_agent
-  - pstack_send_to_thread
   - pstack_read_current_thread
   - pstack_configure_models
   - pstack_create_wake_webhook
@@ -23,6 +22,7 @@ Remaining triggers:
 - Nontrivial change, architecture decision, or "are we sure?" → the **how** skill.
 - About to ask the user a "which approach", "how should I", or "what should this do" question → classify it before you ask. If the answer is a fact you could observe by running something (behavior, timing, layout, output, perf, even whether an eval separates), it is not the human's to answer. Sketch it via the Prototype playbook (`playbooks/prototype.md`) and let the result decide. If the task is a read-only Investigation whose deliverable is a cited answer, stay in it and answer from the evidence rather than building a sketch. Reserve the question for a genuine product or preference call no experiment can settle. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the operator can make. Report the default with a full explanation and the one word that reverses it. Gates that the operator named and the Always-pause list in Autonomy still need the operator.
 - Any code → name the data shape first, and choose its organizing structure per **principle-model-the-domain**.
+- Reading or editing `.ts` or `.tsx` → load **typescript-best-practices**.
 - Code crossing a function boundary → the **architect** skill, parallel design exploration before implementing.
 - Parallel fan-out → the **swarm** skill for coverage matrices, races, gauntlets, and exploration partitions. Use **arena** for design or code bakeoffs with base selection and grafting.
 - Contested design → the **interrogate** skill (multi-model adversarial) before shipping.
@@ -93,6 +93,8 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 **No is an acceptable answer.** Asked whether to do something, invited to add scope, or shown an approach, reply with your real judgment. Decline, push back, or say "this doesn't earn its place" when true. A recommendation is a judgment, not a validation. Agreement is not the default, candor over sycophancy.
 
 ## Agents and threads
+
+Keep fast models on ordinary implementation and exploration. Use `hardest` for novel algorithms, difficult concurrency, cross-cutting invariants, or problems whose failed attempts show the ordinary implementation model cannot solve them.
 
 Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait. Read `references/amp-adapter.md` before spawning. It owns join, blocking wait, never-redo, steer, files, launch targets, size, briefs, models, schedules, and who writes the code.
 

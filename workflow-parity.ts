@@ -27,7 +27,7 @@ export const STRICT_READONLY_TOOLS = [
 	'librarian',
 ] as const
 
-export const REPORTING_READONLY_TOOLS = [...STRICT_READONLY_TOOLS, 'pstack_send_to_thread'] as const
+export const REPORTING_READONLY_TOOLS = [...STRICT_READONLY_TOOLS, 'send_thread_message'] as const
 
 export const RESEARCH_EXCLUDED_TOOLS = [...WRITE_TOOLS] as const
 
@@ -1108,7 +1108,7 @@ export class WorkflowParityPolicy {
 		return next
 	}
 
-	private releaseObserved(threadID: string, state?: ThreadState): void {
+	releaseObserved(threadID: string, state: 'idle' | 'error'): void {
 		const child = this.children.get(threadID)
 		if (!child) return
 		child.subscription.unsubscribe()
@@ -1116,7 +1116,7 @@ export class WorkflowParityPolicy {
 		if (
 			state &&
 			(state === 'idle' || state === 'error') &&
-			(child.kind === 'implementation' || child.kind === 'strict-readonly' || child.kind === 'background')
+			(child.kind === 'implementation' || child.kind === 'strict-readonly' || child.kind === 'background' || threadID.startsWith('cli-'))
 		) {
 			this.terminalNotifier?.(threadID, child.parentThreadID, state)
 		}

@@ -4,7 +4,6 @@ description: "Only use when named or routed by poteto-mode. Queries available ev
 builtin-tools:
   - pstack_run_agent
   - pstack_start_agent
-  - pstack_send_to_thread
 ---
 
 # Why

@@ -302,7 +302,7 @@ One box is one unit of work. Each box names the evidence. Check a box only when 
 
 ### Arm the program
 
-Store the durable objective. Do not \`git show origin/main:\` in the target repo. Tick every 30 minutes. A status message reports only a new tracked change.
+Store the durable objective. Read the playbook from the loaded skill. Tick every 30 minutes. A status message reports only a new tracked change.
 
 ### Spawn owners
 
@@ -375,6 +375,9 @@ None.
 		const placeholder = await run('placeholder', 'Ten lanes on `<swarm-worker model>` at the PR head, per the boot recipe.')
 		const empty = await run('empty', 'Ten lanes on `` at the PR head, per the boot recipe.')
 		const blank = await run('blank', 'Ten lanes on `   ` at the PR head, per the boot recipe.')
+		const malformed = await run('malformed', 'Ten lanes on `<model` at the PR head, per the boot recipe.')
+		expect(malformed.status).toBe(1)
+		expect(malformed.stderr).toContain('with the model filled in')
 		if (filled.status !== 0) throw new Error(filled.stderr || filled.stdout)
 		expect(placeholder.status).not.toBe(0)
 		expect(placeholder.stderr).toContain('with the model filled in')

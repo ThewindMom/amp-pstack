@@ -40,7 +40,7 @@ When a bug has a cheap local test path, the whole prompt can be two words after 
 Load pstack:tdd. Implement the failing test, then the fix.
 ```
 
-Skip TDD when the test would be expensive, integration-heavy, or unclear. The Bug fix playbook already says that.
+Confirm the smallest focused test fails for the intended reason, fix the code, then rerun it. Skip TDD when the test would be expensive, integration-heavy, or unclear; use the closest practical executable check instead. The Bug fix playbook already says that.
 
 ## Clean the prose and the comments
 

@@ -189,6 +189,9 @@ export class RuntimeStore {
 		this.database = new Database(path, { create: true, strict: true })
 		this.database.exec('PRAGMA journal_mode = WAL')
 		this.database.exec('PRAGMA busy_timeout = 5000')
+		this.database.exec(`CREATE TABLE IF NOT EXISTS child_parents (
+			thread_id TEXT PRIMARY KEY, parent_thread_id TEXT NOT NULL, role TEXT NOT NULL
+		)`)
 		this.database.exec(`
 			CREATE TABLE IF NOT EXISTS implementation_owners (
 				resource_key TEXT PRIMARY KEY,
@@ -347,9 +350,18 @@ export class RuntimeStore {
 	}
 
 	saveBackgroundChild(threadID: string, parentThreadID: string, role: string): void {
+		this.database.query('INSERT OR IGNORE INTO child_parents (thread_id, parent_thread_id, role) VALUES (?, ?, ?)')
+			.run(threadID, parentThreadID, role)
 		this.database
 			.query('INSERT OR IGNORE INTO background_children (thread_id, parent_thread_id, role) VALUES (?, ?, ?)')
 			.run(threadID, parentThreadID, role)
+	}
+
+	childParent(threadID: string): { parentThreadID: string; role: string } | undefined {
+		const row = this.database.query<{ parent_thread_id: string; role: string }, [string]>(
+			'SELECT parent_thread_id, role FROM child_parents WHERE thread_id = ?',
+		).get(threadID)
+		return row ? { parentThreadID: row.parent_thread_id, role: row.role } : this.backgroundChild(threadID)
 	}
 
 	markBackgroundReported(threadID: string, parentThreadID: string): void {

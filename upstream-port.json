@@ -8,6 +8,18 @@
 	},
 	"intentionalDepartures": [
 		{
+			"id": "subscription-cli-backends",
+			"from": "Cursor Task runs configured model seats, with same-family retry for rejected models.",
+			"to": "Grok workers use Cursor CLI unless the active SuperGrok subscription wins native routing; Opus defaults to Claude Code. Each run selects one backend, reports failure without retry, isolates its snapshot, and returns writer patches for parent review.",
+			"why": "The user requested subscription CLI routing and then approved dropping automatic failover. Amp's advertised plugin and native creation APIs do not expose external-agent model selection and terminal lifecycle contracts."
+		},
+		{
+			"id": "guide-condensation",
+			"from": "Cursor's guide repeats workflows through longer examples and editor-specific instructions.",
+			"to": "The Amp guide condenses examples and links to authoritative skills and playbooks, retaining task switching, session pickup, design choices, verification, overnight audit, and skill evaluation contracts.",
+			"why": "Editorial condensation avoids repeating platform-specific instructions without changing the workflows."
+		},
+		{
 			"id": "benny-removed",
 			"from": "Upstream bundles a Slack issue-triage and reproduction automation pack.",
 			"to": "The automation pack is omitted; generic wake webhooks remain available.",
@@ -34,8 +46,8 @@
 		{
 			"id": "parent-medium",
 			"from": "Cursor parent uses the user's chat model",
-			"to": "Amp poteto extends builtin medium and pins anthropic/claude-opus-5-5 at medium reasoning.",
-			"why": "Requested Amp parent on Opus 5.5 medium. Builtin medium still maps to GPT-5.6 Sol, builtin high is GPT-6 Astra medium, and official gpt6s is high effort."
+			"to": "Amp poteto extends builtin medium, pins openai/gpt-6-sol at medium reasoning, and persists the full Poteto skill in the mode instructions.",
+			"why": "The user requested GPT-6 Sol medium and Cursor Use as Mode parity. Amp's runtime catalog confirms this model and effort."
 		},
 		{
 			"id": "feature-nested-spawn-sentence",

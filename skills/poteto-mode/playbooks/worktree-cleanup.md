@@ -1,5 +1,7 @@
 ### Worktree and simulator cleanup
 
+Before accepting any bucket, enumerate pinned and active threads with `find_thread pinned:true` and the relevant repository query. Cross-check every candidate, including `safe`, against that set. Pinned threads win over the heuristic.
+
 **You own the disk and the safety gate.** Prune merged or abandoned git worktrees and stale iOS simulators to reclaim space. Deletion is irreversible, so every step guards against deleting something in use or holding uncommitted work.
 
 1. Snapshot and audit. Record `df -h /`, then run `bash <loaded-skill-base>/scripts/worktree-audit.sh` (principle-build-the-lever). Resolve `<loaded-skill-base>` from the loaded poteto-mode skill, not the user's current working directory; synced installs may not preserve executable bits. It reads paths from `git worktree list`, never hand-typed. It classifies each worktree by size, age, merge state, uncommitted work, remote state, PR state, and the newest Amp thread from `amp threads search`, then suggests a bucket. `LAST_THREAD` is an Amp thread ID, `-` when search returned none, or `unavailable` when the Amp CLI is missing.
@@ -10,5 +12,7 @@
 6. Simulators and other reclaimers. On macOS, simulators are often the next-biggest win: `xcrun simctl --set testing delete all`, `xcrun simctl delete unavailable`, then remove explicitly obsolete runtimes. Other candidates include Xcode `DerivedData`, `iOS DeviceSupport`, and package caches. Clear only caches the user explicitly authorizes.
 
 This is the one playbook that deletes user state with no code review to catch a slip, so the gates above are the review.
+
+On macOS, inspect runtimes with `xcrun simctl runtime list`; delete only an explicitly obsolete runtime with `xcrun simctl runtime delete <id>`. Inspect pnpm, uv, Homebrew, and Yarn caches before asking to clear them. These commands are not available in a Linux orb.
 
 **Reply:** `df -h /` before and after with space reclaimed, the worktrees pruned, and a one-line reason for each held back (in-use by which chat, or uncommitted work).

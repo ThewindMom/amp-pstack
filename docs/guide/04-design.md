@@ -28,6 +28,8 @@ Load pstack:arena. Take my prompt to the arena verbatim. I want to compare their
 
 ## Cover slices with `pstack:swarm`
 
+Arena accepts a custom candidate `count` from 1 to 20 when the decision warrants more attempts. Swarm can partition independent slices or race identical briefs; for a race, declare `first pass`, `rank all`, or `best-of` before spawning.
+
 ```text
 Load pstack:swarm. Check every package under packages/ against its check.sh. One worker per package. One report.
 ```
@@ -41,5 +43,7 @@ Load pstack:interrogate. Review this branch against its stated intent. Don't cha
 ```
 
 [`pstack:interrogate`](../../skills/interrogate/SKILL.md) runs panel `interrogate-reviewers`. The parent synthesizes. Agreement across model families is high-signal. One loud nit is not.
+
+The lead classifies findings as Act on, Consider, Noted, or Dismissed with reasons. It applies nothing automatically.
 
 Next: [Build and clean the change](./05-build-and-clean.md).

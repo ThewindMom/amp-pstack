@@ -4,7 +4,7 @@ import process from "node:process";
 
 const RULE =
 	"Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.";
-const LANES = /Ten lanes on `[^`<>]*\S[^`<>]*` at the PR head/;
+const LANES = /Ten lanes on `[^`<>]*[^\s`<>][^`<>]*` at the PR head/;
 const SUB_BLOCKS = [
 	"Depends on.",
 	"Files.",
@@ -17,7 +17,7 @@ const SUB_BLOCKS = [
 	"Merge.",
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
-const PROGRAM_MARKERS = ["durable objective", "git show origin/main:", /30[- ]minute/, "status message"];
+const PROGRAM_MARKERS = ["durable objective", "loaded skill", /30[- ]minute/, "status message"];
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
