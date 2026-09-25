@@ -2167,7 +2167,7 @@ describe('runtime tool behavior', () => {
 		const notifications: string[] = []
 		const created = JSON.parse(
 			await tool(amp, 'pstack_create_wake_webhook').execute(
-				{ key: 'benny-report', instruction: 'triage this' },
+				{ key: 'issue-report', instruction: 'triage this' },
 				{
 					thread: { id: 'T-owner' },
 					ui: { notify: async (message: string) => notifications.push(message) },
@@ -2176,7 +2176,7 @@ describe('runtime tool behavior', () => {
 		)
 		expect(created).toMatchObject({
 			ownerThreadID: 'T-owner',
-			userKey: 'benny-report',
+			userKey: 'issue-report',
 			urlShownInUI: true,
 		})
 		expect(JSON.stringify(created)).not.toContain('https://example.test/hook')
@@ -2219,7 +2219,7 @@ describe('runtime tool behavior', () => {
 	test('does not trust a forgeable legacy webhook marker as delivery evidence', async () => {
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_create_wake_webhook').execute(
-			{ key: 'benny-report', instruction: 'triage this' },
+			{ key: 'issue-report', instruction: 'triage this' },
 			{ thread: { id: 'T-owner' }, ui: { notify: async () => {} } },
 		)
 		const handler = amp.webhookHandler

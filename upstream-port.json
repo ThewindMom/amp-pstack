@@ -8,6 +8,12 @@
 	},
 	"intentionalDepartures": [
 		{
+			"id": "benny-removed",
+			"from": "Upstream bundles a Slack issue-triage and reproduction automation pack.",
+			"to": "The automation pack is omitted; generic wake webhooks remain available.",
+			"why": "The user requested removal of the unused automation."
+		},
+		{
 			"id": "amp-host-autonomy",
 			"from": "**Just do it.** Use any MCP tool. Reversible work and external actions proceed without asking. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the operator can make. Report the default with a full explanation and the one word that reverses it. Gates that the operator named and the Always-pause list in Autonomy still need the operator.",
 			"to": "Amp preserves those full-autonomy decision boundaries, but full autonomy does not authorize shared or external writes; those still require the user's explicit approval.",
