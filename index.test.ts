@@ -1199,6 +1199,13 @@ describe('runtime tool behavior', () => {
 		for (const definition of amp.created.slice(secondCreated, secondCreated + 2)) {
 			expect(String(definition.instructions)).not.toContain('rubric')
 		}
+		for (const child of amp.started) {
+			expect(child.parentThreadID).toBe('T-parent')
+			expect(child.prompt).toContain('Parent thread: T-parent.')
+			expect(child.prompt).toContain('return a compact report as final text')
+			expect(child.prompt).toContain('Do not call send_thread_message')
+			expect(child.prompt).not.toContain('use native send_thread_message to send that parent')
+		}
 
 		await tool(amp, 'pstack_start_agent').execute(
 			{
@@ -3089,12 +3096,12 @@ describe('runtime tool behavior', () => {
 			['openai/gpt-6-sol', 'low'],
 			['xai/grok-4.7', 'xhigh'],
 		])
-		expect(amp.started.map(({ prompt }) => prompt)).toEqual(
-			Array.from(
-				{ length: 6 },
-				(_, index) => `compete\n\nCandidate output label: arena-runners-candidate-${index + 1}`,
-			),
-		)
+		for (const [index, child] of amp.started.entries()) {
+			expect(child.prompt).toStartWith(`compete\n\nCandidate output label: arena-runners-candidate-${index + 1}\n\n`)
+			expect(child.prompt).toContain('Parent thread: T-parent.')
+			expect(child.prompt).toContain('return a compact report as final text')
+			expect(child.prompt).toContain('Do not call send_thread_message')
+		}
 		const candidateThreadIDs = panel.map(({ threadID }: { threadID: string }) => threadID)
 		for (let index = 0; index < 6; index += 1) {
 			await expect(

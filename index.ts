@@ -1197,7 +1197,7 @@ export default async function pstack(amp: PluginAPI) {
 						model,
 						effort,
 						role,
-						prompt: candidatePrompt,
+						prompt: backgroundChildPrompt(candidatePrompt, ctx.thread.id, 'final-text'),
 						parentThreadID: ctx.thread.id,
 						executor,
 						timeoutMs,
