@@ -61,7 +61,7 @@ Call `pstack_configure_models` with `action: "set"` exactly once and an `overrid
   "perf-issue": { "model": "openai/gpt-6-astra", "effort": "high" },
   "hillclimb": { "model": "xai/grok-4.7", "effort": "medium" },
   "judgment": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
-  "how-explorer": { "model": "openai/gpt-5.6-luna", "effort": "medium" },
+  "how-explorer": { "model": "openai/gpt-5.6-luna", "effort": "low" },
   "how-explainer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
   "why-investigator": { "model": "xai/grok-4.7", "effort": "high" },
   "why-synthesizer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },

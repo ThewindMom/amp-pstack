@@ -121,7 +121,7 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6-astra', effort: 'high' })
 		expect(DEFAULT_MODELS.hillclimb).toEqual({ model: 'xai/grok-4.7', effort: 'medium' })
 		expect(DEFAULT_MODELS.judgment).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'high' })
-		expect(DEFAULT_MODELS['how-explorer']).toEqual({ model: 'openai/gpt-5.6-luna', effort: 'medium' })
+		expect(DEFAULT_MODELS['how-explorer']).toEqual({ model: 'openai/gpt-5.6-luna', effort: 'low' })
 		expect(DEFAULT_MODELS['how-explainer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
 		expect(DEFAULT_MODELS['comment-reviewer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
 		expect(DEFAULT_MODELS['arena-runners']).toEqual([
@@ -133,7 +133,7 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['reflect-tooling']).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
 		expect(MODEL_REASONING_EFFORT).toEqual({
 			'anthropic/claude-opus-5-5': 'high',
-			'openai/gpt-5.6-luna': 'medium',
+			'openai/gpt-5.6-luna': 'low',
 			'openai/gpt-5.6-sol': 'high',
 			'openai/gpt-6-astra': 'high',
 			'xai/grok-4.7': 'high',
@@ -1129,7 +1129,7 @@ describe('runtime tool behavior', () => {
 		expect(specs.find(({ role }) => role === 'how-explorer')).toEqual({
 			role: 'how-explorer',
 			model: 'openai/gpt-5.6-luna',
-			effort: 'medium',
+			effort: 'low',
 		})
 		expect(specs.some(({ model }) => model === 'openai/gpt-6-sol')).toBe(false)
 	})

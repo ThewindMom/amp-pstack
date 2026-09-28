@@ -140,7 +140,7 @@ export const DEFAULT_MODELS = {
 	'perf-issue': { model: 'openai/gpt-6-astra', effort: 'high' },
 	hillclimb: { model: 'xai/grok-4.7', effort: 'medium' },
 	judgment: { model: 'anthropic/claude-opus-5-5', effort: 'high' },
-	'how-explorer': { model: 'openai/gpt-5.6-luna', effort: 'medium' },
+	'how-explorer': { model: 'openai/gpt-5.6-luna', effort: 'low' },
 	'how-explainer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'why-investigator': { model: 'xai/grok-4.7', effort: 'high' },
 	'why-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
@@ -174,7 +174,7 @@ export const DEFAULT_MODELS = {
 
 export const MODEL_REASONING_EFFORT = {
 	'anthropic/claude-opus-5-5': 'high',
-	'openai/gpt-5.6-luna': 'medium',
+	'openai/gpt-5.6-luna': 'low',
 	'openai/gpt-5.6-sol': 'high',
 	'openai/gpt-6-astra': 'high',
 	'xai/grok-4.7': 'high',

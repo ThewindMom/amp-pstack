@@ -83,7 +83,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | Feature, bug-fix, why-investigator | `xai/grok-4.7` at high |
 | Hillclimb and swarm-worker | `xai/grok-4.7` at medium |
 | Refactoring and reflect-tooling | `openai/gpt-5.6-sol` at high |
-| How-explorer | `openai/gpt-5.6-luna` at medium |
+| How-explorer | `openai/gpt-5.6-luna` at low |
 | Judgment, reflect-judgment, reflect-synthesizer | `anthropic/claude-opus-5-5` at high |
 | How-explainer, why-synthesizer, reflect-divergent, comment-reviewer | `anthropic/claude-opus-5-5` at medium |
 | Panels and arena cross-judge pool | Opus 5.5 high, GPT-5.6 Sol high, Grok 4.7 xhigh; architect uses GPT-6 Astra high instead of Sol; one cross-judge runs, preferring a known family different from the parent |
