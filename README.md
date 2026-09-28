@@ -72,22 +72,25 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` extends built-in `medium` without model, reasoning, or tool overrides. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions and resolves resource paths through the skill loader. Rebuild and republish the selector after skill edits, then reload the plugin. Shipped delegate seats use max effort for Opus 5.5 and GPT-6 Sol, and xhigh effort for Grok 4.7.
+`poteto` extends built-in `medium` without model, reasoning, or tool overrides. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions and resolves resource paths through the skill loader. Rebuild and republish the selector after skill edits, then reload the plugin. Shipped delegate seats use explicit per-role models and efforts.
 
-`index.ts` owns the role map and a separate effort map for `anthropic/claude-opus-5-5`, `openai/gpt-6-sol`, and `xai/grok-4.7`. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there. `builtin:high` is not a stand-in for GPT-6 Sol.
+`index.ts` owns the role map and fallback efforts for bare shipped-model seats. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
 | Seat | Shipped map |
 |---|---|
 | Parent `poteto` | `extends: medium`; inherits model, reasoning, and tools |
-| Hardest code-writing role | `anthropic/claude-opus-5-5` at max |
-| Feature, refactoring, bug-fix, perf, hillclimb, how-explorer, why-investigator, swarm-worker | `xai/grok-4.7` at xhigh |
-| Judgment, how-explainer, why-synthesizer, reflect-judgment, reflect-divergent, reflect-synthesizer, comment-reviewer | `anthropic/claude-opus-5-5` at max |
-| Reflect-tooling | `openai/gpt-6-sol` at max |
-| Panels and arena cross-judge pool | Opus 5.5 max, GPT-6 Sol max, Grok 4.7 xhigh; one cross-judge runs, preferring a known family different from the parent |
+| Hardest and performance roles | `openai/gpt-6-astra` at high |
+| Feature, bug-fix, why-investigator | `xai/grok-4.7` at high |
+| Hillclimb and swarm-worker | `xai/grok-4.7` at medium |
+| Refactoring and reflect-tooling | `openai/gpt-5.6-sol` at high |
+| How-explorer | `openai/gpt-5.6-luna` at medium |
+| Judgment, reflect-judgment, reflect-synthesizer | `anthropic/claude-opus-5-5` at high |
+| How-explainer, why-synthesizer, reflect-divergent, comment-reviewer | `anthropic/claude-opus-5-5` at medium |
+| Panels and arena cross-judge pool | Opus 5.5 high, GPT-5.6 Sol high, Grok 4.7 xhigh; architect uses GPT-6 Astra high instead of Sol; one cross-judge runs, preferring a known family different from the parent |
 
 The `hardest` role is the strongest code-writing seat. It is separate from `judgment`, which reviews without owning an implementation diff.
 
-Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A seat may remain a model string or use `{ "model": "provider/model", "effort": "..." }`; panel arrays preserve each seat's model, effort, and order. Configuration layers replace a whole role value rather than merging effort into an earlier string. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp owns all inference routing. Model access and billing follow the user's Amp connections; pstack does not bridge subscriptions or change provider settings. See [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Bare Opus 5.5 and GPT-6 Sol seats request `reasoningEffort: max`; bare Grok 4.7 seats request `reasoningEffort: xhigh`. Other raw model IDs have no thinking override. The standalone `grok47-xhigh` mode remains xhigh. Cursor `inherit-parent` and `auto` are not Amp aliases. Do not use `builtin:high` for GPT-6 Sol. Current builtin high is GPT-6 Astra at medium effort.
+Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A seat may remain a model string or use `{ "model": "provider/model", "effort": "..." }`; panel arrays preserve each seat's model, effort, and order. Configuration layers replace a whole role value rather than merging effort into an earlier string. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp owns all inference routing. Model access and billing follow the user's Amp connections; pstack does not bridge subscriptions or change provider settings. See [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-5.6-sol-max` do not exist in Amp. Bare shipped-model seats use the fallback efforts in `MODEL_REASONING_EFFORT`; the balanced profile uses explicit effort per role. The standalone `grok47-xhigh` mode remains xhigh. Cursor `inherit-parent` and `auto` are not Amp aliases.
 
 Run `amp plugins show-agent-options --json` before setup. Its model IDs and `capabilities.efforts` are the runtime capability table. An explicit unsupported effort for a known shipped model is an error; pstack does not silently downgrade it. Builtin aliases cannot carry a separate effort.
 

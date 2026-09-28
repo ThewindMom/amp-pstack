@@ -117,30 +117,33 @@ describe('amp-pstack plugin', () => {
 	})
 
 	test('has multi-model role and panel defaults', () => {
-		expect(DEFAULT_MODELS['bug-fix']).toBe('xai/grok-4.7')
-		expect(DEFAULT_MODELS['perf-issue']).toBe('xai/grok-4.7')
-		expect(DEFAULT_MODELS.hillclimb).toBe('xai/grok-4.7')
-		expect(DEFAULT_MODELS.judgment).toBe('anthropic/claude-opus-5-5')
-		expect(DEFAULT_MODELS['how-explainer']).toBe('anthropic/claude-opus-5-5')
-		expect(DEFAULT_MODELS['comment-reviewer']).toBe('anthropic/claude-opus-5-5')
+		expect(DEFAULT_MODELS['bug-fix']).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
+		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6-astra', effort: 'high' })
+		expect(DEFAULT_MODELS.hillclimb).toEqual({ model: 'xai/grok-4.7', effort: 'medium' })
+		expect(DEFAULT_MODELS.judgment).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'high' })
+		expect(DEFAULT_MODELS['how-explorer']).toEqual({ model: 'openai/gpt-5.6-luna', effort: 'medium' })
+		expect(DEFAULT_MODELS['how-explainer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
+		expect(DEFAULT_MODELS['comment-reviewer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
 		expect(DEFAULT_MODELS['arena-runners']).toEqual([
-			'anthropic/claude-opus-5-5',
-			'openai/gpt-6-sol',
-			'xai/grok-4.7',
+			{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+			{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+			{ model: 'xai/grok-4.7', effort: 'xhigh' },
 		])
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(3)
-		expect(DEFAULT_MODELS['reflect-tooling']).toBe('openai/gpt-6-sol')
+		expect(DEFAULT_MODELS['reflect-tooling']).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
 		expect(MODEL_REASONING_EFFORT).toEqual({
-			'anthropic/claude-opus-5-5': 'max',
-			'openai/gpt-6-sol': 'max',
-			'xai/grok-4.7': 'xhigh',
+			'anthropic/claude-opus-5-5': 'high',
+			'openai/gpt-5.6-luna': 'medium',
+			'openai/gpt-5.6-sol': 'high',
+			'openai/gpt-6-astra': 'high',
+			'xai/grok-4.7': 'high',
 		})
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('claude-fable')
-		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('gpt-5.6-sol')
+		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('gpt-6-sol')
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('builtin:')
 		expect(JSON.stringify(CHEAP_MODELS)).not.toContain('claude-opus')
-		expect(DEFAULT_MODELS.feature).toBe('xai/grok-4.7')
-		expect(DEFAULT_MODELS.refactoring).toBe('xai/grok-4.7')
+		expect(DEFAULT_MODELS.feature).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
+		expect(DEFAULT_MODELS.refactoring).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
 		expect(description.length).toBeLessThanOrEqual(300)
 	})
 
@@ -173,7 +176,7 @@ describe('amp-pstack plugin', () => {
 		}
 		expect(skills).toEqual([...SKILL_PATHS])
 		expect(modes).toEqual([
-			...orbAgentSpecsFor({ ...DEFAULT_MODELS }).map(({ role, model }) => orbAgentModeFor(role, model).key),
+			...orbAgentSpecsFor({ ...DEFAULT_MODELS }).map(({ role, model, effort }) => orbAgentModeFor(role, model, effort).key),
 			...NATIVE_AGENT_MODES.map(({ key }) => key),
 		])
 		expect(new Set(modes).size).toBe(modes.length)
@@ -313,7 +316,7 @@ describe('model configuration', () => {
 				['xai/grok-4.7', 'builtin:high', 'openai/gpt-5.6-sol', 'anthropic/claude-opus-5'],
 				'xai/grok-4.5',
 			),
-		).toEqual({ model: 'openai/gpt-5.6-sol', seat: 3 })
+		).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high', seat: 3 })
 		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toEqual({
 			model: 'builtin:high',
 			seat: 1,
@@ -467,8 +470,11 @@ describe('model configuration', () => {
 			const layers = await loadFileLayers(null, join(root, 'absent-user.json'), PLUGIN_MODEL_FILE)
 			expect(layers.pluginFile).toBeUndefined()
 			expect(resolveModels(layers)).toEqual(DEFAULT_MODELS)
-			expect(resolveModels(layers)['comment-reviewer']).toBe('anthropic/claude-opus-5-5')
-			expect(resolveModels(layers)['reflect-tooling']).toBe('openai/gpt-6-sol')
+			expect(resolveModels(layers)['comment-reviewer']).toEqual({
+				model: 'anthropic/claude-opus-5-5',
+				effort: 'medium',
+			})
+			expect(resolveModels(layers)['reflect-tooling']).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
 		} finally {
 			await rm(root, { recursive: true, force: true })
 		}
@@ -1050,10 +1056,12 @@ describe('runtime tool behavior', () => {
 			const instructions = String(amp.created.at(-1)?.instructions)
 			expect(instructions).toContain(`Assigned role: ${role}`)
 			expect(instructions).toBe(`${AGENT_INSTRUCTIONS} Assigned role: ${role}.`)
+			const configured = DEFAULT_MODELS[role as keyof typeof DEFAULT_MODELS]
+			if (Array.isArray(configured) || typeof configured === 'string') throw new Error(`expected concrete seat for ${role}`)
 			expect(amp.created.at(-1)).toMatchObject({
 				extends: 'medium',
-				model: role === 'hardest' ? 'anthropic/claude-opus-5-5' : 'xai/grok-4.7',
-				reasoningEffort: role === 'hardest' ? 'max' : 'xhigh',
+				model: configured.model,
+				reasoningEffort: configured.effort,
 			})
 		}
 		expect(CODE_IMPLEMENTATION_ROLES).toEqual(
@@ -1082,7 +1090,7 @@ describe('runtime tool behavior', () => {
 			expect(instructions).not.toContain('pstack:')
 		}
 		await tool(amp, 'pstack_start_agent').execute({ role: 'comment-reviewer', prompt: 'review comments' }, { thread: { id: 'T-review-parent' } })
-		expect(amp.created.at(-1)).toMatchObject({ extends: 'medium', model: 'anthropic/claude-opus-5-5', reasoningEffort: 'max', tools: { include: [...REPORTING_READONLY_TOOLS] } })
+		expect(amp.created.at(-1)).toMatchObject({ extends: 'medium', model: 'anthropic/claude-opus-5-5', reasoningEffort: 'medium', tools: { include: [...REPORTING_READONLY_TOOLS] } })
 		expect(String(amp.created.at(-1)?.instructions)).toContain('terminal report-only reviewer')
 		expect(String(amp.created.at(-1)?.instructions)).toContain('Use Read and finder to inspect the named scope')
 		expect(String(amp.created.at(-1)?.instructions)).not.toContain('I hate comments')
@@ -1106,61 +1114,24 @@ describe('runtime tool behavior', () => {
 		expect(amp.created.at(-1)).toMatchObject({ tools: { exclude: [...WRITE_TOOLS] } })
 	})
 
-	test('startup registration publishes the shipped lineup at high effort', async () => {
+	test('startup registration publishes every shipped model and effort', async () => {
 		const amp = await loadPlugin()
-		const concrete = amp.created.filter((definition) => typeof definition.model === 'string')
-		const lineup = [
-			'anthropic/claude-opus-5-5',
-			'openai/gpt-6-sol',
-			'xai/grok-4.7',
-		] as const
-		const expectedModels = [
-			...Array(16).fill('xai/grok-4.7'),
-			...Array(16).fill('anthropic/claude-opus-5-5'),
-			'openai/gpt-6-sol',
-			'openai/gpt-6-sol',
-			...lineup,
-			...lineup,
-			...lineup,
-			...lineup,
-			...lineup,
-		]
-		expect(concrete.map((definition) => definition.model).sort()).toEqual([...expectedModels].sort())
-		for (const definition of concrete) {
-			expect(definition.extends).toBe('medium')
-			expect(definition.reasoningEffort).toBe(MODEL_REASONING_EFFORT[definition.model as keyof typeof MODEL_REASONING_EFFORT])
-			if (typeof definition.model !== 'string' || !lineup.includes(definition.model as (typeof lineup)[number])) {
-				throw new Error(`unexpected registered model ${String(definition.model)}`)
-			}
-		}
-		for (const panel of ['arena-runners', 'architect-runners', 'interrogate-reviewers']) {
-			const seats = [1, 2, 3].map((seat) => {
-				const role = `${panel}-${seat}`
-				const mode = orbAgentModeFor(role, lineup[seat - 1]!)
-				return amp.registeredModes.find(({ key }) => key === mode.key)?.agent.model
+		const specs = orbAgentSpecsFor({ ...DEFAULT_MODELS })
+		for (const { role, model, effort } of specs) {
+			const mode = orbAgentModeFor(role, model, effort)
+			const registration = amp.registeredModes.find(({ key }) => key === mode.key)
+			expect(registration?.agent).toMatchObject({
+				extends: 'medium',
+				model,
+				reasoningEffort: effort,
 			})
-			expect(seats).toEqual([...lineup])
 		}
-		const pool = lineup.map((model) => {
-			const mode = orbAgentModeFor('arena-cross-judge', model)
-			return amp.registeredModes.find(({ key }) => key === mode.key)?.agent.model
+		expect(specs.find(({ role }) => role === 'how-explorer')).toEqual({
+			role: 'how-explorer',
+			model: 'openai/gpt-5.6-luna',
+			effort: 'medium',
 		})
-		expect(pool).toEqual([...lineup])
-		const feature = amp.registeredModes.find(
-			({ key }) => key === orbAgentModeFor('feature', 'xai/grok-4.7').key,
-		)
-		const judgment = amp.registeredModes.find(
-			({ key }) => key === orbAgentModeFor('judgment', 'anthropic/claude-opus-5-5').key,
-		)
-		const tooling = amp.registeredModes.find(
-			({ key }) => key === orbAgentModeFor('reflect-tooling', 'openai/gpt-6-sol').key,
-		)
-		expect(feature?.agent).toMatchObject({ model: 'xai/grok-4.7', reasoningEffort: 'xhigh' })
-		expect(judgment?.agent).toMatchObject({
-			model: 'anthropic/claude-opus-5-5',
-			reasoningEffort: 'max',
-		})
-		expect(tooling?.agent).toMatchObject({ model: 'openai/gpt-6-sol', reasoningEffort: 'max' })
+		expect(specs.some(({ model }) => model === 'openai/gpt-6-sol')).toBe(false)
 	})
 
 	test('panel delegates have distinct threads and preserve caller templates', async () => {
@@ -1290,7 +1261,7 @@ describe('runtime tool behavior', () => {
 		)
 		expect(result).toMatchObject({
 			role: 'feature',
-			model: DEFAULT_MODELS.feature,
+			model: DEFAULT_MODELS.feature.model,
 			threadID: 'T-child',
 			parentThreadID: 'T-parent',
 			scope: implStart.scope,
@@ -1361,7 +1332,8 @@ describe('runtime tool behavior', () => {
 		expect(amp.publishedModes).toEqual(amp.registeredModes)
 		const expectedMode = orbAgentModeFor(
 			'feature',
-			DEFAULT_MODELS.feature,
+			DEFAULT_MODELS.feature.model,
+			DEFAULT_MODELS.feature.effort,
 		)
 		const result = JSON.parse(
 			await tool(amp, 'pstack_start_agent').execute(
@@ -1440,7 +1412,7 @@ describe('runtime tool behavior', () => {
 			),
 		).rejects.toThrow('create failed')
 		expect(amp.started).toHaveLength(0)
-		const expected = orbAgentModeFor('feature', DEFAULT_MODELS.feature)
+		const expected = orbAgentModeFor('feature', DEFAULT_MODELS.feature.model, DEFAULT_MODELS.feature.effort)
 		const registration = amp.registeredModes.find(({ key }) => key === expected.key)
 		expect(registration?.active).toBe(true)
 		expect(amp.publishedModes).toContain(registration as TestMode)
@@ -1470,7 +1442,11 @@ describe('runtime tool behavior', () => {
 
 	test('model changes apply locally and require reload before orb use', async () => {
 		const amp = await loadPlugin()
-		const firstMode = orbAgentModeFor('bug-fix', DEFAULT_MODELS['bug-fix'])
+		const firstMode = orbAgentModeFor(
+			'bug-fix',
+			DEFAULT_MODELS['bug-fix'].model,
+			DEFAULT_MODELS['bug-fix'].effort,
+		)
 		const firstRegistration = amp.registeredModes.find(({ key }) => key === firstMode.key)
 		await tool(amp, 'pstack_start_agent').execute(
 			{
@@ -1858,13 +1834,13 @@ describe('runtime tool behavior', () => {
 	test('configure set stores overrides only and unknown actions fail', async () => {
 		const amp = await loadPlugin()
 		const shown = await tool(amp, 'pstack_configure_models').execute({ action: 'show' })
-		expect(JSON.parse(shown)['bug-fix']).toBe(DEFAULT_MODELS['bug-fix'])
+		expect(JSON.parse(shown)['bug-fix']).toEqual(DEFAULT_MODELS['bug-fix'])
 		const updated = await tool(amp, 'pstack_configure_models').execute({
 			action: 'set',
 			overrides: { 'bug-fix': 'anthropic/claude-fable-5' },
 		})
 		expect(JSON.parse(updated)['bug-fix']).toBe('anthropic/claude-fable-5')
-		expect(JSON.parse(updated).hillclimb).toBe(DEFAULT_MODELS.hillclimb)
+		expect(JSON.parse(updated).hillclimb).toEqual(DEFAULT_MODELS.hillclimb)
 		expect(amp.config[CONFIG_KEY]).toEqual({ 'bug-fix': 'anthropic/claude-fable-5' })
 		await expect(tool(amp, 'pstack_configure_models').execute({ action: 'delete' })).rejects.toThrow(
 			'action must be show, set, reset, or profile',
@@ -2603,7 +2579,7 @@ describe('runtime tool behavior', () => {
 		expect(redirected.registeredModes.find(({ key }) => key === 'pstack-feature')).toMatchObject({
 			label: 'pstack-feature',
 			active: true,
-			agent: { model: 'xai/grok-4.7', reasoningEffort: 'xhigh', tools: 'all' },
+			agent: { model: 'xai/grok-4.7', reasoningEffort: 'high', tools: 'all' },
 		})
 		await expect(
 			tool(redirected, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),

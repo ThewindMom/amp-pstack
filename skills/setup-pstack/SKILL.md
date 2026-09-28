@@ -42,39 +42,39 @@ Every provider/model ID must be in the detected set, and every explicit effort m
 
 Resolution order, later wins:
 
-1. Balanced defaults in `index.ts` (Grok 4.7 xhigh on code delegates; Opus 5.5 max on judgment; GPT-6 Sol max on reflect-tooling and panel seats). The repo does not ship `pstack.models.json`.
+1. Balanced defaults in `index.ts`, with explicit per-role efforts across Opus 5.5, GPT-5.6 Luna and Sol, GPT-6 Astra, and Grok 4.7. The repo does not ship `pstack.models.json`.
 2. Optional plugin file `pstack.models.json` next to `index.ts`, only if someone adds one. A missing file leaves the defaults. Orbs inherit the plugin code.
 3. User file `~/.config/amp/pstack.models.json` on that machine.
 4. Amp user config from `pstack_configure_models` `set` or `profile`.
 5. Workspace file `.amp/pstack.models.json`.
 
-A persisted override stays until the user changes that role. Setup does not delete it, because a stored Fable ID may be a chosen model rather than an old default. A rerun keeps any role whose model differs from the current default. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Bare default Opus 5.5 and GPT-6 Sol seats resolve to max effort; bare Grok 4.7 seats resolve to xhigh. An explicit per-seat effort selected by the budget overrides that default. Other bare model IDs have no effort override. Do not substitute `builtin:high` for GPT-6 Sol. Current builtin high is GPT-6 Astra at medium effort.
+A persisted override stays until the user changes that role. Setup does not delete it, because a stored Fable ID may be a chosen model rather than an old default. A rerun keeps any role whose model differs from the current default. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Balanced seats carry explicit per-role effort. Bare shipped-model seats use the fallback in `MODEL_REASONING_EFFORT`; an explicit per-seat effort selected by the budget overrides it.
 
 Call `pstack_configure_models` with `action: "set"` exactly once and an `overrides` object containing every role whose final seat value differs from live `show`, including budget effort changes. Do not set the same role in multiple calls. If no role changed, do not call `set`. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset` instead. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
 ```json
 {
-  "hardest": "anthropic/claude-opus-5-5",
-  "feature": "xai/grok-4.7",
-  "refactoring": "xai/grok-4.7",
-  "bug-fix": "xai/grok-4.7",
-  "perf-issue": "xai/grok-4.7",
-  "hillclimb": "xai/grok-4.7",
-  "judgment": "anthropic/claude-opus-5-5",
-  "how-explorer": "xai/grok-4.7",
-  "how-explainer": "anthropic/claude-opus-5-5",
-  "why-investigator": "xai/grok-4.7",
-  "why-synthesizer": "anthropic/claude-opus-5-5",
-  "reflect-tooling": "openai/gpt-6-sol",
-  "reflect-judgment": "anthropic/claude-opus-5-5",
-  "reflect-divergent": "anthropic/claude-opus-5-5",
-  "reflect-synthesizer": "anthropic/claude-opus-5-5",
-  "swarm-worker": "xai/grok-4.7",
-  "comment-reviewer": "anthropic/claude-opus-5-5",
-  "arena-runners": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"],
-  "arena-cross-judge": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"],
-  "architect-runners": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"],
-  "interrogate-reviewers": ["anthropic/claude-opus-5-5", "openai/gpt-6-sol", "xai/grok-4.7"]
+  "hardest": { "model": "openai/gpt-6-astra", "effort": "high" },
+  "feature": { "model": "xai/grok-4.7", "effort": "high" },
+  "refactoring": { "model": "openai/gpt-5.6-sol", "effort": "high" },
+  "bug-fix": { "model": "xai/grok-4.7", "effort": "high" },
+  "perf-issue": { "model": "openai/gpt-6-astra", "effort": "high" },
+  "hillclimb": { "model": "xai/grok-4.7", "effort": "medium" },
+  "judgment": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
+  "how-explorer": { "model": "openai/gpt-5.6-luna", "effort": "medium" },
+  "how-explainer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
+  "why-investigator": { "model": "xai/grok-4.7", "effort": "high" },
+  "why-synthesizer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
+  "reflect-tooling": { "model": "openai/gpt-5.6-sol", "effort": "high" },
+  "reflect-judgment": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
+  "reflect-divergent": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
+  "reflect-synthesizer": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
+  "swarm-worker": { "model": "xai/grok-4.7", "effort": "medium" },
+  "comment-reviewer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
+  "arena-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-5.6-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "arena-cross-judge": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-5.6-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "architect-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6-astra", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "interrogate-reviewers": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-5.6-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }]
 }
 ```
 

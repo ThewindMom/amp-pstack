@@ -133,49 +133,51 @@ export const SKILL_PATHS = [
 ] as const
 
 export const DEFAULT_MODELS = {
-	hardest: 'anthropic/claude-opus-5-5',
-	feature: 'xai/grok-4.7',
-	refactoring: 'xai/grok-4.7',
-	'bug-fix': 'xai/grok-4.7',
-	'perf-issue': 'xai/grok-4.7',
-	hillclimb: 'xai/grok-4.7',
-	judgment: 'anthropic/claude-opus-5-5',
-	'how-explorer': 'xai/grok-4.7',
-	'how-explainer': 'anthropic/claude-opus-5-5',
-	'why-investigator': 'xai/grok-4.7',
-	'why-synthesizer': 'anthropic/claude-opus-5-5',
-	'reflect-tooling': 'openai/gpt-6-sol',
-	'reflect-judgment': 'anthropic/claude-opus-5-5',
-	'reflect-divergent': 'anthropic/claude-opus-5-5',
-	'reflect-synthesizer': 'anthropic/claude-opus-5-5',
-	'swarm-worker': 'xai/grok-4.7',
-	'comment-reviewer': 'anthropic/claude-opus-5-5',
+	hardest: { model: 'openai/gpt-6-astra', effort: 'high' },
+	feature: { model: 'xai/grok-4.7', effort: 'high' },
+	refactoring: { model: 'openai/gpt-5.6-sol', effort: 'high' },
+	'bug-fix': { model: 'xai/grok-4.7', effort: 'high' },
+	'perf-issue': { model: 'openai/gpt-6-astra', effort: 'high' },
+	hillclimb: { model: 'xai/grok-4.7', effort: 'medium' },
+	judgment: { model: 'anthropic/claude-opus-5-5', effort: 'high' },
+	'how-explorer': { model: 'openai/gpt-5.6-luna', effort: 'medium' },
+	'how-explainer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
+	'why-investigator': { model: 'xai/grok-4.7', effort: 'high' },
+	'why-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
+	'reflect-tooling': { model: 'openai/gpt-5.6-sol', effort: 'high' },
+	'reflect-judgment': { model: 'anthropic/claude-opus-5-5', effort: 'high' },
+	'reflect-divergent': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
+	'reflect-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'high' },
+	'swarm-worker': { model: 'xai/grok-4.7', effort: 'medium' },
+	'comment-reviewer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'arena-runners': [
-		'anthropic/claude-opus-5-5',
-		'openai/gpt-6-sol',
-		'xai/grok-4.7',
+		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+		{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'arena-cross-judge': [
-		'anthropic/claude-opus-5-5',
-		'openai/gpt-6-sol',
-		'xai/grok-4.7',
+		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+		{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'architect-runners': [
-		'anthropic/claude-opus-5-5',
-		'openai/gpt-6-sol',
-		'xai/grok-4.7',
+		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+		{ model: 'openai/gpt-6-astra', effort: 'high' },
+		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'interrogate-reviewers': [
-		'anthropic/claude-opus-5-5',
-		'openai/gpt-6-sol',
-		'xai/grok-4.7',
+		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+		{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 } as const
 
 export const MODEL_REASONING_EFFORT = {
-	'anthropic/claude-opus-5-5': 'max',
-	'openai/gpt-6-sol': 'max',
-	'xai/grok-4.7': 'xhigh',
+	'anthropic/claude-opus-5-5': 'high',
+	'openai/gpt-5.6-luna': 'medium',
+	'openai/gpt-5.6-sol': 'high',
+	'openai/gpt-6-astra': 'high',
+	'xai/grok-4.7': 'high',
 } as const satisfies Record<string, AgentReasoningEffort>
 
 const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox.`
@@ -455,7 +457,10 @@ export function isKnownRole(role: string): boolean {
 const EFFORTS = new Set<AgentReasoningEffort>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
 const KNOWN_EFFORTS: Record<string, ReadonlySet<AgentReasoningEffort>> = {
 	'anthropic/claude-opus-5-5': new Set(['low', 'medium', 'high', 'xhigh', 'max']),
+	'openai/gpt-5.6-luna': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
+	'openai/gpt-5.6-sol': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
 	'openai/gpt-6-sol': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
+	'openai/gpt-6-astra': new Set(['low', 'medium', 'high', 'xhigh', 'max']),
 	'xai/grok-4.7': new Set(['low', 'medium', 'high', 'xhigh']),
 }
 
