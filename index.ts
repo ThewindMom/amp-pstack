@@ -134,21 +134,21 @@ export const SKILL_PATHS = [
 
 export const DEFAULT_MODELS = {
 	hardest: { model: 'openai/gpt-6-astra', effort: 'high' },
-	feature: { model: 'xai/grok-4.7', effort: 'high' },
+	feature: { model: 'xai/grok-4.7', effort: 'xhigh' },
 	refactoring: { model: 'openai/gpt-5.6-sol', effort: 'high' },
-	'bug-fix': { model: 'xai/grok-4.7', effort: 'high' },
+	'bug-fix': { model: 'xai/grok-4.7', effort: 'xhigh' },
 	'perf-issue': { model: 'openai/gpt-6-astra', effort: 'high' },
-	hillclimb: { model: 'xai/grok-4.7', effort: 'medium' },
+	hillclimb: { model: 'xai/grok-4.7', effort: 'xhigh' },
 	judgment: { model: 'anthropic/claude-opus-5-5', effort: 'high' },
 	'how-explorer': { model: 'openai/gpt-5.6-luna', effort: 'low' },
 	'how-explainer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
-	'why-investigator': { model: 'xai/grok-4.7', effort: 'high' },
+	'why-investigator': { model: 'xai/grok-4.7', effort: 'xhigh' },
 	'why-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'reflect-tooling': { model: 'openai/gpt-5.6-sol', effort: 'high' },
 	'reflect-judgment': { model: 'anthropic/claude-opus-5-5', effort: 'high' },
 	'reflect-divergent': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'reflect-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'high' },
-	'swarm-worker': { model: 'xai/grok-4.7', effort: 'medium' },
+	'swarm-worker': { model: 'xai/grok-4.7', effort: 'xhigh' },
 	'comment-reviewer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'arena-runners': [
 		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
@@ -177,7 +177,7 @@ export const MODEL_REASONING_EFFORT = {
 	'openai/gpt-5.6-luna': 'low',
 	'openai/gpt-5.6-sol': 'high',
 	'openai/gpt-6-astra': 'high',
-	'xai/grok-4.7': 'high',
+	'xai/grok-4.7': 'xhigh',
 } as const satisfies Record<string, AgentReasoningEffort>
 
 const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox.`

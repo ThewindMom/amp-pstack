@@ -117,9 +117,9 @@ describe('amp-pstack plugin', () => {
 	})
 
 	test('has multi-model role and panel defaults', () => {
-		expect(DEFAULT_MODELS['bug-fix']).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
+		expect(DEFAULT_MODELS['bug-fix']).toEqual({ model: 'xai/grok-4.7', effort: 'xhigh' })
 		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6-astra', effort: 'high' })
-		expect(DEFAULT_MODELS.hillclimb).toEqual({ model: 'xai/grok-4.7', effort: 'medium' })
+		expect(DEFAULT_MODELS.hillclimb).toEqual({ model: 'xai/grok-4.7', effort: 'xhigh' })
 		expect(DEFAULT_MODELS.judgment).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'high' })
 		expect(DEFAULT_MODELS['how-explorer']).toEqual({ model: 'openai/gpt-5.6-luna', effort: 'low' })
 		expect(DEFAULT_MODELS['how-explainer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
@@ -136,13 +136,13 @@ describe('amp-pstack plugin', () => {
 			'openai/gpt-5.6-luna': 'low',
 			'openai/gpt-5.6-sol': 'high',
 			'openai/gpt-6-astra': 'high',
-			'xai/grok-4.7': 'high',
+			'xai/grok-4.7': 'xhigh',
 		})
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('claude-fable')
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('gpt-6-sol')
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('builtin:')
 		expect(JSON.stringify(CHEAP_MODELS)).not.toContain('claude-opus')
-		expect(DEFAULT_MODELS.feature).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
+		expect(DEFAULT_MODELS.feature).toEqual({ model: 'xai/grok-4.7', effort: 'xhigh' })
 		expect(DEFAULT_MODELS.refactoring).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
 		expect(description.length).toBeLessThanOrEqual(300)
 	})
@@ -2579,7 +2579,7 @@ describe('runtime tool behavior', () => {
 		expect(redirected.registeredModes.find(({ key }) => key === 'pstack-feature')).toMatchObject({
 			label: 'pstack-feature',
 			active: true,
-			agent: { model: 'xai/grok-4.7', reasoningEffort: 'high', tools: 'all' },
+			agent: { model: 'xai/grok-4.7', reasoningEffort: 'xhigh', tools: 'all' },
 		})
 		await expect(
 			tool(redirected, 'pstack_start_agent').execute(implStart, { thread: { id: 'T-parent' } }),

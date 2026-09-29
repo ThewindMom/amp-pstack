@@ -80,8 +80,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 |---|---|
 | Parent `poteto` | `extends: medium`; inherits model, reasoning, and tools |
 | Hardest and performance roles | `openai/gpt-6-astra` at high |
-| Feature, bug-fix, why-investigator | `xai/grok-4.7` at high |
-| Hillclimb and swarm-worker | `xai/grok-4.7` at medium |
+| Feature, bug-fix, hillclimb, why-investigator, swarm-worker | `xai/grok-4.7` at xhigh |
 | Refactoring and reflect-tooling | `openai/gpt-5.6-sol` at high |
 | How-explorer | `openai/gpt-5.6-luna` at low |
 | Judgment, reflect-judgment, reflect-synthesizer | `anthropic/claude-opus-5-5` at high |
