@@ -1037,9 +1037,9 @@ describe('runtime tool behavior', () => {
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
 			extends: 'medium',
-			model: 'anthropic/claude-opus-5-5',
-			reasoningEffort: 'medium',
 		})
+		expect(created[0]).not.toHaveProperty('model')
+		expect(created[0]).not.toHaveProperty('reasoningEffort')
 		expect(created[0]).not.toHaveProperty('tools')
 	})
 
