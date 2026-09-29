@@ -118,7 +118,8 @@ describe('amp-pstack plugin', () => {
 
 	test('has multi-model role and panel defaults', () => {
 		expect(DEFAULT_MODELS['bug-fix']).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
-		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6-astra', effort: 'high' })
+		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'xhigh' })
+		expect(DEFAULT_MODELS.hardest).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'max' })
 		expect(DEFAULT_MODELS.hillclimb).toEqual({ model: 'xai/grok-4.7', effort: 'xhigh' })
 		expect(DEFAULT_MODELS.judgment).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'high' })
 		expect(DEFAULT_MODELS['how-explorer']).toEqual({ model: 'openai/gpt-5.6-luna', effort: 'low' })
@@ -128,16 +129,17 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['comment-reviewer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
 		expect(DEFAULT_MODELS['arena-runners']).toEqual([
 			{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
-			{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+			{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 			{ model: 'xai/grok-4.7', effort: 'xhigh' },
 		])
 		expect(DEFAULT_MODELS['arena-runners']).toHaveLength(3)
-		expect(DEFAULT_MODELS['reflect-tooling']).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
+		expect(DEFAULT_MODELS['reflect-tooling']).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'high' })
 		expect(MODEL_REASONING_EFFORT).toEqual({
 			'anthropic/claude-opus-5-5': 'high',
 			'openai/gpt-5.6-luna': 'low',
 			'openai/gpt-5.6-sol': 'high',
 			'openai/gpt-6-astra': 'high',
+			'openai/gpt-6.1-sol': 'high',
 			'xai/grok-4.7': 'xhigh',
 		})
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('claude-fable')
@@ -145,7 +147,7 @@ describe('amp-pstack plugin', () => {
 		expect(JSON.stringify(DEFAULT_MODELS)).not.toContain('builtin:')
 		expect(JSON.stringify(CHEAP_MODELS)).not.toContain('claude-opus')
 		expect(DEFAULT_MODELS.feature).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
-		expect(DEFAULT_MODELS.refactoring).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
+		expect(DEFAULT_MODELS.refactoring).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'high' })
 		expect(description.length).toBeLessThanOrEqual(300)
 	})
 
@@ -351,7 +353,7 @@ describe('model configuration', () => {
 	test('cheap profile has no Fable or Opus', () => {
 		const cheap = profileModels('cheap')
 		expect(cheap.judgment).toBe('xai/grok-4.7')
-		expect(cheap.hardest).toBe('openai/gpt-5.6-sol')
+		expect(cheap.hardest).toBe('openai/gpt-6.1-sol')
 		expect(JSON.stringify(cheap)).not.toContain('claude-fable')
 		expect(JSON.stringify(cheap)).not.toContain('claude-opus')
 		expect(profileModels('balanced').judgment).toBe(DEFAULT_MODELS.judgment)
@@ -476,7 +478,7 @@ describe('model configuration', () => {
 				model: 'anthropic/claude-opus-5-5',
 				effort: 'medium',
 			})
-			expect(resolveModels(layers)['reflect-tooling']).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high' })
+			expect(resolveModels(layers)['reflect-tooling']).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'high' })
 		} finally {
 			await rm(root, { recursive: true, force: true })
 		}
@@ -490,7 +492,7 @@ describe('model configuration', () => {
 		expect(mapped.refactoring).toBe('xai/grok-4.7')
 		expect(mapped['interrogate-reviewers']).toEqual([
 			'xai/grok-4.7',
-			'openai/gpt-5.6-sol',
+			'openai/gpt-6.1-sol',
 		])
 		expect(JSON.stringify(mapped)).not.toContain('claude-fable')
 		expect(JSON.stringify(mapped)).not.toContain('claude-opus')
@@ -1858,7 +1860,7 @@ describe('runtime tool behavior', () => {
 		expect(JSON.parse(profiled).judgment).toBe('xai/grok-4.7')
 		expect(JSON.parse(profiled)['arena-cross-judge']).toEqual([
 			'xai/grok-4.7',
-			'openai/gpt-5.6-sol',
+			'openai/gpt-6.1-sol',
 		])
 		await tool(amp, 'pstack_configure_models').execute({ action: 'reset' })
 	})

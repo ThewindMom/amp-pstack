@@ -133,18 +133,18 @@ export const SKILL_PATHS = [
 ] as const
 
 export const DEFAULT_MODELS = {
-	hardest: { model: 'openai/gpt-6-astra', effort: 'high' },
+	hardest: { model: 'openai/gpt-6.1-sol', effort: 'max' },
 	feature: { model: 'xai/grok-4.7', effort: 'high' },
-	refactoring: { model: 'openai/gpt-5.6-sol', effort: 'high' },
+	refactoring: { model: 'openai/gpt-6.1-sol', effort: 'high' },
 	'bug-fix': { model: 'xai/grok-4.7', effort: 'high' },
-	'perf-issue': { model: 'openai/gpt-6-astra', effort: 'high' },
+	'perf-issue': { model: 'openai/gpt-6.1-sol', effort: 'xhigh' },
 	hillclimb: { model: 'xai/grok-4.7', effort: 'xhigh' },
 	judgment: { model: 'anthropic/claude-opus-5-5', effort: 'high' },
 	'how-explorer': { model: 'openai/gpt-5.6-luna', effort: 'low' },
 	'how-explainer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'why-investigator': { model: 'xai/grok-4.7', effort: 'high' },
 	'why-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
-	'reflect-tooling': { model: 'openai/gpt-5.6-sol', effort: 'high' },
+	'reflect-tooling': { model: 'openai/gpt-6.1-sol', effort: 'high' },
 	'reflect-judgment': { model: 'anthropic/claude-opus-5-5', effort: 'high' },
 	'reflect-divergent': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'reflect-synthesizer': { model: 'anthropic/claude-opus-5-5', effort: 'high' },
@@ -152,22 +152,22 @@ export const DEFAULT_MODELS = {
 	'comment-reviewer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'arena-runners': [
 		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
-		{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+		{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'arena-cross-judge': [
 		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
-		{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+		{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'architect-runners': [
 		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
-		{ model: 'openai/gpt-6-astra', effort: 'high' },
+		{ model: 'openai/gpt-6.1-sol', effort: 'xhigh' },
 		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'interrogate-reviewers': [
 		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
-		{ model: 'openai/gpt-5.6-sol', effort: 'high' },
+		{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 } as const
@@ -177,13 +177,14 @@ export const MODEL_REASONING_EFFORT = {
 	'openai/gpt-5.6-luna': 'low',
 	'openai/gpt-5.6-sol': 'high',
 	'openai/gpt-6-astra': 'high',
+	'openai/gpt-6.1-sol': 'high',
 	'xai/grok-4.7': 'xhigh',
 } as const satisfies Record<string, AgentReasoningEffort>
 
 const ROLE_GUIDANCE = `Configured delegate role, not a skill or workflow name. Valid roles: ${Object.keys(DEFAULT_MODELS).join(', ')}. how is a workflow, not a role: use how-explorer for investigation or how-explainer for explanation. These strict read-only roles cannot run shell commands or tests. Use judgment for reviews requiring test execution; its no-code-change restriction must be stated in the brief and is not a sandbox.`
 
 export const CHEAP_MODELS = {
-	hardest: 'openai/gpt-5.6-sol',
+	hardest: 'openai/gpt-6.1-sol',
 	feature: 'xai/grok-4.7',
 	refactoring: 'xai/grok-4.7',
 	'bug-fix': 'xai/grok-4.7',
@@ -194,16 +195,16 @@ export const CHEAP_MODELS = {
 	'how-explainer': 'xai/grok-4.7',
 	'why-investigator': 'xai/grok-4.7',
 	'why-synthesizer': 'xai/grok-4.7',
-	'reflect-tooling': 'openai/gpt-5.6-sol',
+	'reflect-tooling': 'openai/gpt-6.1-sol',
 	'reflect-judgment': 'xai/grok-4.7',
 	'reflect-divergent': 'xai/grok-4.7',
 	'reflect-synthesizer': 'xai/grok-4.7',
 	'swarm-worker': 'xai/grok-4.7',
 	'comment-reviewer': 'xai/grok-4.7',
-	'arena-runners': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
-	'arena-cross-judge': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
-	'architect-runners': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
-	'interrogate-reviewers': ['xai/grok-4.7', 'openai/gpt-5.6-sol'],
+	'arena-runners': ['xai/grok-4.7', 'openai/gpt-6.1-sol'],
+	'arena-cross-judge': ['xai/grok-4.7', 'openai/gpt-6.1-sol'],
+	'architect-runners': ['xai/grok-4.7', 'openai/gpt-6.1-sol'],
+	'interrogate-reviewers': ['xai/grok-4.7', 'openai/gpt-6.1-sol'],
 } as const
 
 export const MODEL_PROFILES = ['balanced', 'cheap', 'builtin', 'reset'] as const
@@ -460,6 +461,7 @@ const KNOWN_EFFORTS: Record<string, ReadonlySet<AgentReasoningEffort>> = {
 	'openai/gpt-5.6-luna': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
 	'openai/gpt-5.6-sol': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
 	'openai/gpt-6-sol': new Set(['none', 'low', 'medium', 'high', 'xhigh', 'max']),
+	'openai/gpt-6.1-sol': new Set(['low', 'medium', 'high', 'xhigh', 'max']),
 	'openai/gpt-6-astra': new Set(['low', 'medium', 'high', 'xhigh', 'max']),
 	'xai/grok-4.7': new Set(['low', 'medium', 'high', 'xhigh']),
 }

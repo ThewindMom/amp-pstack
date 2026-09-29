@@ -42,7 +42,7 @@ Every provider/model ID must be in the detected set, and every explicit effort m
 
 Resolution order, later wins:
 
-1. Balanced defaults in `index.ts`, with explicit per-role efforts across Opus 5.5, GPT-5.6 Luna and Sol, GPT-6 Astra, and Grok 4.7. The repo does not ship `pstack.models.json`.
+1. Balanced defaults in `index.ts`, with explicit per-role efforts across Opus 5.5, GPT-5.6 Luna, GPT-6.1 Sol, and Grok 4.7. The repo does not ship `pstack.models.json`.
 2. Optional plugin file `pstack.models.json` next to `index.ts`, only if someone adds one. A missing file leaves the defaults. Orbs inherit the plugin code.
 3. User file `~/.config/amp/pstack.models.json` on that machine.
 4. Amp user config from `pstack_configure_models` `set` or `profile`.
@@ -52,31 +52,31 @@ A persisted override stays until the user changes that role. Setup does not dele
 
 The `how-explorer` agent definition requires Amp's premium `fast` serving feature independently of its configured model and effort. Model setup does not add or remove that role feature.
 
-Call `pstack_configure_models` with `action: "set"` exactly once and an `overrides` object containing every role whose final seat value differs from live `show`, including budget effort changes. Do not set the same role in multiple calls. If no role changed, do not call `set`. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset` instead. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
+Call `pstack_configure_models` with `action: "set"` exactly once and an `overrides` object containing every role whose final seat value differs from live `show`, including budget effort changes. Do not set the same role in multiple calls. If no role changed, do not call `set`. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset` instead. `cheap` uses Grok and GPT-6.1 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
 ```json
 {
-  "hardest": { "model": "openai/gpt-6-astra", "effort": "high" },
+  "hardest": { "model": "openai/gpt-6.1-sol", "effort": "max" },
   "feature": { "model": "xai/grok-4.7", "effort": "high" },
-  "refactoring": { "model": "openai/gpt-5.6-sol", "effort": "high" },
+  "refactoring": { "model": "openai/gpt-6.1-sol", "effort": "high" },
   "bug-fix": { "model": "xai/grok-4.7", "effort": "high" },
-  "perf-issue": { "model": "openai/gpt-6-astra", "effort": "high" },
+  "perf-issue": { "model": "openai/gpt-6.1-sol", "effort": "xhigh" },
   "hillclimb": { "model": "xai/grok-4.7", "effort": "xhigh" },
   "judgment": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
   "how-explorer": { "model": "openai/gpt-5.6-luna", "effort": "low" },
   "how-explainer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
   "why-investigator": { "model": "xai/grok-4.7", "effort": "high" },
   "why-synthesizer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
-  "reflect-tooling": { "model": "openai/gpt-5.6-sol", "effort": "high" },
+  "reflect-tooling": { "model": "openai/gpt-6.1-sol", "effort": "high" },
   "reflect-judgment": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
   "reflect-divergent": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
   "reflect-synthesizer": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
   "swarm-worker": { "model": "xai/grok-4.7", "effort": "high" },
   "comment-reviewer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
-  "arena-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-5.6-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
-  "arena-cross-judge": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-5.6-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
-  "architect-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6-astra", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
-  "interrogate-reviewers": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-5.6-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }]
+  "arena-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "arena-cross-judge": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "architect-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "xhigh" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "interrogate-reviewers": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }]
 }
 ```
 
