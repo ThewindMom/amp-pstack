@@ -50,6 +50,8 @@ Resolution order, later wins:
 
 A persisted override stays until the user changes that role. Setup does not delete it, because a stored Fable ID may be a chosen model rather than an old default. A rerun keeps any role whose model differs from the current default. Copy `.amp/pstack.models.example.json` to `~/.config/amp/pstack.models.json` only for a machine-local overlay. `{ "profile": "cheap" }` alone is valid. A JSON file is either a role map or `{ "profile": "cheap", "models": { ... } }`. Cursor `inherit-parent` is invalid here. Balanced seats carry explicit per-role effort. Bare shipped-model seats use the fallback in `MODEL_REASONING_EFFORT`; an explicit per-seat effort selected by the budget overrides it.
 
+The `how-explorer` agent definition requires Amp's premium `fast` serving feature independently of its configured model and effort. Model setup does not add or remove that role feature.
+
 Call `pstack_configure_models` with `action: "set"` exactly once and an `overrides` object containing every role whose final seat value differs from live `show`, including budget effort changes. Do not set the same role in multiple calls. If no role changed, do not call `set`. For a named profile, call `action: "profile"` with `balanced`, `cheap`, `builtin`, or `reset` instead. `cheap` uses Grok and GPT-5.6 Sol only. Unknown actions fail instead of showing the map. The supported defaults are:
 
 ```json

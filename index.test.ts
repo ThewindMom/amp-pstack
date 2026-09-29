@@ -1109,9 +1109,13 @@ describe('runtime tool behavior', () => {
 		expect(capabilityFor('feature')).toEqual({ kind: 'implementation', tools: 'all' })
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_start_agent').execute({ role: 'how-explorer', prompt: 'inspect' }, { thread: { id: 'T-parent' } })
-		expect(amp.created.at(-1)).toMatchObject({ tools: { include: [...REPORTING_READONLY_TOOLS] } })
+		expect(amp.created.at(-1)).toMatchObject({
+			features: ['fast'],
+			tools: { include: [...REPORTING_READONLY_TOOLS] },
+		})
 		await tool(amp, 'pstack_start_agent').execute({ role: 'why-investigator', prompt: 'research' }, { thread: { id: 'T-parent' } })
 		expect(amp.created.at(-1)).toMatchObject({ tools: { exclude: [...WRITE_TOOLS] } })
+		expect(amp.created.at(-1)).not.toHaveProperty('features')
 	})
 
 	test('startup registration publishes every shipped model and effort', async () => {

@@ -82,7 +82,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | Hardest and performance roles | `openai/gpt-6-astra` at high |
 | Feature, bug-fix, hillclimb, why-investigator, swarm-worker | `xai/grok-4.7` at xhigh |
 | Refactoring and reflect-tooling | `openai/gpt-5.6-sol` at high |
-| How-explorer | `openai/gpt-5.6-luna` at low |
+| How-explorer | `openai/gpt-5.6-luna` at low with the premium `fast` serving feature |
 | Judgment, reflect-judgment, reflect-synthesizer | `anthropic/claude-opus-5-5` at high |
 | How-explainer, why-synthesizer, reflect-divergent, comment-reviewer | `anthropic/claude-opus-5-5` at medium |
 | Panels and arena cross-judge pool | Opus 5.5 high, GPT-5.6 Sol high, Grok 4.7 xhigh; architect uses GPT-6 Astra high instead of Sol; one cross-judge runs, preferring a known family different from the parent |

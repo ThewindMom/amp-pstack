@@ -992,11 +992,13 @@ export default async function pstack(amp: PluginAPI) {
 
 	const agentFor = (model: string, role: string, effort?: AgentReasoningEffort): Agent => {
 		const builtin = model.match(BUILTIN_MODE)
+		const features = role === 'how-explorer' ? ['fast'] as const : undefined
 		if (builtin) {
 			return amp.createAgent({
 				extends: builtin[1] as BuiltinAgentMode,
 				instructions: instructionsFor(role),
 				tools: toolsFor(role),
+				...(features ? { features } : {}),
 				display: { label: role.slice(0, 24) },
 			})
 		}
@@ -1005,6 +1007,7 @@ export default async function pstack(amp: PluginAPI) {
 			model: model as PluginAgentModel,
 			instructions: instructionsFor(role),
 			tools: toolsFor(role),
+			...(features ? { features } : {}),
 			display: { label: role.slice(0, 24) },
 		}
 		return amp.createAgent(effort === undefined ? definition : { ...definition, reasoningEffort: effort })
