@@ -4,7 +4,7 @@ import type { PluginAPI } from '@ampcode/plugin'
 import potetoSkill from './skills/poteto-mode/SKILL.md' with { type: 'text' }
 
 export const description =
-	'Poteto mode for Amp: built-in medium with the full persistent pstack instructions. Inherits medium model, reasoning, and tools. Pair with the pstack directory plugin for skills and tools.'
+	'Poteto mode for Amp: Claude Opus 5.5 at medium reasoning with the full persistent pstack instructions and built-in medium tools. Pair with the pstack directory plugin for skills and tools.'
 
 export const COORDINATOR_INSTRUCTIONS = `Playbook match or rigor needed: load pstack:poteto-mode and follow its matched playbook. Casual turn or user opts out: do not. After load, read references/amp-adapter.md from the loaded skill for Amp executors, ownership, transfers, models, schedules, and blocking-tool exceptions.
 
@@ -28,6 +28,8 @@ export default function (amp: PluginAPI) {
 	const agent = amp.createAgent({
 		name: 'poteto',
 		extends: 'medium',
+		model: 'anthropic/claude-opus-5-5',
+		reasoningEffort: 'medium',
 		instructions: COORDINATOR_INSTRUCTIONS,
 		display: { label: 'poteto', color: '#eab308' },
 	})
@@ -36,7 +38,7 @@ export default function (amp: PluginAPI) {
 		key: 'poteto',
 		label: 'poteto',
 		description:
-			'Built-in medium with full persistent pstack instructions. Inherits medium model, reasoning, and tools. The parent coordinates.',
+			'Claude Opus 5.5 at medium reasoning with full persistent pstack instructions and built-in medium tools. The parent coordinates.',
 		color: '#eab308',
 		agent: agent.definition,
 	})

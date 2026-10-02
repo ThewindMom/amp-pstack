@@ -118,8 +118,8 @@ describe('amp-pstack plugin', () => {
 
 	test('has multi-model role and panel defaults', () => {
 		expect(DEFAULT_MODELS['bug-fix']).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
-		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'xhigh' })
-		expect(DEFAULT_MODELS.hardest).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'max' })
+		expect(DEFAULT_MODELS['perf-issue']).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'high' })
+		expect(DEFAULT_MODELS.hardest).toEqual({ model: 'openai/gpt-6.1-sol', effort: 'xhigh' })
 		expect(DEFAULT_MODELS.hillclimb).toEqual({ model: 'xai/grok-4.7', effort: 'xhigh' })
 		expect(DEFAULT_MODELS.judgment).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'high' })
 		expect(DEFAULT_MODELS['how-explorer']).toEqual({ model: 'openai/gpt-5.6-luna', effort: 'low' })
@@ -128,7 +128,7 @@ describe('amp-pstack plugin', () => {
 		expect(DEFAULT_MODELS['swarm-worker']).toEqual({ model: 'xai/grok-4.7', effort: 'high' })
 		expect(DEFAULT_MODELS['comment-reviewer']).toEqual({ model: 'anthropic/claude-opus-5-5', effort: 'medium' })
 		expect(DEFAULT_MODELS['arena-runners']).toEqual([
-			{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+			{ model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 			{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 			{ model: 'xai/grok-4.7', effort: 'xhigh' },
 		])
@@ -1039,9 +1039,9 @@ describe('runtime tool behavior', () => {
 		expect(created[0]).toMatchObject({
 			name: 'poteto',
 			extends: 'medium',
+			model: 'anthropic/claude-opus-5-5',
+			reasoningEffort: 'medium',
 		})
-		expect(created[0]).not.toHaveProperty('model')
-		expect(created[0]).not.toHaveProperty('reasoningEffort')
 		expect(created[0]).not.toHaveProperty('tools')
 	})
 

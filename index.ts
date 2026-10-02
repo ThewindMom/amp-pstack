@@ -133,11 +133,11 @@ export const SKILL_PATHS = [
 ] as const
 
 export const DEFAULT_MODELS = {
-	hardest: { model: 'openai/gpt-6.1-sol', effort: 'max' },
+	hardest: { model: 'openai/gpt-6.1-sol', effort: 'xhigh' },
 	feature: { model: 'xai/grok-4.7', effort: 'high' },
 	refactoring: { model: 'openai/gpt-6.1-sol', effort: 'high' },
 	'bug-fix': { model: 'xai/grok-4.7', effort: 'high' },
-	'perf-issue': { model: 'openai/gpt-6.1-sol', effort: 'xhigh' },
+	'perf-issue': { model: 'openai/gpt-6.1-sol', effort: 'high' },
 	hillclimb: { model: 'xai/grok-4.7', effort: 'xhigh' },
 	judgment: { model: 'anthropic/claude-opus-5-5', effort: 'high' },
 	'how-explorer': { model: 'openai/gpt-5.6-luna', effort: 'low' },
@@ -151,7 +151,7 @@ export const DEFAULT_MODELS = {
 	'swarm-worker': { model: 'xai/grok-4.7', effort: 'high' },
 	'comment-reviewer': { model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 	'arena-runners': [
-		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
+		{ model: 'anthropic/claude-opus-5-5', effort: 'medium' },
 		{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
@@ -162,7 +162,7 @@ export const DEFAULT_MODELS = {
 	],
 	'architect-runners': [
 		{ model: 'anthropic/claude-opus-5-5', effort: 'high' },
-		{ model: 'openai/gpt-6.1-sol', effort: 'xhigh' },
+		{ model: 'openai/gpt-6.1-sol', effort: 'high' },
 		{ model: 'xai/grok-4.7', effort: 'xhigh' },
 	],
 	'interrogate-reviewers': [

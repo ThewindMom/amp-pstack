@@ -39,19 +39,19 @@ describe('poteto mode', () => {
 		}
 	})
 
-	test('inherits built-in medium without model, reasoning, or tool overrides', () => {
+	test('pins Opus 5.5 medium while inheriting built-in medium tools', () => {
 		const { created, registered } = registerPoteto()
 
 		expect(created).toHaveLength(1)
 		expect(created[0]?.extends).toBe('medium')
-		expect(created[0]).not.toHaveProperty('model')
-		expect(created[0]).not.toHaveProperty('reasoningEffort')
+		expect(created[0]?.model).toBe('anthropic/claude-opus-5-5')
+		expect(created[0]?.reasoningEffort).toBe('medium')
 		expect(created[0]).not.toHaveProperty('tools')
 		expect(registered).toHaveLength(1)
 		expect(registered[0]?.key).toBe('poteto')
 		expect(registered[0]?.agent).toEqual(created[0])
-		expect(description).toContain('built-in medium')
-		expect(registered[0]?.description).toContain('Built-in medium')
+		expect(description).toContain('Claude Opus 5.5 at medium reasoning')
+		expect(registered[0]?.description).toContain('Claude Opus 5.5 at medium reasoning')
 	})
 
 	test('documents coordinator, delegate, and child-thread behavior accurately', async () => {
@@ -63,7 +63,7 @@ describe('poteto mode', () => {
 		])
 		const modelProse = `${skill}\n${adapter}`
 
-		expect(modelProse).toContain('parent is Amp builtin `medium` plus **poteto-mode**, with no model or reasoning override')
+		expect(modelProse).toContain('parent is Claude Opus 5.5 at medium reasoning plus **poteto-mode**')
 		expect(adapter).toContain('Feature, bug-fix, why-investigator, and swarm-worker use Grok 4.7 high')
 		expect(adapter).toContain('hillclimb and Grok panel seats use xhigh')
 		expect(adapter).toContain("An explicit seat effort overrides a bare model's fallback.")

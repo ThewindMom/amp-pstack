@@ -58,7 +58,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## What the Amp port adds
 
-- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) registers the Mode Dial entry with built-in medium and the full Poteto instructions. It inherits medium's model, reasoning, and tools. The `pstack/` directory plugin owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
+- **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) registers the Mode Dial entry with Claude Opus 5.5 at medium reasoning, built-in medium tools, and the full Poteto instructions. The `pstack/` directory plugin owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
 - **47 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
 - **Role-based agents.** Cursor backgrounds every Task; this port uses native Amp child threads. Default long work (`feature`, `how-explorer`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns a `threadID`, and the child exclusively owns its paths. Children report with native `send_thread_message`; the plugin can recover unreported final text. The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Only when the parent truly needs the result, wait with native `wait_for_threads`, then inspect it with native `read_thread`. Do not combine a wait with a requested reply. Never redo or replace a live child.
 - **Hybrid worker contracts.** The `poteto` parent retains the full coordinator skill. Worker modes do not load it automatically: callers inline completed task templates, and role instructions name only qualified execution skills to load when applicable. Strict read-only explorers, explainers, comment reviewers, interrogate reviewers, and arena cross-judges cannot load skills; their complete contracts are inline. Models and tool restrictions remain role-specific.
@@ -72,22 +72,22 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 
 ## Agent and panel defaults
 
-`poteto` extends built-in `medium` without model, reasoning, or tool overrides. It embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions and resolves resource paths through the skill loader. Rebuild and republish the selector after skill edits, then reload the plugin. Shipped delegate seats use explicit per-role models and efforts.
+`poteto` extends built-in `medium` for tools, pins Claude Opus 5.5 at medium reasoning, embeds the complete `skills/poteto-mode/SKILL.md` as persistent mode instructions, and resolves resource paths through the skill loader. Rebuild and republish the selector after skill edits, then reload the plugin. Shipped delegate seats use explicit per-role models and efforts.
 
 `index.ts` owns the role map and fallback efforts for bare shipped-model seats. There is no bundled `pstack.models.json`. A missing plugin file leaves those defaults. Orbs get them with the plugin code. They do not get `~/.config/amp/pstack.models.json` unless that file also exists there.
 
 | Seat | Shipped map |
 |---|---|
-| Parent `poteto` | `extends: medium`; inherits model, reasoning, and tools |
-| Hardest | `openai/gpt-6.1-sol` at max |
-| Performance | `openai/gpt-6.1-sol` at xhigh |
+| Parent `poteto` | Claude Opus 5.5 at medium reasoning; inherits built-in medium tools |
+| Hardest | `openai/gpt-6.1-sol` at xhigh |
+| Performance | `openai/gpt-6.1-sol` at high |
 | Feature, bug-fix, why-investigator, swarm-worker | `xai/grok-4.7` at high |
 | Hillclimb | `xai/grok-4.7` at xhigh |
 | Refactoring and reflect-tooling | `openai/gpt-6.1-sol` at high |
 | How-explorer | `openai/gpt-5.6-luna` at low with the premium `fast` serving feature |
 | Judgment, reflect-judgment, reflect-synthesizer | `anthropic/claude-opus-5-5` at high |
 | How-explainer, why-synthesizer, reflect-divergent, comment-reviewer | `anthropic/claude-opus-5-5` at medium |
-| Panels and arena cross-judge pool | Opus 5.5 high, GPT-6.1 Sol high, Grok 4.7 xhigh; architect uses GPT-6.1 Sol xhigh; one cross-judge runs, preferring a known family different from the parent |
+| Panels and arena cross-judge pool | Opus 5.5 high, GPT-6.1 Sol high, Grok 4.7 xhigh; arena runners use Opus 5.5 medium; one cross-judge runs, preferring a known family different from the parent |
 
 The `hardest` role is the strongest code-writing seat. It is separate from `judgment`, which reviews without owning an implementation diff.
 

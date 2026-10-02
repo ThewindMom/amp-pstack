@@ -56,11 +56,11 @@ Call `pstack_configure_models` with `action: "set"` exactly once and an `overrid
 
 ```json
 {
-  "hardest": { "model": "openai/gpt-6.1-sol", "effort": "max" },
+  "hardest": { "model": "openai/gpt-6.1-sol", "effort": "xhigh" },
   "feature": { "model": "xai/grok-4.7", "effort": "high" },
   "refactoring": { "model": "openai/gpt-6.1-sol", "effort": "high" },
   "bug-fix": { "model": "xai/grok-4.7", "effort": "high" },
-  "perf-issue": { "model": "openai/gpt-6.1-sol", "effort": "xhigh" },
+  "perf-issue": { "model": "openai/gpt-6.1-sol", "effort": "high" },
   "hillclimb": { "model": "xai/grok-4.7", "effort": "xhigh" },
   "judgment": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
   "how-explorer": { "model": "openai/gpt-5.6-luna", "effort": "low" },
@@ -73,9 +73,9 @@ Call `pstack_configure_models` with `action: "set"` exactly once and an `overrid
   "reflect-synthesizer": { "model": "anthropic/claude-opus-5-5", "effort": "high" },
   "swarm-worker": { "model": "xai/grok-4.7", "effort": "high" },
   "comment-reviewer": { "model": "anthropic/claude-opus-5-5", "effort": "medium" },
-  "arena-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "arena-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "medium" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
   "arena-cross-judge": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
-  "architect-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "xhigh" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
+  "architect-runners": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }],
   "interrogate-reviewers": [{ "model": "anthropic/claude-opus-5-5", "effort": "high" }, { "model": "openai/gpt-6.1-sol", "effort": "high" }, { "model": "xai/grok-4.7", "effort": "xhigh" }]
 }
 ```
