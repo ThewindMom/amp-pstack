@@ -1606,6 +1606,26 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
+	test('terminal fallback still reads assistant text when the host returns nothing for full transcripts', async () => {
+		const amp = await loadPlugin()
+		await tool(amp, 'pstack_start_agent').execute(
+			{ role: 'how-explorer', prompt: 'explore', reporting: 'final-text' },
+			{ thread: { id: 'T-parent' } },
+		)
+		const child = amp.started[0] as {
+			emit: (state: string) => void
+			messages: (options: { full?: boolean }) => Promise<unknown[]>
+		}
+		const messages = child.messages.bind(child)
+		child.messages = async (options) => (options.full ? [] : messages(options))
+		child.emit('running')
+		child.emit('idle')
+		await Bun.sleep(0)
+		expect(amp.sent).toHaveLength(1)
+		expect(String(amp.sent[0]?.content)).not.toContain('Last assistant text: (none)')
+		expect(String(amp.sent[0]?.content)).toContain('Last assistant text: assistant:')
+	})
+
 	test('terminal fallback reads the newest assistant text from the host-sized latest page', async () => {
 		const amp = await loadPlugin()
 		await tool(amp, 'pstack_start_agent').execute(

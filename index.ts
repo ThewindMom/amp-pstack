@@ -708,6 +708,25 @@ function toolsFor(role: string) {
 	return capabilityFor(role).tools
 }
 
+// Some hosts (Neo thread-actor threads) return [] for `full: true`; fall back to the default view so terminal
+// fallbacks and transcript reads still see messages.
+async function* transcriptPages(
+	thread: { messages(options: { full?: boolean; from: 'start' | 'end'; limit: number; offset: number }): Promise<ThreadMessage[]> },
+	from: 'start' | 'end',
+): AsyncGenerator<ThreadMessage[]> {
+	let full = true
+	for (let offset = 0; ; ) {
+		let page = await thread.messages({ full, from, limit: 20, offset })
+		if (offset === 0 && full && page.length === 0) {
+			full = false
+			page = await thread.messages({ full, from, limit: 20, offset })
+		}
+		yield page
+		if (page.length < 20) return
+		offset += page.length
+	}
+}
+
 function instructionsFor(role: string): string {
 	if (role === 'comment-reviewer') return COMMENT_REVIEWER_INSTRUCTIONS
 	return `${AGENT_INSTRUCTIONS} Assigned role: ${role}.`
@@ -724,14 +743,7 @@ export default async function pstack(amp: PluginAPI) {
 		const codeExecCalls = new Set<string>()
 		const nativeReceipts = new Set<string>()
 		let lastAssistantText = ''
-		let offset = 0
-		while (true) {
-			const messages = await amp.threads.get(threadID as ThreadID).messages({
-				full: true,
-				from: 'end',
-				limit: 20,
-				offset,
-			})
+		for await (const messages of transcriptPages(amp.threads.get(threadID as ThreadID), 'end')) {
 			for (const message of [...messages].reverse()) {
 				if (!('content' in message) || !Array.isArray(message.content)) continue
 				for (const block of message.content) {
@@ -764,8 +776,6 @@ export default async function pstack(amp: PluginAPI) {
 						.join('\n')
 				}
 			}
-			if (messages.length < 20) break
-			offset += messages.length
 		}
 		return {
 			lastAssistantText,
@@ -1597,21 +1607,14 @@ export default async function pstack(amp: PluginAPI) {
 					: 100
 			const messages: ThreadMessage[] = []
 			let total = 0
-			for (let offset = 0; ; offset += 20) {
-				const page = await ctx.thread.messages({
-					full: true,
-					from: 'start',
-					offset,
-					limit: 20,
-				})
+			for await (const page of transcriptPages(ctx.thread, 'start')) {
 				for (let index = 0; index < page.length; index += 1) {
-					const position = offset + index
+					const position = total + index
 					if (position >= requestedOffset && position < requestedOffset + limit) {
 						messages.push(page[index])
 					}
 				}
 				total += page.length
-				if (page.length < 20) break
 			}
 			return JSON.stringify({
 				threadID: ctx.thread.id,
