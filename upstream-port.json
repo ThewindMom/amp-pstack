@@ -2,9 +2,9 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "12d587dfb20741cafc376c42c696c5f6e2a64487",
-		"version": "0.15.5",
-		"tree": "https://github.com/cursor/plugins/tree/12d587dfb20741cafc376c42c696c5f6e2a64487/pstack"
+		"commit": "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a",
+		"version": "0.15.9",
+		"tree": "https://github.com/cursor/plugins/tree/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack"
 	},
 	"intentionalDepartures": [
 		{
@@ -27,7 +27,7 @@
 		},
 		{
 			"id": "amp-host-autonomy",
-			"from": "**Just do it.** Use any MCP tool. Reversible work and external actions proceed without asking. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the operator can make. Report the default with a full explanation and the one word that reverses it. Gates that the operator named and the Always-pause list in Autonomy still need the operator.",
+			"from": "**Just do it.** Use any MCP tool. Reversible work and external actions proceed without asking. Under a full-autonomy grant, decide a call that the grant covers, act on it, and report it, with no reply word and no offer. Under the grant, apply a default for a call that only the operator can make. Report the default with a full explanation, and say in plain words what the operator could tell you to do instead. The operator answers in their own words. Never give a shorthand token to type back. Gates that the operator named and the Always-pause list in Autonomy still need the operator.",
 			"to": "Amp preserves those full-autonomy decision boundaries, but full autonomy does not authorize shared or external writes; those still require the user's explicit approval.",
 			"why": "Amp permission boundaries are stricter than Cursor pstack autonomy."
 		},
@@ -59,7 +59,7 @@
 			"id": "check-plan-nonblank-model",
 			"from": "Ten lanes on `[^`<>]+` at the PR head",
 			"to": "The Amp checker also rejects a whitespace-only model inside the backticks.",
-			"why": "Upstream 0.15.5 rejects angle brackets and empty ticks. A blank model is not a filled model, so the Amp checker tightens that boundary."
+			"why": "Upstream 0.15.5 and later reject angle brackets and empty ticks. A blank model is not a filled model, so the Amp checker tightens that boundary."
 		},
 		{
 			"id": "no-cursor-model-aliases",
@@ -90,6 +90,30 @@
 			"from": "Cursor instructions invoke scripts relative to the plugin checkout and may execute shell scripts directly.",
 			"to": "Amp instructions resolve scripts from the loaded skill base and invoke them explicitly with bun or bash.",
 			"why": "A synced Amp install may run from any user working directory and does not preserve executable bits."
+		},
+		{
+			"id": "hourly-amp-schedule-tick",
+			"from": "On the operator's go, arm `/loop 1h` with a prompt that runs this tick. `/loop` works in local and cloud roots.",
+			"to": "On the operator's go, the root arms an hourly Amp schedule on its own thread (set_schedule with RRULE:FREQ=HOURLY and run_mode existing) and clears it when no delegated work is left or on the operator's stop. Ticks re-read playbooks from the loaded skill, not git show origin/main in the target repo.",
+			"why": "Amp has no /loop. A schedule in run_mode existing wakes the root with its program context, survives orb pause, and only runs under the user's explicit request for ongoing work."
+		},
+		{
+			"id": "fresh-children-amp-state",
+			"from": "Resume, message, or queue a follow-up on an existing subagent only when the new work strictly needs state that lives in that agent and is costly to move: its local checkout, its uncommitted changes, or a process it still runs.",
+			"to": "New work goes to a fresh pstack_start_agent child with consolidated scope. A running owner is still steered with send_thread_message for its current scope. A current-checkout child holds no checkout state of its own, and download_thread_changes can move an idle orb owner's changed files to a fresh owner.",
+			"why": "Amp ownership claims already forbid a second live owner, and native thread file transfer makes orb state cheaper to move than in Cursor, so reuse is rarer."
+		},
+		{
+			"id": "no-builtin-pr-tool",
+			"from": "When the run provides a built-in PR tool, create, edit, retarget, and mark ready through it, never through a forge CLI.",
+			"to": "Opening a PR keeps the forge-only Size and stacks and Readiness rules. The adapter records that Amp has no built-in PR tool and that ship_thread_changes is a project Ship prompt, not a PR tool.",
+			"why": "The rule protects state that a Cursor cloud agent PR tool tracks. Amp has no such tool, so the paragraph would only invite agents to look for one."
+		},
+		{
+			"id": "poteto-agent-routing",
+			"from": "Spawn a fresh `poteto-agent` for each new task, and resume one only in the strict cases that poteto-mode's Subagents section names.",
+			"to": "agents/poteto-agent.md stays a prompt resource. The fresh-children rule lives in poteto-mode Agents and threads and the adapter.",
+			"why": "Amp never routes requests to a poteto-agent subagent, so a routing description there has no reader."
 		}
 	]
 }

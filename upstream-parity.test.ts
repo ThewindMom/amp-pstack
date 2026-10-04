@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '12d587dfb20741cafc376c42c696c5f6e2a64487'
-const PINNED_VERSION = '0.15.5'
+const PINNED_COMMIT = 'e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a'
+const PINNED_VERSION = '0.15.9'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.5 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.9 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -130,7 +130,7 @@ describe('pinned upstream decision contracts', () => {
 		expect(swarm).toContain('each brief names the exact SHAs')
 		expect(swarm).toContain('A measurement brief also names the method')
 		expect(swarm).toContain('lists every issue it can prove, not only the first')
-		expect(swarm).toContain('rerun that worker once')
+		expect(swarm).toContain('respawn that worker once')
 		expect(swarm).toContain('A gap does not count as a pass.')
 	})
 
@@ -218,7 +218,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(46)
+		expect(routed).toHaveLength(49)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -302,7 +302,7 @@ One box is one unit of work. Each box names the evidence. Check a box only when 
 
 ### Arm the program
 
-Store the durable objective. Read the playbook from the loaded skill. Tick every 30 minutes. A status message reports only a new tracked change.
+Read the playbook from the loaded skill. Arm an hourly Amp schedule. A status message reports only a new tracked change.
 
 ### Spawn owners
 
@@ -388,5 +388,63 @@ None.
 		} finally {
 			await rm(dir, { recursive: true, force: true })
 		}
+	})
+})
+
+describe('0.15.9 decision contracts', () => {
+	test('new work goes to a fresh child unless it needs state in the old thread', async () => {
+		const poteto = await repoFile('skills/poteto-mode/SKILL.md')
+		const adapter = await repoFile('skills/poteto-mode/references/amp-adapter.md')
+		const feature = await repoFile('skills/poteto-mode/playbooks/feature.md')
+		expect(poteto).toContain('**Fresh children by default.**')
+		expect(poteto).toContain('This holds for a fix round, a follow-up, a retry, and the next queue item.')
+		expect(poteto).toContain('A steer that narrows a running child\'s current scope, and a stop or hold order, are not reuse.')
+		expect(adapter).toContain('`download_thread_changes` recovers a finished orb owner\'s changed files')
+		expect(adapter).not.toContain('Follow-up fixes on the same scope go to that live owner.')
+		expect(feature).not.toContain('go to that live owner')
+	})
+
+	test('autopilot and plan ticks run hourly on an Amp schedule without a durable objective', async () => {
+		const files = await Promise.all(
+			['autopilot-full.md', 'autopilot-stack.md', 'multi-phase-plan.md'].map((name) =>
+				repoFile(`skills/poteto-mode/playbooks/${name}`),
+			),
+		)
+		for (const body of files) {
+			expect(body).toMatch(/hourly Amp schedule/)
+			expect(body).not.toMatch(/30[- ]minute|durable objective|\/loop|\/goal/)
+		}
+		const full = files[0]
+		expect(full).toContain('`set_schedule` with `RRULE:FREQ=HOURLY` and `run_mode: "existing"`')
+		expect(full).toContain('check that `git merge-tree` of the head against current trunk is clean')
+		expect(full).toContain('After that, the owner pushes its branch again after every verifiable unit')
+		expect(full).toContain('A fresh owner, spawned with `pstack_start_agent`, picks up the next self-contained item')
+	})
+
+	test('perf numbers are vetted and fixes follow the ordered mantras', async () => {
+		const perf = await repoFile('skills/poteto-mode/playbooks/perf-issue.md')
+		const hillclimb = await repoFile('skills/poteto-mode/playbooks/hillclimb.md')
+		const poteto = await repoFile('skills/poteto-mode/SKILL.md')
+		expect(perf).toContain('1. Don\'t do it.')
+		expect(perf).toContain('7. Do it cheaper.')
+		expect(perf).not.toContain('Divide and conquer')
+		expect(perf).toContain('role `perf-issue`')
+		expect(hillclimb).toContain('Vet the harness with the **benchmark-checklist** skill')
+		expect(poteto).toContain('the **benchmark-checklist** skill before you report or act on the number')
+		expect(poteto).toContain('**Explain the Number** (**principle-explain-the-number**)')
+	})
+
+	test('PR bodies use headed sections and Amp keeps forge-only PR writes', async () => {
+		const opening = await repoFile('skills/poteto-mode/playbooks/opening-a-pr.md')
+		expect(opening).toContain('Put each section under a `##` heading')
+		expect(opening).toContain('`## What changed`')
+		expect(opening).toContain('**Size and stacks.**')
+		expect(opening).not.toContain('built-in PR tool')
+	})
+
+	test('operator defaults are reversed in plain words, not a reply token', async () => {
+		const poteto = await repoFile('skills/poteto-mode/SKILL.md')
+		expect(poteto).toContain('Never give a shorthand token to type back.')
+		expect(poteto).not.toContain('the one word that reverses it')
 	})
 })

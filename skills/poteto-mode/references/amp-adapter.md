@@ -14,6 +14,9 @@ Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equiva
 | `cloud_base_branch` | Not available. Name a remote branch that already exists |
 | `AskQuestion` | Ask the user. Use structured choices when the client supports them |
 | `/loop` | Durable child thread, or a schedule only when the user asked for later or ongoing work |
+| `/loop 1h` audit tick | On the operator's go, `set_schedule` on the root thread with `RRULE:FREQ=HOURLY`, `run_mode: "existing"`, and the tick prompt. `clear_schedule` when no delegated work is left or on the operator's stop |
+| Resume or message an existing subagent | `send_thread_message` to a running child to steer its current scope. New work goes to a fresh `pstack_start_agent` child unless it strictly needs state that lives in the old thread (poteto-mode fresh-children rule) |
+| Built-in PR tool | None. Use the resolved forge (`gh` or `origin`). `ship_thread_changes` sends another thread its project's Ship prompt; it is not a PR tool |
 | `/deslop` | Inspect the diff, then **unslop** prose |
 | Cursor `create-skill` | Amp **building-skills** |
 | `control-ui` / `control-cli` | No direct Amp alias. Use a verification skill or tool that is actually available and matches the real surface; otherwise report the gap |
@@ -66,7 +69,7 @@ Live files in a parent orb are not a reason for the parent to implement. If a tr
 
 This section binds implementation delegation when a playbook or skill prescribes it (Feature, Bug fix, Refactoring, Perf issue, Hillclimb, and follow-up fixes on those scopes). It does not override other skills that tell the current agent to edit: **no-comments** trivial accepted fixes, **reflect** parent prose edits after approval, and similar prescribed local edits stay with that skill.
 
-When implementation is prescribed, the parent coordinates, reproduces, and reviews. The child writes the implementation. Follow-up fixes on the same scope go to that live owner. After the owner is terminal, a fresh owner may take remaining work. Do not open a second live owner for equal or prefix-overlapping paths.
+When implementation is prescribed, the parent coordinates, reproduces, and reviews. The child writes the implementation. While the owner still runs, steer follow-up fixes on the same scope to it. Once it is idle or errored, a fresh owner takes the next round with consolidated scope: the original brief, every later directive, the prior report and thread ID, and its branch or changed files. Message the idle owner for new work only when that work strictly needs state that lives in its thread and is costly to move, such as an orb's uncommitted changes or a process it still runs. `download_thread_changes` recovers a finished orb owner's changed files, even from a paused orb, so the parent can upload them to the fresh owner after spawn. Do not open a second live owner for equal or prefix-overlapping paths.
 
 Mandatory feature delegation has no skip-with-reason escape. Laziness Protocol does not override it. The gain is review separation, not lines saved. You can spawn a child even though you are one. "The app is small" and "a child cannot spawn one" are both wrong.
 
