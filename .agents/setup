@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# bun.lock uses lockfileVersion 2, which Bun older than 1.4 cannot parse.
+if ! bun -e 'process.exit(Bun.semver.satisfies(Bun.version, ">=1.4.2") ? 0 : 1)'; then
+	bun upgrade
+fi
+
+bun install --frozen-lockfile

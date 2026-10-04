@@ -1061,7 +1061,7 @@ describe('runtime tool behavior', () => {
 			expect(instructions).toContain(`Assigned role: ${role}`)
 			expect(instructions).toBe(`${AGENT_INSTRUCTIONS} Assigned role: ${role}.`)
 			const configured = DEFAULT_MODELS[role as keyof typeof DEFAULT_MODELS]
-			if (Array.isArray(configured) || typeof configured === 'string') throw new Error(`expected concrete seat for ${role}`)
+			if (typeof configured === 'string' || !('model' in configured)) throw new Error(`expected concrete seat for ${role}`)
 			expect(amp.created.at(-1)).toMatchObject({
 				extends: 'medium',
 				model: configured.model,
