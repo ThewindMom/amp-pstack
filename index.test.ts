@@ -81,6 +81,11 @@ describe('amp-pstack plugin', () => {
 		expect(description.length).toBeLessThanOrEqual(300)
 	})
 
+	test('registers exactly the skill folders on disk', async () => {
+		const onDisk = await Array.fromAsync(new Bun.Glob('skills/*/SKILL.md').scan({ cwd: import.meta.dir }))
+		expect(onDisk.map((file) => file.replace(/\/SKILL\.md$/, '')).sort()).toEqual([...SKILL_PATHS].sort())
+	})
+
 	test('bundled skills have Amp-compatible frontmatter', async () => {
 		for (const path of SKILL_PATHS) {
 			const body = await Bun.file(`${path}/SKILL.md`).text()
