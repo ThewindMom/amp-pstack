@@ -120,6 +120,12 @@
 			"from": "check-plan only requires the program markers \"git show origin/main:\", \"/loop 1h\", and \"status message\".",
 			"to": "The Amp checker requires \"loaded skill\", \"hourly Amp schedule\", and \"status message\", and also rejects a program checklist that still mentions /loop, /goal, or a 30-minute cadence.",
 			"why": "An acceptance run showed a plan with both the hourly Amp schedule and leftover Cursor cadence passed. Two cadences in one plan let an agent arm the wrong one."
+		},
+		{
+			"id": "how-amp-diagrams",
+			"from": "The how explorer and explainer prompts name a Read tool and ask for mermaid diagrams.",
+			"to": "They read files with whatever read tool the role has and draw plain-text diagram blocks, using Mermaid only on request.",
+			"why": "Amp renders diagram blocks as monospaced text and its read-only roles do not expose a tool named Read."
 		}
 	]
 }

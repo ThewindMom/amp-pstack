@@ -26,7 +26,7 @@ On the synthesis path, the explorers investigated different angles of the same s
 
 Write an explanation a senior engineer unfamiliar with this area could read and walk away with a solid mental model, understanding the architecture well enough to start working in it confidently.
 
-You have read-only access to the codebase. Use `finder` to locate files, symbols, and connected behavior, then use `Read` to inspect implementations. On the synthesis path, check only what is needed to reconcile or fill gaps rather than re-exploring from scratch.
+You have read-only access to the codebase. Use `finder` to locate files, symbols, and connected behavior, then read the files themselves to inspect implementations. On the synthesis path, check only what is needed to reconcile or fill gaps rather than re-exploring from scratch.
 
 ## Output Format
 
@@ -43,7 +43,7 @@ The core of the explanation, and the longest section. Walk through the flow: wha
 
 Use prose, not pseudocode. Reference specific files and functions so the reader knows where to look, but don't dump large code blocks unless a snippet is essential to a point.
 
-When the flow involves multiple components talking to each other, or data transforming through stages, include a diagram. Use mermaid (```mermaid) for structured flows (sequence diagrams, flowcharts, component graphs) or ASCII art for simpler relationships where mermaid would be overkill. Use your judgment. A diagram should clarify, not decorate. If prose covers the flow, skip the diagram.
+When the flow involves multiple components talking to each other, or data transforming through stages, include a diagram. Use a plain-text ```diagram block with square-corner box-drawing characters, which Amp renders as monospaced text. Use Mermaid only when the reader asked for it. Use your judgment. A diagram should clarify, not decorate. If prose covers the flow, skip the diagram.
 
 ### Where Things Live
 A brief file/directory map. Just the ones someone would need to start working here.

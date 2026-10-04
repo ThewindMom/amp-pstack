@@ -28,6 +28,16 @@ Load pstack:reflect. That took way too long. Capture what we learned so the next
 
 [`pstack:reflect`](../../skills/reflect/SKILL.md) reads this thread with `pstack_read_current_thread`, including tool results. Three reviewers and a synthesizer sort proposals into Accepted, Rejected, and Backlog. Skill changes wait for your approval. Tracker writes wait too.
 
+## Make a repeated mistake impossible with `pstack:correct`
+
+When agents keep making the same mistake in a repository, run:
+
+```text
+Load pstack:correct. Agents keep making the same mistakes here. Make them impossible.
+```
+
+[`pstack:correct`](../../skills/correct/SKILL.md) mines git history and Amp threads for corrections that happened at least twice. For each one, it picks the strongest enforcement that fits, in this order: architecture, types, lint or CI, tests, then docs. It proves each new check fails on the commit before the original fix.
+
 ## Author a focused skill
 
 When you already know the workflow you want to capture:

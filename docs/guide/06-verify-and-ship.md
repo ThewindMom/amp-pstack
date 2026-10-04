@@ -22,6 +22,8 @@ Match the check to the change:
 - A perf change compares before and after profiles.
 - A storage change reads back the written value.
 
+Before you report or act on a number you measured, load [`pstack:benchmark-checklist`](../../skills/benchmark-checklist/SKILL.md). It asks what limits the number, whether both sides were tuned, and whether the run repeats, so a speedup is not a cache hit or a no-op.
+
 For a small diff you don't fully trust, [`pstack:blast-radius`](../../skills/blast-radius/SKILL.md) finds what it could break elsewhere. It picks the one fact the change is safe because of and proves it by running code instead of writing an essay about it.
 
 ## Create a project verification skill
