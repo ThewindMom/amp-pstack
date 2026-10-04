@@ -58,7 +58,7 @@ Uncommitted fixtures, screenshots, dumps, store files, and anything the brief ca
 Sequence when the child needs live files the parent holds:
 
 1. Create the owner with `pstack_start_agent` and a brief that forbids writes until inputs are ready. Name the destination directories the parent will fill.
-2. Wait until that child exists, then `upload_thread_file` into those existing directories (4 MiB). The source must be inside the parent's workspace; copy a `/tmp` or other outside file into the workspace first.
+2. Wait until that child exists, then `upload_thread_file` into those existing directories (4 MiB). The source must be inside the parent's workspace; copy a `/tmp` or other outside file into the workspace first. For a file over 4 MiB, have the child regenerate it deterministically or fetch it from its origin.
 3. Steer the owner to implement.
 
 Child to parent: child writes, cites the path, parent `download_thread_file`. Need a URL: `thread_file_url` (expires). Do not paste a file body into a brief when a transfer can carry it. Do not push only to make an orb see a file unless the user authorized that push.
