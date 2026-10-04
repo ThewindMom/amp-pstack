@@ -1805,6 +1805,29 @@ describe('runtime tool behavior', () => {
 		}
 	})
 
+	test('a direct native send_thread_message to the parent suppresses the fallback', async () => {
+		for (const [target, status, expected] of [
+			['T-parent', 'done', 0],
+			['https://ampcode.com/threads/T-parent', 'done', 0],
+			['T-other', 'done', 1],
+			['T-parent', 'error', 1],
+		] as const) {
+			const amp = await loadPlugin()
+			await tool(amp, 'pstack_start_agent').execute({ role: 'how-explainer', prompt: 'Report directly' }, { thread: { id: 'T-parent' } })
+			const child = amp.started[0] as { emit(state: string): void; transcriptMessages: Array<Record<string, unknown>> }
+			child.transcriptMessages = [
+				{ role: 'assistant', content: [{ type: 'tool_use', id: 'TU-direct', name: 'send_thread_message', input: { thread: target, message: 'report' } }] },
+				...Array.from({ length: 20 }, () => ({ role: 'user', content: [{ type: 'text', text: 'page boundary' }] })),
+				{ role: 'user', content: [{ type: 'tool_result', toolUseID: 'TU-direct', status, output: 'Sent message' }] },
+			]
+			child.emit('running')
+			child.emit('idle')
+			await Bun.sleep(0)
+			expect(amp.sent).toHaveLength(expected)
+			await amp.dispose()
+		}
+	})
+
 	test('native message receipts suppress duplicate reports without trusting printed text or another target', async () => {
 		for (const [target, status, type, expected] of [
 			['T-parent', 'done', 'amp_builtin_call', 0],

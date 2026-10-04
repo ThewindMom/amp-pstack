@@ -29,7 +29,7 @@ Do not invent Amp tools, aliases, or `inherit-parent` / `auto` model values. Sch
 
 Default to `pstack_start_agent`. Writable roles require a human-readable `scope` and concrete `scopePaths`. Route from the actual executor, not the word `remote`. Local and runner parents default to `current-checkout`. An Amp-managed orb parent defaults to a fresh `parent-project-orb`. Unknown placement requires an explicit target. Use `named-runner` with `runnerId` for hardware, credentials, private networks, or machine-bound tools. Use `repo-independent-orb` only when the brief does not depend on a checkout. Use `native-orb` with a required `project` when project, orb size, or a custom mode matters.
 
-Every worker is a native Amp child thread. The child exclusively owns its declared paths and reports with native `send_thread_message` when available; otherwise the plugin forwards its final text. Continue parent work that is independent of those paths, then end the turn when blocked. Never call `wait_for_threads` to judge startup. Amp can return `unknown` or `settled` with an empty transcript while the child is still starting. That is not failure. Do not spawn a second owner for equal or prefix-overlapping paths. Disjoint paths may run concurrently.
+Every worker is a native Amp child thread. The child exclusively owns its declared paths and reports with native `send_thread_message` when available; otherwise the plugin forwards its final text. Continue parent work that is independent of those paths, then end the turn when blocked. Never call `wait_for_threads` to judge startup. Amp can return `unknown` or `settled` with an empty transcript while the child is still starting. That is not failure. Do not spawn a second owner for equal or prefix-overlapping paths. Ownership claims are keyed by `scopePaths` alone, not by executor, so two orbs with separate disks still conflict on the same paths until the first owner is idle or errored. Disjoint paths may run concurrently.
 
 ## Waiting for a result
 
@@ -58,7 +58,7 @@ Uncommitted fixtures, screenshots, dumps, store files, and anything the brief ca
 Sequence when the child needs live files the parent holds:
 
 1. Create the owner with `pstack_start_agent` and a brief that forbids writes until inputs are ready. Name the destination directories the parent will fill.
-2. Wait until that child exists, then `upload_thread_file` into those existing directories (4 MiB).
+2. Wait until that child exists, then `upload_thread_file` into those existing directories (4 MiB). The source must be inside the parent's workspace; copy a `/tmp` or other outside file into the workspace first.
 3. Steer the owner to implement.
 
 Child to parent: child writes, cites the path, parent `download_thread_file`. Need a URL: `thread_file_url` (expires). Do not paste a file body into a brief when a transfer can carry it. Do not push only to make an orb see a file unless the user authorized that push.

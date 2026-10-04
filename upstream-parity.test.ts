@@ -402,7 +402,11 @@ describe('0.15.9 decision contracts', () => {
 		const feature = await repoFile('skills/poteto-mode/playbooks/feature.md')
 		expect(poteto).toContain('**Fresh children by default.**')
 		expect(poteto).toContain('This holds for a fix round, a follow-up, a retry, and the next queue item.')
-		expect(poteto).toContain('A steer that narrows a running child\'s current scope, and a stop or hold order, are not reuse.')
+		expect(poteto).toContain(
+			'A steer that narrows a running child\'s current scope, the inputs-ready release that ends the adapter\'s Files sequence, and a stop or hold order are not reuse.',
+		)
+		expect(poteto).toContain('An idle child\'s changed files are not that state')
+		expect(adapter).toContain('Ownership claims are keyed by `scopePaths` alone, not by executor')
 		expect(adapter).toContain('`download_thread_changes` recovers a finished orb owner\'s changed files')
 		expect(adapter).not.toContain('Follow-up fixes on the same scope go to that live owner.')
 		expect(feature).not.toContain('go to that live owner')

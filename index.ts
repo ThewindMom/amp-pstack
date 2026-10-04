@@ -770,6 +770,14 @@ export default async function pstack(amp: PluginAPI) {
 						typeof block.input.threadID === 'string'
 					) {
 						reports.set(block.id, block.input.threadID)
+					} else if (
+						block.type === 'tool_use' &&
+						block.name === 'send_thread_message' &&
+						typeof block.id === 'string' &&
+						isRecord(block.input) &&
+						typeof block.input.thread === 'string'
+					) {
+						reports.set(block.id, block.input.thread.match(/T-[0-9A-Za-z-]+$/)?.[0] ?? block.input.thread)
 					}
 				}
 				if (!lastAssistantText && message.role === 'assistant') {
