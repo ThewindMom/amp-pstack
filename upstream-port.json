@@ -114,6 +114,12 @@
 			"from": "Spawn a fresh `poteto-agent` for each new task, and resume one only in the strict cases that poteto-mode's Subagents section names.",
 			"to": "agents/poteto-agent.md stays a prompt resource. The fresh-children rule lives in poteto-mode Agents and threads and the adapter.",
 			"why": "Amp never routes requests to a poteto-agent subagent, so a routing description there has no reader."
+		},
+		{
+			"id": "check-plan-cursor-cadence",
+			"from": "check-plan only requires the program markers \"git show origin/main:\", \"/loop 1h\", and \"status message\".",
+			"to": "The Amp checker requires \"loaded skill\", \"hourly Amp schedule\", and \"status message\", and also rejects a program checklist that still mentions /loop, /goal, or a 30-minute cadence.",
+			"why": "An acceptance run showed a plan with both the hourly Amp schedule and leftover Cursor cadence passed. Two cadences in one plan let an agent arm the wrong one."
 		}
 	]
 }

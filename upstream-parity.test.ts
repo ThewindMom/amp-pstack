@@ -290,7 +290,7 @@ describe('0.15.5 decision contracts', () => {
 		const lanes = Array.from({ length: 10 }, (_, i) => {
 			return `- [ ] Lane ${i + 1}. Scenario. Save \`lane-${i + 1}.png\`. Pass when the lane shows the result.`
 		}).join('\n')
-		const plan = (live: string) => `# Port plan
+		const plan = (live: string, arm = '') => `# Port plan
 
 Short intro.
 
@@ -302,7 +302,7 @@ One box is one unit of work. Each box names the evidence. Check a box only when 
 
 ### Arm the program
 
-Read the playbook from the loaded skill. Arm an hourly Amp schedule. A status message reports only a new tracked change.
+Read the playbook from the loaded skill. Arm an hourly Amp schedule. A status message reports only a new tracked change.${arm}
 
 ### Spawn owners
 
@@ -366,15 +366,19 @@ Stop.
 None.
 `
 		const { spawnSync } = await import('node:child_process')
-		const run = async (name: string, live: string) => {
+		const run = async (name: string, live: string, arm = '') => {
 			const path = `${dir}/${name}.md`
-			await Bun.write(path, plan(live))
+			await Bun.write(path, plan(live, arm))
 			return spawnSync('bun', [script, path], { encoding: 'utf8' })
 		}
 		const filled = await run('filled', 'Ten lanes on `xai/grok-4.7` at the PR head, per the boot recipe.')
 		const placeholder = await run('placeholder', 'Ten lanes on `<swarm-worker model>` at the PR head, per the boot recipe.')
 		const empty = await run('empty', 'Ten lanes on `` at the PR head, per the boot recipe.')
 		const blank = await run('blank', 'Ten lanes on `   ` at the PR head, per the boot recipe.')
+		const cursorCadence = await run('cursor-cadence', 'Ten lanes on `xai/grok-4.7` at the PR head, per the boot recipe.', ' Also arm `/loop 1h` every 30 minutes.')
+		expect(cursorCadence.status).toBe(1)
+		expect(cursorCadence.stderr).toContain('keeps Cursor cadence "/loop"')
+		expect(cursorCadence.stderr).toContain('keeps Cursor cadence "30 minute"')
 		const malformed = await run('malformed', 'Ten lanes on `<model` at the PR head, per the boot recipe.')
 		expect(malformed.status).toBe(1)
 		expect(malformed.stderr).toContain('with the model filled in')

@@ -18,6 +18,7 @@ const SUB_BLOCKS = [
 ];
 const PROGRAM_H3 = ["Arm the program", "Spawn owners", "PR mechanics", "Verdict and merge", "Boot recipe"];
 const PROGRAM_MARKERS = ["loaded skill", "hourly Amp schedule", "status message"];
+const PROGRAM_CURSOR_CADENCE = [/\/loop\b/, /\/goal\b/, /30[- ]minute/];
 const HOW_TO_READ_MARKERS = [
 	"One box is one unit of work",
 	"names the evidence",
@@ -95,6 +96,10 @@ else {
 	}
 	for (const marker of PROGRAM_MARKERS) {
 		if (!bodyText(program).includes(marker)) fail(program.n, `Program checklist lacks "${marker}"`);
+	}
+	for (const cadence of PROGRAM_CURSOR_CADENCE) {
+		const hit = bodyText(program).match(cadence);
+		if (hit) fail(program.n, `Program checklist keeps Cursor cadence "${hit[0]}"; arm the hourly Amp schedule instead`);
 	}
 }
 
