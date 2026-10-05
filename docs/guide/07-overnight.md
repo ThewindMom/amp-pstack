@@ -4,6 +4,10 @@ This is the payoff for everything before it. An agent you can trust to verify it
 
 ![She waves goodnight from the door while robots keep the factory running, one updating a DECISION LOG wall board under a BUILD LOOP ACTIVE sign.](./images/overnight.jpg)
 
+## Earn trust before autonomy
+
+Before leaving a run alone, make sure you have seen the task done, the agent has the verification tools and signals you would use, every stage stops on failed proof, and repeated transcript failures have become tools or checks. Until all four hold, run it while you watch.
+
 ## The overnight contract
 
 A good handoff has the goal, the finish condition, permissions, and an escape hatch. It doesn't need to be long:
@@ -25,6 +29,8 @@ Walk through what each line buys you:
 - The escape hatch lets it stop at a genuine dead end and write up why, which beats eight hours of creative goal reinterpretation.
 
 Because you'll review this work after stepping away, poteto-mode routes it through [`pstack:figure-it-out`](../../skills/figure-it-out/SKILL.md), which designs the run's phases before any code and wires in the decision log.
+
+To stop deliberately, ask it to pause safely. The Pause safely playbook finishes or backs out the current step, commits a local checkpoint, and writes a resume note for Session pickup.
 
 ## What the loop does all night
 
@@ -63,5 +69,7 @@ Each iteration makes one justified change, checks it, and records one decision r
 Use Orchestrate for multi-day programs. Its coordinator writes briefs and coordinates workers but does not implement. Work one agent can finish in a session belongs in the overnight contract above.
 
 A standing program uses [Orchestrate](../../skills/poteto-mode/playbooks/orchestrate.md). A queue of independent PRs uses [Autopilot-full](../../skills/poteto-mode/playbooks/autopilot-full.md). Each PR gets one owner. A swarm starts a round at the code-ready head SHA and again at every later push that changes the patch. Only a clean verdict on the patch that merges authorizes the merge. Sequenced or coupled work uses [Autopilot-stack](../../skills/poteto-mode/playbooks/autopilot-stack.md), which produces a linear base-branch stack for the operator to land. Schedules and webhooks still require explicit authorization. A request to monitor does not authorize merging.
+
+An explicitly authorized hourly Amp schedule can wake a thread to check a predicate. Every stage must be able to stop and hand over evidence. Scheduling does not authorize pushes, tracker or chat writes, PR creation, or merging; each external-write class still needs explicit approval.
 
 Next: [Steer with principle names](./08-principles.md).

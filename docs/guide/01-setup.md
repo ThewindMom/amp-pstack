@@ -32,6 +32,12 @@ At the end of setup, `pstack:setup-pstack` looks for a way to prove app behavior
 
 Say yes and it writes `.agents/skills/verify-<app>/`, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and setup moves on. You can load `pstack:create-verification-skill` yourself any time. [Verify and ship](./06-verify-and-ship.md) covers when it earns its place.
 
+If you're new to pstack, accept the offer. An agent that can verify its own work can continue until the check passes instead of handing every result back for manual checking.
+
+## Keep cost in check
+
+Pstack spends extra tokens on workers and review panels. Rerun `pstack:setup-pstack` to choose a smaller reasoning budget, cheaper role models, or shorter panels. Amp's model map controls those seats; a strong coordinator with cheaper execution roles is often enough. Use the `poteto` mode for work that benefits from the rigor, not every obvious one-line edit.
+
 ## Run your first task
 
 Pick something real but small, and describe it the way you'd describe it to a colleague:

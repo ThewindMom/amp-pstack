@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a'
-const PINNED_VERSION = '0.15.9'
+const PINNED_COMMIT = '2cbf58508f40de470d7490b55c51d71241928fa2'
+const PINNED_VERSION = '0.15.13'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.9 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.13 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -218,7 +218,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(49)
+		expect(routed).toHaveLength(50)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -454,5 +454,52 @@ describe('0.15.9 decision contracts', () => {
 		const poteto = await repoFile('skills/poteto-mode/SKILL.md')
 		expect(poteto).toContain('Never give a shorthand token to type back.')
 		expect(poteto).not.toContain('the one word that reverses it')
+	})
+})
+
+describe('0.15.13 help contracts', () => {
+	test('help is explicitly invoked advice, while requests for work route to poteto-mode', async () => {
+		const help = await repoFile('skills/poteto-help/SKILL.md')
+		expect(help.split('---', 3)[1]).toContain('Only use when named.')
+		expect(help).toContain("For a help question, don't start the work.")
+		expect(help).toContain('is not a help question. Load `pstack:poteto-mode`, do the work under it')
+		expect(help).toContain('Read the skill before recommending it')
+		expect(help).toContain('Give at most one example prompt')
+		expect(help).toContain('https://github.com/thewindmom/amp-pstack/blob/main/')
+		expect(help).toContain('A missing config file does not prove setup hasn\'t run')
+		expect(help).toContain('Only use a multiple-choice dialog when the user explicitly asks for questions')
+	})
+
+	test('bundled prompting advice preserves evidence, design, and Amp permission boundaries', async () => {
+		const prompting = await repoFile('skills/poteto-help/references/prompting.md')
+		const recipes = await repoFile('skills/poteto-help/references/recipes.md')
+		expect(prompting).toContain('something that passes or fails')
+		expect(prompting).toContain('A theory of the cause until the agent restates the problem')
+		expect(prompting).toContain('Plan after design is settled')
+		expect(prompting).toContain('Explicitly request an hourly Amp schedule')
+		expect(prompting).toContain('shared changes still need explicit authorization')
+		expect(recipes).toContain('You may commit locally; don\'t push.')
+		expect(recipes).toContain('clear it on completion')
+		expect(recipes).toContain('Match the original exactly, bugs included.')
+		for (const text of [prompting, recipes]) {
+			expect(text).not.toMatch(/\/loop|\.cursor\//)
+		}
+	})
+
+	test('help links resolve in the shipped plugin and guide exposes it', async () => {
+		const paths = [
+			'skills/poteto-help/SKILL.md',
+			'skills/poteto-help/references/prompting.md',
+			'skills/poteto-help/references/recipes.md',
+		]
+		for (const path of paths) {
+			const text = await repoFile(path)
+			for (const match of text.matchAll(/\]\(([^)]+)\)/g)) {
+				const target = match[1]
+				if (/^https?:/.test(target)) continue
+				expect(await Bun.file(new URL(target, new URL(path, import.meta.url))).exists()).toBe(true)
+			}
+		}
+		expect(await repoFile('docs/guide/README.md')).toContain('pstack:poteto-help')
 	})
 })

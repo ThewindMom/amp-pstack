@@ -1,10 +1,10 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.9. It keeps pstack's 50 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.13. It keeps pstack's 51 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Porting contract
 
-The workflow source is [Cursor pstack 0.15.9 at the pinned revision](https://github.com/cursor/plugins/tree/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow.
+The workflow source is [Cursor pstack 0.15.13 at the pinned revision](https://github.com/cursor/plugins/tree/2cbf58508f40de470d7490b55c51d71241928fa2/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow.
 
 The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
 
@@ -59,7 +59,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 ## What the Amp port adds
 
 - **Selectable mode.** [`poteto-mode.ts`](./poteto-mode.ts) registers the Mode Dial entry with Claude Opus 5.5 at medium reasoning, built-in medium tools, and the full Poteto instructions. The `pstack/` directory plugin owns skills and tools. Do not also register `poteto` from `index.ts`, or the key collides.
-- **50 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`.
+- **51 registered skills.** Invoke them with qualified names such as `pstack:how`, `pstack:arena`, `pstack:recall`, and `pstack:reflect`. For help choosing a workflow or wording a prompt, explicitly invoke `pstack:poteto-help`; help questions do not start the work.
 - **Role-based agents.** Cursor backgrounds every Task; this port uses native Amp child threads. Default long work (`feature`, `how-explorer`, `bug-fix`, and the rest of the playbooks) uses `pstack_start_agent`. Writable starts need a human-readable `scope` and concrete `scopePaths`. Local and runner parents stay on their current executor by default; Amp-managed orb parents use a fresh child orb. The tool returns a `threadID`, and the child exclusively owns its paths. Children report with native `send_thread_message`; the plugin can recover unreported final text. The parent keeps doing independent work and ends the turn when blocked. Never use `wait_for_threads` to judge startup. Only when the parent truly needs the result, wait with native `wait_for_threads`, then inspect it with native `read_thread`. Do not combine a wait with a requested reply. Never redo or replace a live child.
 - **Hybrid worker contracts.** The `poteto` parent retains the full coordinator skill. Worker modes do not load it automatically: callers inline completed task templates, and role instructions name only qualified execution skills to load when applicable. Strict read-only explorers, explainers, comment reviewers, interrogate reviewers, and arena cross-judges cannot load skills; their complete contracts are inline. Models and tool restrictions remain role-specific.
 - **Multi-model panels.** `pstack_run_panel` waits for arena, architect, and interrogate seats. Keep it for ranking that this turn needs now. Its optional `count` accepts 1 through 20 candidates and cycles the configured seats in order.

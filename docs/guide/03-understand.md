@@ -1,8 +1,18 @@
 # Understand the code before changing it
 
-Editing code you don't understand is how subtle regressions ship. pstack gives you four ways in. `pstack:how` explains what the code does now. `pstack:why` digs up the reasons it's shaped that way. `pstack:teach` blends both into one explanation. `pstack:recall` rebuilds your own recent context on a topic.
+Editing code you don't understand is how subtle regressions ship. Agents fail when they misread the request or lack context. `pstack:how` explains what the code does now. `pstack:why` finds why it is shaped that way. `pstack:teach` blends both. `pstack:recall` rebuilds your recent context.
 
 ![A detective studies a machine blueprint with a magnifying glass while robots fetch case files; the evidence board behind her links clues under /how and /why.](./images/understanding.jpg)
+
+## Start read-only
+
+When the cause is unclear, ask for findings rather than a fix:
+
+```text
+Use pstack:poteto-mode. Investigate why jobs time out every few hours. Separate evidence from hypotheses. Don't change code yet.
+```
+
+That routes to Investigation. Start the fix as a new task once the evidence points somewhere.
 
 ## Trace behavior with `pstack:how`
 
@@ -30,6 +40,8 @@ Load pstack:teach. Teach me how this PR changes retries. Convince me it fixes th
 
 [`pstack:teach`](../../skills/teach/SKILL.md) is for when a summary isn't enough. It runs how and why, for a small change maybe just one of them, and weaves the findings into a plain explanation that builds up diagram by diagram. The "convince me" framing is worth stealing. It turns the explanation into an argument you can poke at instead of a tour.
 
+It also works on the agent's decisions: `Load pstack:teach. Teach me why you used this design instead of a queue, including the trade-offs.`
+
 ## Catch yourself up with `pstack:recall`
 
 ```text
@@ -37,6 +49,8 @@ Load pstack:recall and catch me up on last week's export work.
 ```
 
 [`pstack:recall`](../../skills/recall/SKILL.md) searches Amp threads with `find_thread` and reads them with `read_thread`. It also sweeps the shared record through why when the topic names a feature or bug. Cite every finding with an Amp thread link.
+
+Load old context before new input: `Load pstack:recall. Recall yesterday's virtualized-list work, then read this bug report.`
 
 For a mid-flight branch, use the [Session pickup playbook](../../skills/poteto-mode/playbooks/session-pickup.md): reconstruct the branch state and decisions, name the resume point, and do not redo completed work. Verify inherited claims against the original goal before continuing.
 

@@ -32,6 +32,12 @@ Each of these routes to its playbook ([Bug fix](../../skills/poteto-mode/playboo
 
 For sustained improvement of one number, there's the [Hillclimb playbook](../../skills/poteto-mode/playbooks/hillclimb.md). Give it the metric, a target, and a floor on attempts, and it loops one hypothesis at a time with a frozen measurement harness. It keeps wins and reverts everything else.
 
+Perf issue and Hillclimb use `pstack:benchmark-checklist` to vet the harness and results. For diagnosis without a fix, Runtime forensics instruments a live symptom; Trace forensics maps an existing profile to source:
+
+```text
+Use pstack:poteto-mode. Here is a CPU profile from slow startup. Show where time goes and which source lines own it. No fix yet.
+```
+
 ## Write the failing test first with `pstack:tdd`
 
 When a bug has a cheap local test path, the whole prompt can be two words after the skill name:

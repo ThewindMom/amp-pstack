@@ -37,6 +37,22 @@ Use pstack:poteto-mode. Users get two notifications after a retry. Repro first, 
 
 That's a Bug fix prompt. "Repro first" is a real constraint, not politeness, and the playbook requires it. Watch the checklist fill with the Bug fix steps. A permitted skip stays visible with `skip: <reason>`. This does not make mandatory implementation delegation optional.
 
+## Put five useful things in a prompt
+
+A useful prompt carries a sentence each for the goal, a pass-or-fail done check, the proof you want, facts you already know, and real constraints such as "repro first", "zero behavior change", or "let me review before proceeding". For example:
+
+```text
+Use pstack:poteto-mode. The CSV export drops its last row since yesterday's deploy; failing job 4812. Repro first. Done means the 60k-row fixture exports every row. Show row counts before and after.
+```
+
+Leave out a prescribed implementation and, initially, your theory of the cause. Both anchor the search. For a noisy report, make restatement the first check:
+
+```text
+Use pstack:poteto-mode. Read this thread, restate the underlying issue in plain English, and show the evidence behind that reading. Don't change code yet.
+```
+
+Correcting a misreading there costs one message instead of one wrong fix.
+
 When the conversation already carries the context, the prompt shrinks to almost nothing. All of these are enough:
 
 ```text

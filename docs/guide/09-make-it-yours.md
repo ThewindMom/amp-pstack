@@ -1,6 +1,6 @@
 # Make it yours
 
-poteto-mode is one person's style. The machinery underneath, playbooks, routing, model roles, works just as well wearing yours. This page covers generating a personal mode, capturing lessons from a session, authoring a focused skill, and testing a skill change before you trust it.
+poteto-mode is one person's style. The machinery underneath works just as well wearing yours. Start small: add a skill or check only when the same failure appears twice.
 
 ## Generate your own mode with `pstack:automate-me`
 
@@ -37,6 +37,8 @@ Load pstack:correct. Agents keep making the same mistakes here. Make them imposs
 ```
 
 [`pstack:correct`](../../skills/correct/SKILL.md) mines git history and Amp threads for corrections that happened at least twice. For each one, it picks the strongest enforcement that fits, in this order: architecture, types, lint or CI, tests, then docs. It proves each new check fails on the commit before the original fix.
+
+Human review is not enforcement. Run it with no argument to discover classes from history, or name the repeated mistake. Pair it with `pstack:architect` when the durable fix is a new boundary. `pstack:reflect` improves skills from one session; `pstack:correct` changes the repository so a recurring class cannot return.
 
 ## Author a focused skill
 

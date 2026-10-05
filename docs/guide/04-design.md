@@ -2,6 +2,8 @@
 
 One attempt at a hard design locks in the first shape the model thought of. `pstack:architect` settles types and boundaries before implementation. `pstack:arena` runs several attempts at the same brief and merges the best parts. `pstack:interrogate` has other models try to break the result. When the job is coverage rather than design synthesis, `pstack:swarm` fans out slices or races and aggregates their results.
 
+Avoid polishing the first design or reviewing a plan no code has tested. Prototype open questions, then write the plan after the shape settles.
+
 ![Three robots draft competing bridge models at their own tables under /architect, /arena, and /interrogate panels, while a judge robot with a clipboard inspects skeptically.](./images/design.jpg)
 
 ## Settle the shape with `pstack:architect`
@@ -45,5 +47,21 @@ Load pstack:interrogate. Review this branch against its stated intent. Don't cha
 [`pstack:interrogate`](../../skills/interrogate/SKILL.md) runs panel `interrogate-reviewers`. The parent synthesizes. Agreement across model families is high-signal. One loud nit is not.
 
 The lead classifies findings as Act on, Consider, Noted, or Dismissed with reasons. It applies nothing automatically.
+
+## Prototype, then plan
+
+```text
+Use pstack:poteto-mode. Prototype a few dropdown options behind one switcher. Capture screenshots or video for comparison.
+```
+
+Prototypes provide executable evidence for UI, behavior, or algorithms. Pair them with `pstack:architect` when boundaries matter, and keep a review gate. Do not spend `pstack:interrogate` on an abstract plan; review the resulting diff.
+
+For shared code, write its user tutorial first so the caller's view becomes the target. Once the design settles, ask for small PRs, each with proof:
+
+```text
+Use pstack:poteto-mode. Turn this settled design into a plan of small verifiable PRs. The plan is the deliverable; do not implement it.
+```
+
+For parity migrations, require matching the original, bugs included, so migration and cleanup remain independently comparable.
 
 Next: [Build and clean the change](./05-build-and-clean.md).

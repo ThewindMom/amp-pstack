@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a",
-		"version": "0.15.9",
-		"tree": "https://github.com/cursor/plugins/tree/e43c7ee26e0038c6c1fa8380dd34ce86ff94cb2a/pstack"
+		"commit": "2cbf58508f40de470d7490b55c51d71241928fa2",
+		"version": "0.15.13",
+		"tree": "https://github.com/cursor/plugins/tree/2cbf58508f40de470d7490b55c51d71241928fa2/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "poteto-help-amp-platform",
+			"from": "Typed-only /poteto-help explains Cursor installation, Custom Modes, model rules, subagents, and /loop, and asks a multiple-choice question when the need is unclear.",
+			"to": "Explicit-only pstack:poteto-help explains the Amp directory plugin, poteto mode, resolved role map, native threads, and authorized hourly schedules. It asks a plain clarifying question unless the user explicitly requested questions, and links Amp port sources.",
+			"why": "Amp has different installation and orchestration APIs, no disable-model-invocation flag, and restricts multiple-choice dialogs to explicit user requests. Help remains advice-only; requests for work load poteto-mode."
+		},
 		{
 			"id": "hybrid-worker-contracts",
 			"from": "Delegated workers can inherit broad coordinator instructions.",

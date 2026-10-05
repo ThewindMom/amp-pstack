@@ -22,7 +22,11 @@ Match the check to the change:
 - A perf change compares before and after profiles.
 - A storage change reads back the written value.
 
+Ask for inspectable artifacts: the failing and passing run, a before-and-after video, a trace, or screenshots. For exact UI matching, use Visual parity against a frozen screenshot baseline rather than judging by eye.
+
 Before you report or act on a number you measured, load [`pstack:benchmark-checklist`](../../skills/benchmark-checklist/SKILL.md). It asks what limits the number, whether both sides were tuned, and whether the run repeats, so a speedup is not a cache hit or a no-op.
+
+Its seven checks cover the limiter, production tuning, physical plausibility, errors and output correctness, alternating-run median and range, end-to-end relevance, and whether the claimed work happened inside the timed region. The verdict is faster, slower, no measurable difference, or inconclusive.
 
 For a small diff you don't fully trust, [`pstack:blast-radius`](../../skills/blast-radius/SKILL.md) finds what it could break elsewhere. It picks the one fact the change is safe because of and proves it by running code instead of writing an essay about it.
 
@@ -35,6 +39,8 @@ Load pstack:create-verification-skill
 ```
 
 [`pstack:create-verification-skill`](../../skills/create-verification-skill/SKILL.md) interviews the repository, not you. It writes `.agents/skills/verify-<app>/`. Before handing it over, the generator proves the skill once end to end. Keep the map honest later with [`pstack:maintain-verification-skill`](../../skills/maintain-verification-skill/SKILL.md).
+
+Treat it as committed infrastructure. If agents repeatedly make throwaway driver scripts, build a control CLI with composable commands, destructive `--dry-run`, actionable errors, rich help, and machine-readable output. An explicitly authorized hourly Amp schedule can run maintenance; creating or changing that schedule is an external write and requires approval.
 
 ## Open the PR, then babysit only when asked
 

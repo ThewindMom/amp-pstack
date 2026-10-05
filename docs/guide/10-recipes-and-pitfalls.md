@@ -12,6 +12,24 @@ Load pstack:how first to understand how this initialization works. Then load pst
 
 Mechanics first, history second. Each skill's report tells you which sources it searched, so you know what the answer is grounded in.
 
+## Restate before touching code
+
+```text
+Use pstack:poteto-mode. Read this report, restate the underlying issue in plain English, and don't change code yet.
+```
+
+## Prototype before choosing
+
+```text
+Use pstack:poteto-mode. Prototype three settings layouts behind one switcher and capture each one.
+```
+
+## Get help without starting work
+
+```text
+Load pstack:poteto-help. How do I keep poteto-mode active for this task?
+```
+
 ## Get a second opinion on a design
 
 ```text
@@ -49,7 +67,13 @@ Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers r
 ## Pitfalls
 
 - Naming a playbook is optional. A goal plus a check is enough.
+- Leading with your cause theory anchors the search. Ask for a restatement first.
+- Compare prototypes or use `pstack:architect`; the first design is not evidence.
+- Review concrete code, not an abstract plan full of hypothetical risks.
 - "It compiles" is not verification. Ask for the real artifact.
+- Do not automate a loop until it can verify itself and stop on failure.
+- Vet speedups with `pstack:benchmark-checklist` before publishing them.
+- Put repeated corrections into `pstack:correct`, not another chat reminder.
 - Two writers in one worktree is shared mutable state. Split the trees.
 - An orb cannot see uncommitted local files. Use local execution, or transfer only what you authorized.
 - `builtin:medium` is still a pstack delegate. It is not a way to strip pstack instructions.
