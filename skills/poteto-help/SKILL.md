@@ -20,6 +20,8 @@ Check state only when it changes the answer:
 - Read the resolved map through `pstack_configure_models` with `action: "show"` if model choices matter. A missing config file does not prove setup hasn't run; Amp user config can hold overrides.
 - No `verify-*` skill or app harness means agents have no scripted way to drive the app. Mention `pstack:create-verification-skill` when asked about proving behavior.
 
+When the user is new, asks about setup or cost, or the answer depends on the models that run, offer to pick role models and a reasoning budget if setup is not already known to be complete. Ask at most once per thread. If the need is also unclear, combine the clarifications. Offer now or later in plain words; use a multiple-choice dialog only when explicitly requested. Now: give them `pstack:setup-pstack` to invoke, and answer their question too. Later: answer their question and say unconfigured roles keep the plugin defaults. The resolved map does not reveal whether setup previously ran; do not claim otherwise. Do not start setup or write model configuration from a help question.
+
 ## Get set up
 
 1. Follow the directory-plugin installation in [guide page 1](../../docs/guide/01-setup.md). A personal plugins repository makes the plugin available across machines and orbs; a machine-local clone is optional.

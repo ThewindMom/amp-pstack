@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '2cbf58508f40de470d7490b55c51d71241928fa2'
-const PINNED_VERSION = '0.15.13'
+const PINNED_COMMIT = 'df581122cde17e6e27686b5a448bde23e4ad4318'
+const PINNED_VERSION = '0.15.15'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.13 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.15 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -501,5 +501,30 @@ describe('0.15.13 help contracts', () => {
 			}
 		}
 		expect(await repoFile('docs/guide/README.md')).toContain('pstack:poteto-help')
+	})
+})
+
+describe('0.15.15 help and model contracts', () => {
+	test('setup is a once-per-thread offer, not an automatic configuration write', async () => {
+		const help = await repoFile('skills/poteto-help/SKILL.md')
+		expect(help).toContain('if setup is not already known to be complete')
+		expect(help).toContain('Ask at most once per thread.')
+		expect(help).toContain('If the need is also unclear, combine the clarifications.')
+		expect(help).toContain('Now: give them `pstack:setup-pstack` to invoke, and answer their question too.')
+		expect(help).toContain('Later: answer their question and say unconfigured roles keep the plugin defaults.')
+		expect(help).toContain('The resolved map does not reveal whether setup previously ran')
+		expect(help).toContain('Do not start setup or write model configuration from a help question.')
+	})
+
+	test('records the tuned-model departure without claiming large matches every Amp default', async () => {
+		const departure = port.intentionalDepartures.find(({ id }) => id === 'amp-tuned-role-defaults')
+		expect(departure?.from).toContain('drops Sol')
+		expect(departure?.to).toContain('three-family panels, and per-role efforts')
+		const guide = await repoFile('docs/guide/01-setup.md')
+		expect(guide).toContain('different efforts by role, not one global budget')
+		expect(guide).toContain('persisted overrides still pin the previous choice')
+		const setup = await repoFile('skills/setup-pstack/SKILL.md')
+		expect(setup).toContain('`unlimited` selects the highest supported effort')
+		expect(setup).toContain('Keep user-selected model IDs, panel lengths, and seat ordering')
 	})
 })
