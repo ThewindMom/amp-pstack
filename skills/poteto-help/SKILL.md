@@ -53,6 +53,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Know why code or a number is shaped this way | [`pstack:why`](../why/SKILL.md) |
 | Understand a change or subsystem plainly | [`pstack:teach`](../teach/SKILL.md) |
 | Catch up on recent work | [`pstack:recall`](../recall/SKILL.md) |
+| Catch up on this thread and decisions waiting on them | [`pstack:ketchup`](../ketchup/SKILL.md) |
 | Know what a small diff could break outside itself | [`pstack:blast-radius`](../blast-radius/SKILL.md) |
 | Settle types and module shape before code | [`pstack:architect`](../architect/SKILL.md) |
 | Compare attempts at one brief and merge the best parts | [`pstack:arena`](../arena/SKILL.md) |
@@ -84,7 +85,7 @@ Close calls:
 - `arena` gives every worker the same brief; `swarm` splits slices or races and returns one report.
 - `architect` implements after design; add "with checkpoint" to review before code.
 - `interrogate` reviews the diff; `blast-radius` proves the safety fact outside it.
-- `recall` spans recent threads; Session pickup resumes one specific branch or thread.
+- `recall` spans recent threads; `ketchup` catches up within this thread; Session pickup resumes one specific branch or thread.
 - `figure-it-out` designs one rigorous run; Orchestrate spans days and PRs; Autonomous run drives one task to its finish condition.
 
 Pstack has no `orchestrate` or planning skill. Orchestrate and Multi-phase plan are poteto-mode playbooks. Amp's `building-skills` and `building-schedules` are separate skills, not pstack workflows. Cursor's `deslop`, `control-cli`, and `control-ui` belong to `cursor-team-kit`, not this plugin.

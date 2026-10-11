@@ -12,19 +12,15 @@ builtin-tools:
 
 Mine the current conversation for durable learnings, then route them into skill edits.
 
-## When to invoke
-
 Invoke when the user says "reflect" or "/reflect". Skip when the conversation is trivial, off-topic, or already covered by an existing skill the parent followed correctly. One-offs are not learnings.
 
-## Process
-
-### 1. Read the active transcript
+## 1. Read the active transcript
 
 Call `pstack_read_current_thread` with the largest useful limit. It reads this Amp thread directly, including compacted history. Read its `offset`, `total`, and `truncated` fields. `truncated` means the response is a partial transcript. While `offset + messages.length < total` and the relevant range remains unread, request the next page with `offset` advanced by the number of returned messages. Do not search local transcript caches or unrelated threads. If the tool cannot return the full relevant exchange, write a tight digest of the visible session and label the missing range.
 
-### 2. Spawn three reviewers in parallel
+## 2. Spawn three reviewers in parallel
 
-Launch three `pstack_start_agent` calls concurrently. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers need the available tools for context lookups, but each prompt forbids writes. The parent applies edits.
+Launch three `pstack_start_agent` calls concurrently. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers keep the available tools to look up the tickets, chat threads, and observability traces the transcript references, but each prompt forbids writes. The parent applies edits.
 
 Each reviewer and the synthesizer name an Amp role. The plugin resolves its model. A missing role uses the default below. If Amp rejects a configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn.
 
@@ -36,30 +32,30 @@ Each reviewer and the synthesizer name an Amp role. The plugin resolves its mode
 
 Pass each complete template verbatim, substituting the transcript JSON or digest where marked, without summarizing it. Explicitly tell these read-only reviewers not to load skills. Reviewers return findings in their result text.
 
-### 3. Synthesize
+## 3. Synthesize
 
-Run one `pstack_start_agent` call with role `reflect-synthesizer` (default `anthropic/claude-opus-5-5`). Follow `../poteto-mode/references/amp-adapter.md`. Use `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked, and explicitly tell this read-only worker not to load skills. The synthesizer returns a structured Accepted / Rejected / Backlog list.
+Run one `pstack_start_agent` call with role `reflect-synthesizer` (default `anthropic/claude-opus-5-5`). Follow `../poteto-mode/references/amp-adapter.md`. It keeps its tools to spot-verify citations, but its prompt forbids writes. Pass `references/synthesizer.md` verbatim, with each reviewer's full output inlined where marked, and explicitly tell this read-only worker not to load skills. It returns an Accepted / Rejected / Backlog list.
 
-### 4. Structural enforcement check
+## 4. Structural enforcement check
 
-Sanity-check the synthesizer's Accepted list. For any item that would be enforced more reliably by a lint rule, script, metadata flag, or runtime check, move it from Accepted to Backlog. See the **encode-lessons-in-structure** principle skill.
+Move any Accepted item that a lint rule, script, metadata flag, or runtime check would enforce more reliably to Backlog. See the **encode-lessons-in-structure** principle skill.
 
-### 5. Apply
+## 5. Apply
 
-Before applying any Accepted edit, present the synthesizer's full Accepted/Rejected/Backlog output to the user and wait for explicit approval. The user picks which subset to apply and may redirect routings. Skill changes affect every future agent in the org; do not auto-apply.
+Present the synthesizer's full Accepted / Rejected / Backlog output and wait for explicit approval before applying any Accepted edit. The user picks the subset and may redirect routings. Skill changes affect every future agent in the org. Do not auto-apply.
 
 Do not file Backlog items automatically. Offer them and wait for authorization before writing to a shared tracker.
 
-For each approved Accepted item, follow the Routing field exactly:
+Follow each approved row's Routing exactly:
 
-- Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): parent does directly.
+- Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.
 - Substantive existing-skill edit (a new section, a new pattern table, more than ~10 lines): load Amp's built-in `building-skills` skill and follow its draft, validation, and reload workflow.
 - `tune description: <skill path>`: use `building-skills` and test the trigger wording against positive and negative prompts.
 - `new skill: <kebab-name>`: use `building-skills`. Do not invent the shape ad hoc.
 
-If your environment ships a SKILL.md validator, run it on every touched skill before declaring done. Skip this step if it doesn't.
+If your environment ships a SKILL.md validator, run it on every touched skill before declaring done.
 
-### 6. Summarize for the user
+## 6. Summarize for the user
 
 Short list, no preamble:
 

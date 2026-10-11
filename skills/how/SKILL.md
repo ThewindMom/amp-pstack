@@ -11,39 +11,31 @@ builtin-tools:
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Each spawn below names an Amp role. The plugin resolves its model. `how-explorer` defaults to `xai/grok-4.7`. `how-explainer` defaults to `anthropic/claude-opus-5-5`. A missing role uses that default. If Amp rejects a configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn.
+Every spawn is a strict read-only `pstack_start_agent` child. Follow `../poteto-mode/references/amp-adapter.md`. Explorers use role `how-explorer` (default `xai/grok-4.7`), and every explainer uses role `how-explainer` (default `anthropic/claude-opus-5-5`). The plugin resolves each role's model. A missing role uses that default. If Amp rejects a configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn.
 
-## Step 1. Assess Complexity
+Build every child prompt from the complete reference file, fill every placeholder, and inline it without summary. Explicitly tell each read-only worker not to load skills. Do not write the architecture trace in the parent.
+
+## 1. Assess complexity
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. One explainer explores and explains in a single pass. Go to Step 2b.
-- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): spawn parallel explorers first, then hand off to the explainer. Go to Step 2a.
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. Spawn one explainer that explores and explains in one pass, built from `references/explainer-prompt.md` with its path context set to direct exploration and without the explorer-findings section. Go to step 4.
+- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): go to step 2.
 
 When in doubt, take the simple path.
 
-## Step 2a. Explore (complex questions only)
+## 2. Explore (complex only)
 
-Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Launch all explorers concurrently with `pstack_start_agent`, role `how-explorer` (default `xai/grok-4.7`). Follow `../poteto-mode/references/amp-adapter.md`. Give each explorer a distinct angle and a read-only brief.
+Decompose the question into 2 to 4 angles, each a distinct slice of the subsystem. Launch all explorers concurrently, each with `references/explorer-prompt.md` and its distinct angle filled in.
 
-Each explorer gets the complete prompt in `references/explorer-prompt.md` with every placeholder filled, inlined without summary. Explicitly tell this read-only worker not to load skills. Then go to Step 3.
+## 3. Synthesize (complex only)
 
-## Step 2b. Direct Explain (simple questions)
+Once all explorers have returned, spawn one explainer with `references/explainer-prompt.md`, its path context set to synthesis, and every explorer's findings filled in.
 
-Run one `pstack_start_agent` call with role `how-explainer` (default `anthropic/claude-opus-5-5`) and a read-only brief that explores and explains in one pass. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
+## 4. Present
 
-Build its prompt from the complete `references/explainer-prompt.md`, fill every placeholder, and inline it without summary. Set its path context to direct exploration and omit the explorer-findings section. Explicitly tell this read-only worker not to load skills. Go to Step 4.
+Present the explainer's output. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
 
-## Step 3. Synthesize (complex questions only)
-
-Once all explorers have returned, run one `pstack_start_agent` call with role `how-explainer` (default `anthropic/claude-opus-5-5`) to synthesize their findings into one explanation. Follow `../poteto-mode/references/amp-adapter.md`. Do not write the architecture trace in the parent.
-
-Build its prompt from the complete `references/explainer-prompt.md`, fill every placeholder, and inline it without summary. Set its path context to synthesis and fill in every explorer's findings. Explicitly tell this read-only worker not to load skills.
-
-## Step 4. Present
-
-Present the explainer's output to the user. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
-
-## Output Format
+## Output format
 
 The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.

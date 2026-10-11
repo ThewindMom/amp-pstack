@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'df581122cde17e6e27686b5a448bde23e4ad4318'
-const PINNED_VERSION = '0.15.15'
+const PINNED_COMMIT = '11713c683fe4add4fd403ea880580abbc9e0875f'
+const PINNED_VERSION = '0.15.17'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.15 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.17 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -136,8 +136,8 @@ describe('pinned upstream decision contracts', () => {
 
 	test('why still launches one background source reader per evidence category', async () => {
 		const why = await repoFile('skills/why/SKILL.md')
-		expect(why).toContain('Spawn one investigator per category that has a matching MCP. Each owns exactly one tool or MCP.')
-		expect(why).toContain('Always spawn. The only guaranteed source.')
+		expect(why).toContain('Spawn one investigator per category that has a matching MCP, all launched concurrently with `pstack_start_agent`, each owning exactly one tool or MCP')
+		expect(why).toContain('Always spawn, the only guaranteed source.')
 		expect(why).toContain('role `why-investigator`')
 		expect(why).toContain('pstack_start_agent')
 	})
@@ -218,7 +218,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(50)
+		expect(routed).toHaveLength(51)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -278,7 +278,7 @@ describe('0.15.5 decision contracts', () => {
 		expect(reflect).toContain('openai/gpt-6-sol')
 		for (const name of ['divergent-reviewer.md', 'judgment-reviewer.md', 'tooling-reviewer.md']) {
 			const reviewer = await repoFile(`skills/reflect/references/${name}`)
-			expect(reviewer).toContain('List each durable learning you find.')
+			expect(reviewer).toContain('List each durable learning.')
 			expect(reviewer).not.toContain('Surface 3-5 durable learnings.')
 		}
 	})
@@ -444,7 +444,7 @@ describe('0.15.9 decision contracts', () => {
 
 	test('PR bodies use headed sections and Amp keeps forge-only PR writes', async () => {
 		const opening = await repoFile('skills/poteto-mode/playbooks/opening-a-pr.md')
-		expect(opening).toContain('Put each section under a `##` heading')
+		expect(opening).toContain('Use `##` headings, not bold lead-ins')
 		expect(opening).toContain('`## What changed`')
 		expect(opening).toContain('**Size and stacks.**')
 		expect(opening).not.toContain('built-in PR tool')
@@ -491,6 +491,7 @@ describe('0.15.13 help contracts', () => {
 			'skills/poteto-help/SKILL.md',
 			'skills/poteto-help/references/prompting.md',
 			'skills/poteto-help/references/recipes.md',
+			'skills/ketchup/SKILL.md',
 		]
 		for (const path of paths) {
 			const text = await repoFile(path)
@@ -501,6 +502,18 @@ describe('0.15.13 help contracts', () => {
 			}
 		}
 		expect(await repoFile('docs/guide/README.md')).toContain('pstack:poteto-help')
+	})
+})
+
+describe('0.15.17 catch-up contract', () => {
+	test('ketchup reads the invoking user\'s thread without taking action', async () => {
+		const ketchup = await repoFile('skills/ketchup/SKILL.md')
+		expect(ketchup).toContain('Keep this turn read-only.')
+		expect(ketchup).toContain('Scheduled wake-ups, notifications, and child reports are not their messages.')
+		expect(ketchup).toContain('use the invoking user\'s last authored message, not another person\'s')
+		expect(ketchup).toContain('`offset`, `total`, and `truncated` pagination fields')
+		expect(ketchup).toContain('Do not change files, configure models, create schedules, or publish')
+		expect(ketchup).toContain('make the summary sufficient to decide without opening them')
 	})
 })
 
