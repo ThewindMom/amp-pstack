@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test orch watch-pr",
+    "test": "bun test orch watch-pr check-plan.test.ts",
     "typecheck": "bun typecheck.ts"
   },
   "dependencies": {

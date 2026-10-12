@@ -96,6 +96,8 @@ Read the leaf skill in full for any principle you apply. Each entry names when i
 
 ## Agents and threads
 
+The thread that receives `pstack:poteto-mode` owns the playbook, checklist, and child spawns. Do not spawn a child just to run the playbook itself.
+
 Keep fast models on ordinary implementation and exploration. Use `hardest` for novel algorithms, difficult concurrency, cross-cutting invariants, or problems whose failed attempts show the ordinary implementation model cannot solve them.
 
 Cursor pstack backgrounds every `Task` (`run_in_background: true`). Amp's equivalent is a child thread with a durable ID, not a longer wait. Read `references/amp-adapter.md` before spawning. It owns join, blocking wait, never-redo, steer, files, launch targets, size, briefs, models, schedules, and who writes the code.

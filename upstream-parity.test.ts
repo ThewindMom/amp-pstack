@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '11713c683fe4add4fd403ea880580abbc9e0875f'
-const PINNED_VERSION = '0.15.17'
+const PINNED_COMMIT = '600daea6fb7c2bec822aca7ba2d205f24baf0235'
+const PINNED_VERSION = '0.15.20'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.17 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.20 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -514,6 +514,9 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain('`offset`, `total`, and `truncated` pagination fields')
 		expect(ketchup).toContain('Do not change files, configure models, create schedules, or publish')
 		expect(ketchup).toContain('make the summary sufficient to decide without opening them')
+		expect(ketchup).toContain('Do not change code, start an app or job, or post anything to make them.')
+		expect(ketchup).toContain('Never invent a number or draw or generate a screen you did not capture.')
+		expect(ketchup).toContain('Use Mermaid only when explicitly requested.')
 	})
 })
 

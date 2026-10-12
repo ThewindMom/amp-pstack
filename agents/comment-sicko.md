@@ -1,5 +1,5 @@
 ---
-name: Comment Sicko
+name: comment-sicko
 description: Prompt resource for pstack's comment-reviewer role. The runtime agent is created by index.ts as a terminal report-only reviewer.
 ---
 

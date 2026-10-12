@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 const script = join(import.meta.dir, 'worktree-audit.sh')
 
-function runAudit(searchJson: string, searchExit = 0) {
+function runAudit(searchJson: string, searchExit = 0, base?: string | null) {
 	const dir = mkdtempSync(join(tmpdir(), 'pstack-audit-'))
 	const stub = join(dir, 'amp-search')
 	const git = (...args: string[]) => {
@@ -16,6 +16,12 @@ function runAudit(searchJson: string, searchExit = 0) {
 	git('-c', 'commit.gpgsign=false', '-c', 'user.name=test', '-c', 'user.email=test@example.test', 'commit', '--allow-empty', '-qm', 'fixture')
 	git('update-ref', 'refs/remotes/origin/main', 'HEAD')
 	git('worktree', 'add', '--detach', join(dir, 'child'), 'HEAD')
+	if (base !== undefined) {
+		git('-C', join(dir, 'child'), '-c', 'commit.gpgsign=false', '-c', 'user.name=test', '-c', 'user.email=test@example.test', 'commit', '--allow-empty', '-qm', 'integration only')
+		const childHead = Bun.spawnSync(['git', '-C', join(dir, 'child'), 'rev-parse', 'HEAD']).stdout.toString().trim()
+		git('update-ref', 'refs/remotes/origin/integration', childHead)
+		git('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/integration')
+	}
 	writeFileSync(
 		stub,
 		`#!/usr/bin/env bash
@@ -24,7 +30,7 @@ exit ${searchExit}
 `,
 	)
 	chmodSync(stub, 0o755)
-	const result = Bun.spawnSync(['bash', script], {
+	const result = Bun.spawnSync(['bash', script, ...(base ? ['--base', base] : [])], {
 		cwd: dir,
 		env: { ...process.env, AMP_THREADS_SEARCH: stub },
 	})
@@ -72,7 +78,18 @@ describe('worktree-audit', () => {
 	test('prints usage for --help without treating it as a repo path', () => {
 		const result = Bun.spawnSync(['bash', script, '--help'])
 		expect(result.exitCode).toBe(0)
-		expect(result.stdout.toString()).toContain('Usage: worktree-audit.sh [repo-path]')
+		expect(result.stdout.toString()).toContain('Usage: worktree-audit.sh [-b|--base <ref>] [repo-path]')
 		expect(result.stdout.toString()).toContain('Never deletes anything')
+	})
+
+	test('checks the remote default and lets an explicit PR base override it', () => {
+		const defaultBase = runAudit('[]', 0, null)
+		const explicitBase = runAudit('[]', 0, 'origin/main')
+		expect(defaultBase.exitCode).toBe(0)
+		expect(explicitBase.exitCode).toBe(0)
+		expect(defaultBase.stdout.split('\n')[1]?.split('\t').slice(2, 4)).toEqual(['YES', 'clean'])
+		expect(explicitBase.stdout.split('\n')[1]?.split('\t').slice(2, 4)).toEqual(['no', 'clean'])
+		expect(defaultBase.stderr).toContain('# base: origin/integration')
+		expect(explicitBase.stderr).toContain('# base: origin/main')
 	})
 })

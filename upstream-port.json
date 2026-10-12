@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "11713c683fe4add4fd403ea880580abbc9e0875f",
-		"version": "0.15.17",
-		"tree": "https://github.com/cursor/plugins/tree/11713c683fe4add4fd403ea880580abbc9e0875f/pstack"
+		"commit": "600daea6fb7c2bec822aca7ba2d205f24baf0235",
+		"version": "0.15.20",
+		"tree": "https://github.com/cursor/plugins/tree/600daea6fb7c2bec822aca7ba2d205f24baf0235/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.20-adapter",
+			"from": "Upstream adds an agent-plugins.org manifest, removes redundant exploration and babysit prose, prints the worktree audit base before its stdout table, and asks ketchup to prefer Mermaid or generated images.",
+			"to": "Amp retains native index.ts registration rather than adding a foreign manifest; keeps a short tool-neutral explorer evidence contract and babysit's merge-authorization warning and reply requirements; reports the audit base on stderr to preserve its stdout table. Ketchup may build reply artifacts from existing evidence, uses plain-text diagrams by default, and never fabricates screens. Existing comment-reviewer role routing and the hybrid worker wrapper remain native.",
+			"why": "Amp's strict explorers cannot load additional skills, audit consumers rely on the stable table header, and host rules govern visuals, approval, and routing independently of Cursor."
+		},
 		{
 			"id": "ketchup-amp-transcript",
 			"from": "Upstream ketchup catches up since the user's last message by reading the visible thread and calling a Read tool for bro.",
