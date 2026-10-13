@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "600daea6fb7c2bec822aca7ba2d205f24baf0235",
-		"version": "0.15.20",
-		"tree": "https://github.com/cursor/plugins/tree/600daea6fb7c2bec822aca7ba2d205f24baf0235/pstack"
+		"commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
+		"version": "0.15.23",
+		"tree": "https://github.com/cursor/plugins/tree/dbf49813a39c1a5389c5e28cb8e4c1c2379e2454/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.23-adapter",
+			"from": "Upstream removes Cursor mode/reminder flags, asks delegates to find a hidden poteto-mode skill by absolute path or highest-version Cursor plugin, and makes ketchup picture-led with Mermaid and /visualize.",
+			"to": "Amp keeps its native registered mode and qualified skill loading, including hybrid inline worker contracts, rather than adding Cursor discovery paths or passing the coordinator to every worker. Ketchup adopts the word limit, factual state visual, number checks and three-line decisions, but uses plain-text diagrams or Amp creating-views and reports missing evidence rather than fabricating it. The new in-your-own-words skill is explicitly invoked through its qualified Amp name.",
+			"why": "Amp skills are not hidden behind Cursor's catalog flag; its mode API, strict worker capabilities, visual tools and permission boundaries differ."
+		},
 		{
 			"id": "amp-0.15.20-adapter",
 			"from": "Upstream adds an agent-plugins.org manifest, removes redundant exploration and babysit prose, prints the worktree audit base before its stdout table, and asks ketchup to prefer Mermaid or generated images.",

@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '600daea6fb7c2bec822aca7ba2d205f24baf0235'
-const PINNED_VERSION = '0.15.20'
+const PINNED_COMMIT = 'dbf49813a39c1a5389c5e28cb8e4c1c2379e2454'
+const PINNED_VERSION = '0.15.23'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.20 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.23 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -218,7 +218,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(51)
+		expect(routed).toHaveLength(52)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -517,6 +517,14 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain('Do not change code, start an app or job, or post anything to make them.')
 		expect(ketchup).toContain('Never invent a number or draw or generate a screen you did not capture.')
 		expect(ketchup).toContain('Use Mermaid only when explicitly requested.')
+		expect(ketchup).toContain('Keep the text under 250 words.')
+		expect(ketchup).toContain('Markdown tables are text, so their words count.')
+		expect(ketchup).toContain('A visual replaces the text it shows, so never give a fact in both.')
+		expect(ketchup).toContain('Check each number you will show against the facts it comes from')
+		expect(ketchup).toContain('done, running, failed, or not checked')
+		expect(ketchup).toContain('Give each action item in three lines')
+		expect(ketchup).toContain('No screenshot yet.')
+		expect(ketchup).toContain('A Markdown table is not a visual')
 	})
 })
 

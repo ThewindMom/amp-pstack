@@ -74,9 +74,10 @@ test('native reservation matchers distinguish expected-field subsets from exact 
 
 describe('amp-pstack plugin', () => {
 	test('declares every bundled skill once', () => {
-		expect(SKILL_PATHS).toHaveLength(52)
+		expect(SKILL_PATHS).toHaveLength(53)
 		expect(new Set(SKILL_PATHS).size).toBe(SKILL_PATHS.length)
 		expect(SKILL_PATHS).toContain('skills/poteto-mode')
+		expect(SKILL_PATHS).toContain('skills/in-your-own-words')
 		expect(SKILL_PATHS).toContain('skills/ketchup')
 		expect(description).toContain('Ports pstack to Amp')
 		expect(description.length).toBeLessThanOrEqual(300)

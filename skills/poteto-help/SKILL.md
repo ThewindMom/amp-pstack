@@ -49,11 +49,12 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | The user wants to | Skill |
 |---|---|
 | Do non-trivial work with rigor | [`pstack:poteto-mode`](../poteto-mode/SKILL.md) |
+| Check that the agent understood their goal and problem before it starts | [`pstack:in-your-own-words`](../in-your-own-words/SKILL.md) |
 | Know how code works or where new code belongs | [`pstack:how`](../how/SKILL.md) |
 | Know why code or a number is shaped this way | [`pstack:why`](../why/SKILL.md) |
 | Understand a change or subsystem plainly | [`pstack:teach`](../teach/SKILL.md) |
 | Catch up on recent work | [`pstack:recall`](../recall/SKILL.md) |
-| Catch up on this thread and decisions waiting on them | [`pstack:ketchup`](../ketchup/SKILL.md) |
+| Catch up on this thread in a short reply with visuals and enough context to decide action items | [`pstack:ketchup`](../ketchup/SKILL.md) |
 | Know what a small diff could break outside itself | [`pstack:blast-radius`](../blast-radius/SKILL.md) |
 | Settle types and module shape before code | [`pstack:architect`](../architect/SKILL.md) |
 | Compare attempts at one brief and merge the best parts | [`pstack:arena`](../arena/SKILL.md) |
