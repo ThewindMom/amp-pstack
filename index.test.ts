@@ -74,7 +74,7 @@ test('native reservation matchers distinguish expected-field subsets from exact 
 
 describe('amp-pstack plugin', () => {
 	test('declares every bundled skill once', () => {
-		expect(SKILL_PATHS).toHaveLength(53)
+		expect(SKILL_PATHS).toHaveLength(54)
 		expect(new Set(SKILL_PATHS).size).toBe(SKILL_PATHS.length)
 		expect(SKILL_PATHS).toContain('skills/poteto-mode')
 		expect(SKILL_PATHS).toContain('skills/in-your-own-words')
@@ -110,14 +110,14 @@ describe('amp-pstack plugin', () => {
 			].map((name) => Bun.file(`skills/poteto-mode/playbooks/${name}`).text()),
 		)
 		for (const body of files) {
-			expect(body).toContain('GitHub CLI (`gh`) is the default')
+			expect(body).toMatch(/GitHub CLI \(`gh`\) is the default|Default to `gh`/)
 			expect(body).toContain('Origin')
 		}
 		expect(files.join('\n')).not.toContain('Graphite registration')
 		expect(files.join('\n')).not.toContain('lets Graphite drain')
-		expect(files[0]).toContain('within about 15 minutes')
+		expect(files[0]).toContain('Within about 15 minutes')
 		expect(files[1]).toContain('within about 15 minutes')
-		expect(files[0]).toContain('Regression lane against trunk')
+		expect(files[0]).toContain('Run the same load-bearing scenario on current trunk')
 		expect(files[1]).toContain('base-branch stack')
 		expect(files[3]).toContain('requires explicit user authorization')
 		expect(files[4]).toContain('Every merge or auto-merge arm requires')

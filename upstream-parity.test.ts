@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'dbf49813a39c1a5389c5e28cb8e4c1c2379e2454'
-const PINNED_VERSION = '0.15.23'
+const PINNED_COMMIT = '1e5c90a4b6f249917bd21fe361b3a2a7deb741b8'
+const PINNED_VERSION = '0.15.24'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.23 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.24 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -82,7 +82,13 @@ describe('pinned upstream decision contracts', () => {
 		const stack = await repoFile('skills/poteto-mode/playbooks/autopilot-stack.md')
 		expect(full).toContain('keyed by that child\'s thread ID')
 		expect(full).toContain('A verification round is keyed by the exact head SHA.')
-		expect(full).toContain('code-ready head SHA and at each later push that changes the PR\'s patch')
+		expect(full).toContain('A full swarm runs once, at the code-ready head.')
+		expect(full).toContain('Another full swarm runs only for new behavior, a redesign, or a large new diff.')
+		expect(full).toContain('A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head.')
+		expect(full).toContain('every new head needs its own green CI')
+		expect(full).toContain('third rebase past merge prep')
+		expect(full).toContain('frozen install passes on the merge result')
+		expect(full).not.toContain('short private base-branch stack')
 		expect(full).toContain('two or more review lanes')
 		expect(full).toContain('A defect that a lane filed as a note is a finding.')
 		expect(full).toContain('CI must pass on that head before the merge')
@@ -218,7 +224,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(52)
+		expect(routed).toHaveLength(53)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -517,12 +523,12 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain('Do not change code, start an app or job, or post anything to make them.')
 		expect(ketchup).toContain('Never invent a number or draw or generate a screen you did not capture.')
 		expect(ketchup).toContain('Use Mermaid only when explicitly requested.')
-		expect(ketchup).toContain('Keep the text under 250 words.')
-		expect(ketchup).toContain('Markdown tables are text, so their words count.')
-		expect(ketchup).toContain('A visual replaces the text it shows, so never give a fact in both.')
+		expect(ketchup).toContain('well under 150 words, counting the words inside visuals and tables')
+		expect(ketchup).toContain('Never give a fact in both the text and a visual.')
+		expect(ketchup).toContain('at most six boxes, with at most eight words in each')
 		expect(ketchup).toContain('Check each number you will show against the facts it comes from')
-		expect(ketchup).toContain('done, running, failed, or not checked')
-		expect(ketchup).toContain('Give each action item in three lines')
+		expect(ketchup).toContain('done, still running, failed, or not checked')
+		expect(ketchup).toContain('Give each action item two lines')
 		expect(ketchup).toContain('No screenshot yet.')
 		expect(ketchup).toContain('A Markdown table is not a visual')
 	})

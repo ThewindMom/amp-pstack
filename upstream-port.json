@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "dbf49813a39c1a5389c5e28cb8e4c1c2379e2454",
-		"version": "0.15.23",
-		"tree": "https://github.com/cursor/plugins/tree/dbf49813a39c1a5389c5e28cb8e4c1c2379e2454/pstack"
+		"commit": "1e5c90a4b6f249917bd21fe361b3a2a7deb741b8",
+		"version": "0.15.24",
+		"tree": "https://github.com/cursor/plugins/tree/1e5c90a4b6f249917bd21fe361b3a2a7deb741b8/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.24-adapter",
+			"from": "Upstream adds per-spawn Cursor effort/fast slug adjustments and composer panel-family recognition, sharpen, shorter ketchup, and simplified autopilot and shipping protocols.",
+			"to": "Amp keeps configured role and panel models, effort and speed with no per-call overrides or guessed model fallback; the coordinator explains that boundary instead of repeating unavailable knobs in every workflow. Sharpen uses qualified explicit invocation and retains user constraints. Ketchup uses small plain diagrams or creating-views, a total 150-word budget and two-line decisions. Autopilot adopts swarm-once and merge-result checks but retains terminal-before-replacement, explicit shared-write authorization, native schedules, and root-owned transferred trails. Stack and Shipping retain their detailed step structure and event-wake/watch safety while adopting sole topology ownership, no writes during landing, fresh independent verdicts and Origin's plain merge command.",
+			"why": "Amp role tools expose no per-spawn effort or speed fields, and its configured panels already preserve model diversity. Native APIs, permissions, ownership and evidence requirements remain authoritative."
+		},
 		{
 			"id": "amp-0.15.23-adapter",
 			"from": "Upstream removes Cursor mode/reminder flags, asks delegates to find a hidden poteto-mode skill by absolute path or highest-version Cursor plugin, and makes ketchup picture-led with Mermaid and /visualize.",

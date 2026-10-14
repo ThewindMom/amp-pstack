@@ -66,6 +66,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Clean AI tells out of prose | [`pstack:unslop`](../unslop/SKILL.md) |
 | Write docs, RFCs, READMEs, PR descriptions, or commits | [`pstack:technical-writing`](../technical-writing/SKILL.md) |
 | Hear the last reply in plain words | [`pstack:bro`](../bro/SKILL.md) |
+| Improve a task's expert approach and focus without expanding it | [`pstack:sharpen`](../sharpen/SKILL.md) |
 | Give agents a scripted way to drive the app | [`pstack:create-verification-skill`](../create-verification-skill/SKILL.md) |
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
 | Vet a performance number | [`pstack:benchmark-checklist`](../benchmark-checklist/SKILL.md) |

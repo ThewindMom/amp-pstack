@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 const script = join(import.meta.dir, 'worktree-audit.sh')
 
-function runAudit(searchJson: string, searchExit = 0, base?: string | null) {
+function runAudit(searchJson: string, searchExit = 0, base?: string | null, forge?: { origin: string; originExit?: number; gh: string }) {
 	const dir = mkdtempSync(join(tmpdir(), 'pstack-audit-'))
 	const stub = join(dir, 'amp-search')
 	const git = (...args: string[]) => {
@@ -15,7 +15,7 @@ function runAudit(searchJson: string, searchExit = 0, base?: string | null) {
 	git('init', '-q')
 	git('-c', 'commit.gpgsign=false', '-c', 'user.name=test', '-c', 'user.email=test@example.test', 'commit', '--allow-empty', '-qm', 'fixture')
 	git('update-ref', 'refs/remotes/origin/main', 'HEAD')
-	git('worktree', 'add', '--detach', join(dir, 'child'), 'HEAD')
+	git('worktree', 'add', '-b', 'audit-child', join(dir, 'child'), 'HEAD')
 	if (base !== undefined) {
 		git('-C', join(dir, 'child'), '-c', 'commit.gpgsign=false', '-c', 'user.name=test', '-c', 'user.email=test@example.test', 'commit', '--allow-empty', '-qm', 'integration only')
 		const childHead = Bun.spawnSync(['git', '-C', join(dir, 'child'), 'rev-parse', 'HEAD']).stdout.toString().trim()
@@ -30,9 +30,14 @@ exit ${searchExit}
 `,
 	)
 	chmodSync(stub, 0o755)
+	for (const name of ['origin', 'gh'] as const) {
+		const path = join(dir, name)
+		writeFileSync(path, `#!/usr/bin/env bash\nprintf '%s\\n' '${forge?.[name] ?? '[]'}'\nexit ${name === 'origin' ? (forge?.originExit ?? 0) : 0}\n`)
+		chmodSync(path, 0o755)
+	}
 	const result = Bun.spawnSync(['bash', script, ...(base ? ['--base', base] : [])], {
 		cwd: dir,
-		env: { ...process.env, AMP_THREADS_SEARCH: stub },
+		env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, AMP_THREADS_SEARCH: stub },
 	})
 	rmSync(dir, { recursive: true, force: true })
 	return {
@@ -43,6 +48,26 @@ exit ${searchExit}
 }
 
 describe('worktree-audit', () => {
+	test('prefers Origin PR states and holds open or draft work; falls back to gh', () => {
+		for (const [originState, ghState, originExit, expectedPr, expectedBucket] of [
+			['draft', 'CLOSED', 0, '#17/draft', 'hold-open-pr'],
+			['open', 'MERGED', 0, '#17/open', 'hold-open-pr'],
+			['merged', 'OPEN', 0, '#17/merged', 'safe'],
+			['merged', 'OPEN', 1, '#29/open', 'hold-open-pr'],
+			['open', 'CLOSED', 1, '#29/closed', 'safe'],
+		] as const) {
+			const { stdout, exitCode } = runAudit('[]', 0, undefined, {
+				origin: JSON.stringify([{ number: 17, status: originState, headRef: 'audit-child' }]),
+				gh: JSON.stringify([{ number: 29, state: ghState, headRefName: 'audit-child' }]),
+				originExit,
+			})
+			expect(exitCode).toBe(0)
+			const row = stdout.split('\n')[1]?.split('\t')
+			expect(row?.[5]).toBe(expectedPr)
+			expect(row?.[7]).toBe(expectedBucket)
+		}
+	})
+
 	test('emits LAST_THREAD and treats a recent Amp thread as hold-recent-thread', () => {
 		const recent = new Date().toISOString()
 		const { stdout, exitCode } = runAudit(
