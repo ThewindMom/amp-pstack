@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '1e5c90a4b6f249917bd21fe361b3a2a7deb741b8'
-const PINNED_VERSION = '0.15.24'
+const PINNED_COMMIT = '99743e9c151c8537cbbf1f98bb38f34ef3368453'
+const PINNED_VERSION = '0.15.25'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.24 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.25 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -523,8 +523,12 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain('Do not change code, start an app or job, or post anything to make them.')
 		expect(ketchup).toContain('Never invent a number or draw or generate a screen you did not capture.')
 		expect(ketchup).toContain('Use Mermaid only when explicitly requested.')
-		expect(ketchup).toContain('well under 150 words, counting the words inside visuals and tables')
-		expect(ketchup).toContain('Never give a fact in both the text and a visual.')
+		expect(ketchup).toContain('well under 150 words, not counting visuals')
+		expect(ketchup).toContain('Tables are text and count toward the limit.')
+		expect(ketchup).toContain('Never give a fact twice, in text or across visuals.')
+		expect(ketchup).toContain('Never draw a status list or boxes with nothing connecting them.')
+		expect(ketchup).toContain('Embed existing screenshots and videos inline')
+		expect(ketchup).toContain('list the action items as plain bullets, never as a diagram or box')
 		expect(ketchup).toContain('at most six boxes, with at most eight words in each')
 		expect(ketchup).toContain('Check each number you will show against the facts it comes from')
 		expect(ketchup).toContain('done, still running, failed, or not checked')

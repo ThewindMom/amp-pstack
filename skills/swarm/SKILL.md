@@ -10,8 +10,6 @@ builtin-tools:
 
 # Swarm
 
-Fan out N parallel Amp agents. They may cover separate slices, race the same brief, or mix both. The parent waits, aggregates, and returns one report.
-
 ## Start
 
 Open an explicit checklist with one entry per phase before launching anything.
@@ -25,7 +23,6 @@ Open an explicit checklist with one entry per phase before launching anything.
 
 1. State the done predicate and the artifact or report the swarm must return.
 2. Choose the shape. Partition into slices, race N workers on identical briefs, or mix both. For a race or mixed shape, declare `first pass`, `rank all`, or `best-of` before spawning.
-3. Set N from the user or derive it from the shape. N is total workers, not the cloud concurrency limit.
 4. Use role `swarm-worker` for ordinary workers. The plugin resolves that role (default `xai/grok-4.7`). A missing role uses that default. If Amp rejects the configured model, report it and stop that spawn. Do not retry the same role with another model on that call. A replacement is a persistent config write. Do it only when the user asks, then reload plugins before the next orb spawn. For a model race, use a configured panel and name each arm up front.
 5. Give each worker its own writable output when it writes. Use a worktree, branch, or `/tmp/swarm-<slug>/worker-<n>/`. When workers verify or measure commits, each brief names the exact SHAs. A measurement brief also names the method (sample count, what one sample is, order). The worker records both in its result.
 
@@ -42,8 +39,6 @@ If a worker drops out, proceed with N-1 and note it. If an orb needs a non-defau
 ## Phase C: Aggregate
 
 Read the terminal results. Drop a result that does not record the SHAs and method its brief names, and respawn that worker once. After a second miss, record a gap. A gap does not count as a pass. For coverage, every required slice needs a result. For a race, apply the selection rule declared up front. Use first pass, rank all, or best-of. Do not paste raw worker dumps.
-
-Keep a compact result table, one-line evidenced issues, and explicit gaps or dropouts.
 
 ## Phase D: Report
 
