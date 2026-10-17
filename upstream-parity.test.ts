@@ -7,7 +7,7 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '99743e9c151c8537cbbf1f98bb38f34ef3368453'
+const PINNED_COMMIT = '101b274dd991f694e1f7024be2157e5f3adf07de'
 const PINNED_VERSION = '0.15.25'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
