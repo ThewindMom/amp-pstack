@@ -28,9 +28,9 @@ Ask the question you actually have. [`pstack:how`](../../skills/how/SKILL.md) re
 Load pstack:why. Why was the retry limit set to five? Does the reason still hold?
 ```
 
-[`pstack:why`](../../skills/why/SKILL.md) works like a detective on a cold case. It starts from source control, then queries whatever evidence categories your tools expose, such as the issue tracker, long-form docs, team chat, observability, error tracking, and analytics, all in parallel through role `why-investigator`. The report cites everything, separates direct evidence from inference, and says "appears to" when the record is thin. A null result gets reported too, because "nobody wrote down why" is itself an answer.
+[`pstack:why`](../../skills/why/SKILL.md) starts from source control, then queries whatever evidence categories your tools expose, such as the issue tracker, long-form docs, team chat, observability, error tracking, and analytics, all in parallel through role `why-investigator`. The report cites everything, separates direct evidence from inference, and says "appears to" when the record is thin. A null result gets reported too, because "nobody wrote down why" is itself an answer.
 
-The two compose naturally. "Do why first then how" is a perfectly good prompt when you suspect the history explains the mess.
+The two compose naturally. "Do why first then how" is a good prompt when you suspect the history explains the mess.
 
 ## Actually understand it with `pstack:teach`
 
@@ -38,7 +38,7 @@ The two compose naturally. "Do why first then how" is a perfectly good prompt wh
 Load pstack:teach. Teach me how this PR changes retries. Convince me it fixes the cause and not the symptom.
 ```
 
-[`pstack:teach`](../../skills/teach/SKILL.md) is for when a summary isn't enough. It runs how and why, for a small change maybe just one of them, and weaves the findings into a plain explanation that builds up diagram by diagram. The "convince me" framing is worth stealing. It turns the explanation into an argument you can poke at instead of a tour.
+[`pstack:teach`](../../skills/teach/SKILL.md) is for when a summary isn't enough. It runs how and why, for a small change maybe just one of them, and weaves the findings into a plain explanation that builds up diagram by diagram. The "convince me" framing is worth reusing. It turns the explanation into an argument you can test instead of a tour.
 
 It also works on the agent's decisions: `Load pstack:teach. Teach me why you used this design instead of a queue, including the trade-offs.`
 

@@ -54,7 +54,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Know why code or a number is shaped this way | [`pstack:why`](../why/SKILL.md) |
 | Understand a change or subsystem plainly | [`pstack:teach`](../teach/SKILL.md) |
 | Catch up on recent work | [`pstack:recall`](../recall/SKILL.md) |
-| Catch up on this thread in a short reply with visuals and enough context to decide action items | [`pstack:ketchup`](../ketchup/SKILL.md) |
+| Catch up on this thread in plain words and small visuals, with every pending item listed and decidable from the reply alone | [`pstack:ketchup`](../ketchup/SKILL.md) |
 | Know what a small diff could break outside itself | [`pstack:blast-radius`](../blast-radius/SKILL.md) |
 | Settle types and module shape before code | [`pstack:architect`](../architect/SKILL.md) |
 | Compare attempts at one brief and merge the best parts | [`pstack:arena`](../arena/SKILL.md) |
@@ -69,6 +69,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Improve a task's expert approach and focus without expanding it | [`pstack:sharpen`](../sharpen/SKILL.md) |
 | Give agents a scripted way to drive the app | [`pstack:create-verification-skill`](../create-verification-skill/SKILL.md) |
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
+| Formally verify a race, invariant, or other property that tests rarely reach | [`pstack:create-formal-verification-skill`](../create-formal-verification-skill/SKILL.md) |
 | Vet a performance number | [`pstack:benchmark-checklist`](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change | [`pstack:figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep and audit a decision log | [`pstack:show-me-your-work`](../show-me-your-work/SKILL.md) |

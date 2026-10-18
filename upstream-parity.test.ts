@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '101b274dd991f694e1f7024be2157e5f3adf07de'
-const PINNED_VERSION = '0.15.25'
+const PINNED_COMMIT = '0b8e952052d482ee6de06deebf14d590d77b1b34'
+const PINNED_VERSION = '0.15.26'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.25 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.26 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -224,7 +224,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(53)
+		expect(routed).toHaveLength(54)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -519,22 +519,34 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain('use the invoking user\'s last authored message, not another person\'s')
 		expect(ketchup).toContain('`offset`, `total`, and `truncated` pagination fields')
 		expect(ketchup).toContain('Do not change files, configure models, create schedules, or publish')
-		expect(ketchup).toContain('make the summary sufficient to decide without opening them')
+		expect(ketchup).toContain('the reply alone must be enough to decide')
 		expect(ketchup).toContain('Do not change code, start an app or job, or post anything to make them.')
 		expect(ketchup).toContain('Never invent a number or draw or generate a screen you did not capture.')
 		expect(ketchup).toContain('Use Mermaid only when explicitly requested.')
-		expect(ketchup).toContain('well under 150 words, not counting visuals')
-		expect(ketchup).toContain('Tables are text and count toward the limit.')
+		expect(ketchup).toContain('Keep what happened under 100 words, not counting pictures')
+		expect(ketchup).toContain('Never cut items or shrink them to stay under a word count')
 		expect(ketchup).toContain('Never give a fact twice, in text or across visuals.')
-		expect(ketchup).toContain('Never draw a status list or boxes with nothing connecting them.')
+		expect(ketchup).toContain('Never draw a status list, a list of action items, or boxes with nothing connecting them.')
 		expect(ketchup).toContain('Embed existing screenshots and videos inline')
-		expect(ketchup).toContain('list the action items as plain bullets, never as a diagram or box')
+		expect(ketchup).toContain('give each item its own bullet, riskiest first')
 		expect(ketchup).toContain('at most six boxes, with at most eight words in each')
 		expect(ketchup).toContain('Check each number you will show against the facts it comes from')
 		expect(ketchup).toContain('done, still running, failed, or not checked')
-		expect(ketchup).toContain('Give each action item two lines')
+		expect(ketchup).toContain("Give each item's risk even when it is low")
 		expect(ketchup).toContain('No screenshot yet.')
 		expect(ketchup).toContain('A Markdown table is not a visual')
+	})
+})
+
+describe('0.15.26 formal verification contract', () => {
+	test('requires falsifiable scoped proof without fixing product findings', async () => {
+		const formal = await repoFile('skills/create-formal-verification-skill/SKILL.md')
+		expect(formal).toContain("Load Amp's `building-skills`")
+		expect(formal).toContain('`.agents/skills/verify-<area>/`')
+		expect(formal).toContain('Show each property failing on a broken variant')
+		expect(formal).toContain('do not change product code unless the user asks')
+		expect(formal).toContain('A pass covers the model or the bound, not the whole system.')
+		expect(formal).toContain('If the skill misses the break or a step does not run, fix the skill or the verification, not the scratch change.')
 	})
 })
 

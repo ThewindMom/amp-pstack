@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "101b274dd991f694e1f7024be2157e5f3adf07de",
-		"version": "0.15.25",
-		"tree": "https://github.com/cursor/plugins/tree/101b274dd991f694e1f7024be2157e5f3adf07de/pstack"
+		"commit": "0b8e952052d482ee6de06deebf14d590d77b1b34",
+		"version": "0.15.26",
+		"tree": "https://github.com/cursor/plugins/tree/0b8e952052d482ee6de06deebf14d590d77b1b34/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.26-adapter",
+			"from": "Upstream adds create-formal-verification-skill, makes ketchup list every pending item with evidence and risk instead of imposing a total word cap, validates TypeScript brands with type guards, and updates harness and guide prose.",
+			"to": "Amp registers the new skill with named or coordinator-routed invocation, building-skills and project-local output. Ketchup retains read-only transcript pagination, multiplayer attribution and native visuals while adopting item-scaled replies. TypeScript guidance and applicable guide corrections port directly; existing Amp-specific guide summaries remain. Claude Code model-rule and skip-feature mappings remain excluded, and already normalized skill names need no change.",
+			"why": "Formal verification must preserve its stated bounds, counterexamples and no-product-fix contract. Host-specific model, permission and tool mappings must not replace Amp's native behavior."
+		},
 		{
 			"id": "claude-code-harness-docs",
 			"from": "Upstream adds Claude Code installation and generated-harness instructions, a Cursor-to-Claude tool/model/path adapter, and a clarification that Benny uses Cursor Automations.",

@@ -1,6 +1,6 @@
 # Make it yours
 
-poteto-mode is one person's style. The machinery underneath works just as well wearing yours. Start small: add a skill or check only when the same failure appears twice.
+poteto-mode is one person's style. The playbooks, routing, and model roles underneath it work just as well with yours. Start small: add a skill or check only when the same failure appears twice.
 
 ## Generate your own mode with `pstack:automate-me`
 

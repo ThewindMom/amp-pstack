@@ -12,7 +12,7 @@ Put what done means in the first prompt, in whatever words fit:
 Use pstack:poteto-mode. Add JSON output to this command. Text output stays byte-identical, the JSON parses, both run against the sample project. Show me the evidence.
 ```
 
-Now the agent has three checks it can run, not a mood to satisfy. When the reply comes back, it should carry the exact commands and outputs. If a check couldn't run, a good reply says "inconclusive", and you should treat a confident reply without evidence as a red flag.
+Now the agent has three checks it can run, not a mood to satisfy. When the reply comes back, it should carry the exact commands and outputs. If a check couldn't run, a good reply says "inconclusive". A confident reply without evidence is a warning sign.
 
 Match the check to the change:
 
@@ -28,7 +28,7 @@ Before you report or act on a number you measured, load [`pstack:benchmark-check
 
 Its seven checks cover the limiter, production tuning, physical plausibility, errors and output correctness, alternating-run median and range, end-to-end relevance, and whether the claimed work happened inside the timed region. The verdict is faster, slower, no measurable difference, or inconclusive.
 
-For a small diff you don't fully trust, [`pstack:blast-radius`](../../skills/blast-radius/SKILL.md) finds what it could break elsewhere. It picks the one fact the change is safe because of and proves it by running code instead of writing an essay about it.
+For a small diff you don't fully trust, [`pstack:blast-radius`](../../skills/blast-radius/SKILL.md) finds what it could break elsewhere. It finds the one fact that makes the change safe and proves that fact by running code, not by arguing for it.
 
 ## Create a project verification skill
 
