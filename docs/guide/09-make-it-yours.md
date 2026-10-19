@@ -50,6 +50,8 @@ Use pstack:poteto-mode. Write a skill for verifying database migrations in this 
 
 Writing a skill matches the [Authoring or modifying a skill playbook](../../skills/poteto-mode/playbooks/authoring-a-skill.md), which loads Amp's `building-skills` and validates the frontmatter and links. Use the normal review workflow; creating or editing a PR requires explicit user approval.
 
+Two special cases have their own generators. For driving your app and proving behavior, use [`pstack:create-verification-skill`](../../skills/create-verification-skill/SKILL.md) and [`pstack:maintain-verification-skill`](../../skills/maintain-verification-skill/SKILL.md). For checking a property with a model checker, proof, or another verifier, use [`pstack:create-formal-verification-skill`](../../skills/create-formal-verification-skill/SKILL.md) and [`pstack:maintain-formal-verification-skill`](../../skills/maintain-formal-verification-skill/SKILL.md). [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers both kinds.
+
 ## Eval a skill change before you trust it
 
 The [Eval playbook](../../skills/poteto-mode/playbooks/eval.md) runs N candidates, then grades chain-following from each candidate's Amp thread with `read_thread`, not from self-report.

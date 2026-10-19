@@ -80,7 +80,7 @@ export {
 export type { DelegateExecutor, LaunchTarget, ParentExecutorKind } from './workflow-parity'
 
 export const description =
-	'Ports pstack to Amp with 55 workflow skills, the poteto mode, configurable multi-model delegates, background threads, and transcript tools.'
+	'Ports pstack to Amp with 56 workflow skills, the poteto mode, configurable multi-model delegates, background threads, and transcript tools.'
 
 export const SKILL_PATHS = [
 	'skills/architect',
@@ -97,6 +97,7 @@ export const SKILL_PATHS = [
 	'skills/in-your-own-words',
 	'skills/interrogate',
 	'skills/ketchup',
+	'skills/maintain-formal-verification-skill',
 	'skills/maintain-verification-skill',
 	'skills/make-bot-ui',
 	'skills/no-comments',

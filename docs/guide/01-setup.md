@@ -28,13 +28,15 @@ The next local delegate resolves the changed map immediately. Reload plugins bef
 
 A configured `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra` still runs as a pstack delegate. The plugin extends that Amp mode and keeps the pstack instructions. Feature and refactoring are independently configurable roles. Cursor `inherit-parent` is not an Amp value. Balanced seats carry explicit per-role effort; bare shipped-model seats use `MODEL_REASONING_EFFORT`. The standalone `grok47-xhigh` mode remains xhigh.
 
-## Accept the verification offer, or don't
+## Accept the verification offers, or don't
 
 At the end of setup, `pstack:setup-pstack` looks for a way to prove app behavior in your project, either a `verify-*` skill or an existing harness. If it finds neither, it offers once to generate one with [`pstack:create-verification-skill`](../../skills/create-verification-skill/SKILL.md).
 
 Say yes and it writes `.agents/skills/verify-<app>/`, a project-local skill that teaches agents to drive your app the way a user does. It proves the skill works once before handing it over. Say no and setup moves on. You can load `pstack:create-verification-skill` yourself any time. [Verify and ship](./06-verify-and-ship.md) covers when it earns its place.
 
 If you're new to pstack, accept the offer. An agent that can verify its own work can continue until the check passes instead of handing every result back for manual checking.
+
+Then setup offers once to generate a formal verification skill with [`pstack:create-formal-verification-skill`](../../skills/create-formal-verification-skill/SKILL.md), unless the project already has one. Tests check the cases someone thought to write. A formal verification skill checks one key property, such as "a job never runs twice at once", within a stated scope. Say yes when concurrency, retries, a state machine, or a parser makes a missed case costly. Otherwise say no and run it later. [Verify and ship](./06-verify-and-ship.md#prove-a-property-with-a-formal-verification-skill) covers it.
 
 ## Keep cost in check
 

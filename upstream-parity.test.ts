@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '0b8e952052d482ee6de06deebf14d590d77b1b34'
-const PINNED_VERSION = '0.15.26'
+const PINNED_COMMIT = 'd457567332aa6989e753ea289f30ea2bfbc80bc0'
+const PINNED_VERSION = '0.15.28'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.26 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.28 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -224,7 +224,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(54)
+		expect(routed).toHaveLength(55)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -547,6 +547,21 @@ describe('0.15.26 formal verification contract', () => {
 		expect(formal).toContain('do not change product code unless the user asks')
 		expect(formal).toContain('A pass covers the model or the bound, not the whole system.')
 		expect(formal).toContain('If the skill misses the break or a step does not run, fix the skill or the verification, not the scratch change.')
+		expect(formal).toContain('test the real code with generated inputs, not a hand model of the function')
+		expect(formal).toContain('move the sync commit forward only after it confirms')
+	})
+
+	test('maintenance distinguishes stale models from bugs and preserves blocked sync points', async () => {
+		const maintain = await repoFile('skills/maintain-formal-verification-skill/SKILL.md')
+		expect(maintain).toContain("Load Amp's `building-skills`")
+		expect(maintain).toContain('Never edit product code during a run, unless the user asks you to.')
+		expect(maintain).toContain('do not weaken the property or the model to make it pass')
+		expect(maintain).toContain('Change a property only for a promise that changed on purpose.')
+		expect(maintain).toContain('Do not move the sync commit for a blocked check')
+		expect(maintain).toContain('the old pass was on a stale description')
+		const setup = await repoFile('skills/setup-pstack/SKILL.md')
+		expect(setup).toContain('### 8. Offer a formal verification skill (optional)')
+		expect(setup).toContain('On yes, load `pstack:create-formal-verification-skill`. On no, move on without pushing.')
 	})
 })
 

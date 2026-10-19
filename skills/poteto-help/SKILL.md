@@ -19,13 +19,14 @@ Check state only when it changes the answer:
 
 - Read the resolved map through `pstack_configure_models` with `action: "show"` if model choices matter. A missing config file does not prove setup hasn't run; Amp user config can hold overrides.
 - No `verify-*` skill or app harness means agents have no scripted way to drive the app. Mention `pstack:create-verification-skill` when asked about proving behavior.
+- When the question concerns a race, invariant, or another case tests rarely hit, check for a formal verification skill or existing verifier before recommending `pstack:create-formal-verification-skill`. A missing skill alone does not prove no property is verified. If covered code changed after its recorded sync commit, mention `pstack:maintain-formal-verification-skill` when the question touches that code.
 
 When the user is new, asks about setup or cost, or the answer depends on the models that run, offer to pick role models and a reasoning budget if setup is not already known to be complete. Ask at most once per thread. If the need is also unclear, combine the clarifications. Offer now or later in plain words; use a multiple-choice dialog only when explicitly requested. Now: give them `pstack:setup-pstack` to invoke, and answer their question too. Later: answer their question and say unconfigured roles keep the plugin defaults. The resolved map does not reveal whether setup previously ran; do not claim otherwise. Do not start setup or write model configuration from a help question.
 
 ## Get set up
 
 1. Follow the directory-plugin installation in [guide page 1](../../docs/guide/01-setup.md). A personal plugins repository makes the plugin available across machines and orbs; a machine-local clone is optional.
-2. Load [`pstack:setup-pstack`](../setup-pstack/SKILL.md). It asks for a reasoning budget, maps models to roles, and writes only changed choices. Local spawns resolve the new map immediately; reload plugins before judging changed orb modes.
+2. Load [`pstack:setup-pstack`](../setup-pstack/SKILL.md). It asks for a reasoning budget, maps models to roles, and writes only changed choices. Local spawns resolve the new map immediately; reload plugins before judging changed orb modes. It then offers once each to generate app and formal verification skills when missing; generation waits for the user's yes.
 3. Start a real task with `pstack:poteto-mode`, a goal, and a check that passes or fails.
 
 Installing does not start a workflow. Routed skills run when named or when poteto-mode selects them; setup is also directly discoverable from the user's words. Read the [README](../../README.md) for installation details. Offer to word the first prompt using [`references/prompting.md`](references/prompting.md).
@@ -70,6 +71,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Give agents a scripted way to drive the app | [`pstack:create-verification-skill`](../create-verification-skill/SKILL.md) |
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [`pstack:create-formal-verification-skill`](../create-formal-verification-skill/SKILL.md) |
+| Bring formal verification back in line after covered code changes, and distinguish drift from bugs | [`pstack:maintain-formal-verification-skill`](../maintain-formal-verification-skill/SKILL.md) |
 | Vet a performance number | [`pstack:benchmark-checklist`](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change | [`pstack:figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep and audit a decision log | [`pstack:show-me-your-work`](../show-me-your-work/SKILL.md) |

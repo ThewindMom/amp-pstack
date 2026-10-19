@@ -1,6 +1,6 @@
 # Verify the result and open a PR
 
-"It compiles" is not evidence. The [Prove It Works principle](../../skills/principle-prove-it-works/SKILL.md) makes the agent check the real artifact before it reports success, and your job is to make "the real artifact" checkable. This page covers stating a finish condition, generating a verification skill for your app, opening the PR, and driving it to merged.
+"It compiles" is not evidence. The [Prove It Works principle](../../skills/principle-prove-it-works/SKILL.md) makes the agent check the real artifact before it reports success, and your job is to make "the real artifact" checkable. This page covers stating a finish condition, generating a verification skill for your app, formally verifying a property tests rarely reach, opening the PR, and driving it to merged.
 
 ![A prototype plane flies a real test course while she times it with a stopwatch and robots film and checklist the run; the terminal reads verify: pass, evidence: captured.](./images/verification.jpg)
 
@@ -42,9 +42,31 @@ Load pstack:create-verification-skill
 
 Treat it as committed infrastructure. If agents repeatedly make throwaway driver scripts, build a control CLI with composable commands, destructive `--dry-run`, actionable errors, rich help, and machine-readable output. An explicitly authorized hourly Amp schedule can run maintenance; creating or changing that schedule is an external write and requires approval.
 
-## Open the PR, then babysit only when asked
+The generated verification skill records Launch, Doctor, Drive, Evidence, and Cleanup, a Helpers section for any script it ships, and a feature map. Its end-to-end proof confirms evidence survives cleanup. Later agents can drive mapped user flows without repeating setup questions. Maintain verification audits each mapped feature by source and a live pass; it returns `clean`, `changed` (verification-skill corrections only), or `blocked`, and never edits product code.
 
-The generated verification skill records Launch, Doctor, Drive, Evidence, and Cleanup plus a feature map. Later agents can drive mapped user flows without repeating setup questions. Maintain verification audits each mapped feature by source and a live pass; it returns `clean`, `changed` (verification-skill corrections only), or `blocked`, and never edits product code.
+## Prove a property with a formal verification skill
+
+A verification skill proves the paths you drive. Some bugs live on paths nobody drives: two retries that overlap, a lock that expires mid-write, a state change that arrives out of order. Tests rarely reach those cases. For code where such a bug is costly, run:
+
+```text
+Load pstack:create-formal-verification-skill
+```
+
+[`pstack:create-formal-verification-skill`](../../skills/create-formal-verification-skill/SKILL.md) picks the target from the code: a promise the code makes, where a break harms users and tests rarely reach the case that breaks it. It picks the strongest target, not the easiest to verify. Name an area or a bug to start there instead:
+
+```text
+Use pstack:create-formal-verification-skill on the job lease and retry logic. A job must never run twice at once.
+```
+
+The question picks the tool. Whether events can happen in a bad order suits a model checker over a small model of the design, and TLA+ is the default for that in any language. Whether the code behaves for every input suits a verifier that runs on the code. If no verifier runs on your language, the agent says so and tests the real code with generated inputs, not a hand-written model of the function. A property that must hold at every size can need a proof. The agent tells you which tool it chose and why.
+
+It verifies one property and shows that property failing on a broken variant of the code, because a check you've never seen fail proves nothing. When the current code already breaks the property, you get the counterexample as a short sequence of steps in your code's terms. The property stays as stated, so the finding stays a finding. Product code doesn't change unless you ask.
+
+It writes a project-local skill under `.agents/skills/verify-<area>/` that tells the next agent whether a change touches the verified code, how to run the check with one command, and how to tell a real bug from a modeling error. Before handing it over, the generator follows that skill once on an isolated scratch change that breaks the property, and the check must catch it. The handoff says what was verified, with which tool and bounds, what the check found, and what it doesn't cover. A pass covers the model or the bound, not the whole system.
+
+The skill also records which code each check covers and the commit where the check last matched it. Merges and refactors that skip the skill can leave the check passing on a description of code that's gone. After them, run [`pstack:maintain-formal-verification-skill`](../../skills/maintain-formal-verification-skill/SKILL.md). It updates the verification from the code, reruns it, shows that each updated check can still fail, and tells you whether each failure is drift in the verification or a bug in the code.
+
+## Open the PR, then babysit only when asked
 
 Before an approved PR action, use isolated worktrees, small ordered commits, cleaned prose, and evidence. Babysit resolves conflicts, review threads, then CI in one push wave. It stops at merge-ready; merging still requires explicit authorization.
 

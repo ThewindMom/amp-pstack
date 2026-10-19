@@ -18,6 +18,16 @@ Mechanics first, history second. Each skill's report tells you which sources it 
 Use pstack:poteto-mode. Read this report, restate the underlying issue in plain English, and don't change code yet.
 ```
 
+Use `pstack:in-your-own-words` for the restatement alone, with no playbook.
+
+## Aim a task before it starts
+
+```text
+Use pstack:sharpen. Write the onboarding doc for the new billing service.
+```
+
+The agent considers how an expert would do the task, what you're really after, and whether the ask says too much or too little. It keeps one outside check of the result, then does the work within your explicit constraints.
+
 ## Prototype before choosing
 
 ```text
@@ -58,11 +68,27 @@ Load pstack:interrogate on the whole branch, but skeptically. Don't change anyth
 Use pstack:poteto-mode. Users see stale rows after retry. Repro first. If there's a cheap local test, load pstack:tdd.
 ```
 
+## Prove a property tests rarely reach
+
+```text
+Use pstack:create-formal-verification-skill on the retry queue. A message must never be delivered twice.
+```
+
+You get a check of one property within a stated scope, a counterexample in your code's terms if the code already breaks it, and a project skill the next agent runs on changes to that code.
+
 ## Overnight migration
 
 ```text
 Use pstack:poteto-mode. Going to bed. Keep going until zero old parser callers remain, every parser fixture passes, and the old API is deleted. Keep a decision trail.
 ```
+
+## Catch up on a thread you left running
+
+```text
+Load pstack:ketchup
+```
+
+[`pstack:ketchup`](../../skills/ketchup/SKILL.md) explains what changed since your last message, then lists each decision waiting on you with its recommendation, evidence, and risk. It changes nothing while it reports.
 
 ## Pitfalls
 

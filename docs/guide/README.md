@@ -9,7 +9,7 @@ Here's what you'll learn:
 3. [Understand the code](./03-understand.md). Start read-only, then use `pstack:how`, `pstack:why`, `pstack:teach`, and `pstack:recall`.
 4. [Design the change](./04-design.md). Use competing designs, prototypes, and verifiable plans before code locks in a shape.
 5. [Build and clean the change](./05-build-and-clean.md). The build playbooks, `pstack:tdd`, `pstack:unslop`, and `pstack:no-comments`.
-6. [Verify and ship](./06-verify-and-ship.md). Prove behavior on the real app and vet measured numbers before opening a focused PR.
+6. [Verify and ship](./06-verify-and-ship.md). Prove behavior on the real app, formally verify what tests rarely reach, and vet measured numbers before opening a focused PR.
 7. [Run work while you sleep](./07-overnight.md). Earn trust first, then use an overnight contract and an auditable decision log.
 8. [Steer with principle names](./08-principles.md). The 24 names that redirect an agent mid-task.
 9. [Make it yours](./09-make-it-yours.md). Your own mode, plus how to test a skill change.

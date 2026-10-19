@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "0b8e952052d482ee6de06deebf14d590d77b1b34",
-		"version": "0.15.26",
-		"tree": "https://github.com/cursor/plugins/tree/0b8e952052d482ee6de06deebf14d590d77b1b34/pstack"
+		"commit": "d457567332aa6989e753ea289f30ea2bfbc80bc0",
+		"version": "0.15.28",
+		"tree": "https://github.com/cursor/plugins/tree/d457567332aa6989e753ea289f30ea2bfbc80bc0/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.28-adapter",
+			"from": "Upstream adds formal-verification maintenance, coverage and sync-commit records, real-code generated-input fallback, an optional setup offer, and guide and sharpen updates.",
+			"to": "Amp registers maintenance with qualified invocation and building-skills, keeps scratch variants isolated from user changes, preserves no-product-fix and blocked-sync rules, and adopts the optional offer and applicable guide additions. Help checks for existing verification rather than assuming that an absent skill proves no verifier exists. Sharpen retains explicit user constraints. Claude Code installation guidance remains outside the Amp guide.",
+			"why": "Amp's skill, permission and model configuration boundaries remain authoritative. A proof's coverage must not be inferred from a filename, and a maintenance run must not overwrite existing work or hide a product bug."
+		},
 		{
 			"id": "amp-0.15.26-adapter",
 			"from": "Upstream adds create-formal-verification-skill, makes ketchup list every pending item with evidence and risk instead of imposing a total word cap, validates TypeScript brands with type guards, and updates harness and guide prose.",

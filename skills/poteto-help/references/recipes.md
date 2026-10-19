@@ -34,6 +34,7 @@ Swap in real paths, skills, and done checks. Informal wording works.
 ## Review and ship
 
 - `Use pstack:interrogate on the whole branch, skeptically. Don't change anything. No nitpicks unless a real bug or regression.` Read dismissals too.
+- `Use pstack:create-formal-verification-skill. Prove <property> holds in <module>, even when <steps> interleave or retry.` After merges or refactors in that code: `Use pstack:maintain-formal-verification-skill`.
 - `Use pstack:swarm. Check every package under <dir> against its check script. One worker per package, one report.`
 - `Use pstack:poteto-mode. Open the PR. Small ordered commits, evidence in the description.`
 - `Use pstack:poteto-mode. Babysit this PR until green.` For status: `Use pstack:poteto-mode. Check PR <number>. Anything outstanding?`
@@ -43,6 +44,7 @@ Swap in real paths, skills, and done checks. Informal wording works.
 
 - `Use pstack:poteto-mode. I'm going to bed. <Goal> in a fresh worktree off <base>. Done means <checks>. Keep a decision log. You may commit locally; don't push. Set an hourly Amp schedule until done and clear it on completion. If truly stuck after a few hours, stop and explain why.`
 - `Use pstack:show-me-your-work. Catch me up on last night's work.` Read Attention first.
+- `Use pstack:ketchup` catches you up on this thread since your last message and lists every call that waits on you.
 - `Use pstack:poteto-mode. Full autopilot on this independent queue.`
 - `Use pstack:poteto-mode. Stack these changes, don't ship. I'll land the stack.`
 - `Use pstack:reflect. Capture lessons so the next run doesn't repeat them.` Approve only edits that change a future decision.

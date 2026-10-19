@@ -66,6 +66,8 @@ To stop deliberately, ask it to pause safely. The Pause safely playbook finishes
 
 Each iteration makes one justified change, checks it, and records one decision row. Discard non-progress and pivot when the metric plateaus. In the morning, use `pstack:show-me-your-work` to review the trail and Attention items.
 
+For a quick status instead of an audit, run [`pstack:ketchup`](../../skills/ketchup/SKILL.md) in the thread that ran the work. It reads only and explains what changed since your last message, using the screenshots and small diagrams the work produced. It lists each decision waiting on you with its recommendation, evidence, and risk, so you can decide from the reply alone.
+
 Use Orchestrate for multi-day programs. Its coordinator writes briefs and coordinates workers but does not implement. Work one agent can finish in a session belongs in the overnight contract above.
 
 A standing program uses [Orchestrate](../../skills/poteto-mode/playbooks/orchestrate.md). A queue of independent PRs uses [Autopilot-full](../../skills/poteto-mode/playbooks/autopilot-full.md). Each PR gets one owner. A swarm checks the code-ready head SHA. A later rebase or minor fix gets one fresh verifier, and only new behavior or a large new diff calls the full swarm again. Only a clean verdict on the patch that merges satisfies the verification gate; it does not grant merge permission. Sequenced or coupled work uses [Autopilot-stack](../../skills/poteto-mode/playbooks/autopilot-stack.md), which produces a linear base-branch stack for the operator to land. Schedules and webhooks still require explicit authorization. A request to monitor does not authorize merging.
