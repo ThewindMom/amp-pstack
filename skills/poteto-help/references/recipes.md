@@ -6,7 +6,7 @@ Swap in real paths, skills, and done checks. Informal wording works.
 
 - `Use pstack:poteto-mode. Read <thread>. Restate the underlying issue in your own words, in plain English.`
 - `Use pstack:in-your-own-words. <Long or messy ask>`
-- `Use pstack:sharpen. <Your task>`
+- `Use pstack:sharpen. <The prompt you're about to send>`
 - `Use pstack:poteto-mode. Investigate why <symptom>. Give me what we know, the data you used, and your best hypotheses. Don't change code yet.`
 - `Use pstack:how to understand <subsystem>, then pstack:why to find why it broke recently.`
 - `Use pstack:recall for my work on <topic> last week, then read <issue>.`

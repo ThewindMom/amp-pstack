@@ -53,13 +53,13 @@ Use pstack:poteto-mode. Read this thread, restate the underlying issue in plain 
 
 Correcting a misreading there costs one message instead of one wrong fix. For the restatement alone, with no playbook, run [`pstack:in-your-own-words`](../../skills/in-your-own-words/SKILL.md). It restates your goals and the problem you're trying to solve.
 
-When you're unsure whether a task is aimed right, put [`pstack:sharpen`](../../skills/sharpen/SKILL.md) in front of it:
+When you're unsure whether a prompt is aimed right, run [`pstack:sharpen`](../../skills/sharpen/SKILL.md) on it before you send it:
 
 ```text
 Use pstack:sharpen. Write a migration guide for the v2 config format.
 ```
 
-Before starting, the agent considers how an expert would do the task, what you're really after, and whether the ask says too much or too little. It keeps one outside check of the result and preserves explicit constraints and permissions, then does the work.
+The agent names what a top professional would add, the raw material they would start from, their methods and tools, and an outside check of the result. It returns a rewritten prompt that asks for those things without expanding the task or deciding your choices. It preserves explicit constraints and permissions and does not do the task. Read the rewrite, then send it, for example with `pstack:poteto-mode`.
 
 When the conversation already carries the context, the prompt shrinks to almost nothing. All of these are enough:
 

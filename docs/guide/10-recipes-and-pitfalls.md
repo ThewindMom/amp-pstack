@@ -20,13 +20,13 @@ Use pstack:poteto-mode. Read this report, restate the underlying issue in plain 
 
 Use `pstack:in-your-own-words` for the restatement alone, with no playbook.
 
-## Aim a task before it starts
+## Sharpen a prompt before you send it
 
 ```text
 Use pstack:sharpen. Write the onboarding doc for the new billing service.
 ```
 
-The agent considers how an expert would do the task, what you're really after, and whether the ask says too much or too little. It keeps one outside check of the result, then does the work within your explicit constraints.
+The agent names what an expert would add, the raw material they would start from, their methods and tools, and an outside check of the result. It returns a rewritten prompt and does not do the task. Send the rewrite when it reads right; your explicit constraints still apply.
 
 ## Prototype before choosing
 

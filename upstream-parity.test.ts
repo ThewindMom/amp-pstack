@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'd457567332aa6989e753ea289f30ea2bfbc80bc0'
-const PINNED_VERSION = '0.15.28'
+const PINNED_COMMIT = 'a66a8931c2dd71f1ed6abf6a52b1898a9f389ae4'
+const PINNED_VERSION = '0.15.29'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.28 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.29 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -535,6 +535,23 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain("Give each item's risk even when it is low")
 		expect(ketchup).toContain('No screenshot yet.')
 		expect(ketchup).toContain('A Markdown table is not a visual')
+	})
+})
+
+describe('0.15.29 sharpen contract', () => {
+	test('rewrites the prompt without executing the task or deciding user choices', async () => {
+		const sharpen = await repoFile('skills/sharpen/SKILL.md')
+		expect(sharpen).toContain('Only use when named.')
+		expect(sharpen).toContain('a deeper version of this task, not a bigger one')
+		expect(sharpen).toContain('top professional in this field')
+		expect(sharpen).toContain('Name the rawest material')
+		expect(sharpen).toContain('Name the specific methods and tools')
+		expect(sharpen).toContain('other than you or me, would show the result is right')
+		expect(sharpen).toContain('Then rewrite my prompt to ask for exactly that.')
+		expect(sharpen).toContain('Leave choices that are mine to make open')
+		expect(sharpen).toContain('do not execute the task')
+		expect(sharpen).toContain('Explicit user constraints and Amp permission boundaries still apply.')
+		expect(sharpen).not.toContain('then do the work')
 	})
 })
 

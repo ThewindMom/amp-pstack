@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "d457567332aa6989e753ea289f30ea2bfbc80bc0",
-		"version": "0.15.28",
-		"tree": "https://github.com/cursor/plugins/tree/d457567332aa6989e753ea289f30ea2bfbc80bc0/pstack"
+		"commit": "a66a8931c2dd71f1ed6abf6a52b1898a9f389ae4",
+		"version": "0.15.29",
+		"tree": "https://github.com/cursor/plugins/tree/a66a8931c2dd71f1ed6abf6a52b1898a9f389ae4/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.29-adapter",
+			"from": "Upstream changes sharpen from executing a task to returning a rewritten prompt, with four explicit checks for expertise, raw material, methods and outside evidence.",
+			"to": "Amp adopts the prompt-only workflow and matching guide and help text, retains qualified named-only invocation and explicit user constraints, and states the no-execution boundary in the skill itself.",
+			"why": "The rewritten prompt is the deliverable, not permission to perform the task. Amp permission boundaries and the user's choices remain authoritative."
+		},
 		{
 			"id": "amp-0.15.28-adapter",
 			"from": "Upstream adds formal-verification maintenance, coverage and sync-commit records, real-code generated-input fallback, an optional setup offer, and guide and sharpen updates.",
