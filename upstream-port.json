@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "a66a8931c2dd71f1ed6abf6a52b1898a9f389ae4",
-		"version": "0.15.29",
-		"tree": "https://github.com/cursor/plugins/tree/a66a8931c2dd71f1ed6abf6a52b1898a9f389ae4/pstack"
+		"commit": "7698375f92a729f8bb89d113c633dce9ff9dc6db",
+		"version": "0.15.30",
+		"tree": "https://github.com/cursor/plugins/tree/7698375f92a729f8bb89d113c633dce9ff9dc6db/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.30-adapter",
+			"from": "Upstream adds statechart, its Node.js chart/TLA+ tools, fixtures, output-folder model, and tests.",
+			"to": "Amp registers the qualified skill with permission, disposable-output, executable-mapping and native-diagram guidance. A Bash entrypoint preserves Node semantics. Upstream tests are named statechart.node.mjs to avoid Bun discovery and run under node --test via test:statechart; their concurrent-edit test waits for TLC's initial-state output instead of a fixed 500 ms delay. Setup installs Java and checksum-pinned TLC 1.7.4 for integration coverage.",
+			"why": "Bun differs from Node in NODE_OPTIONS and exception formatting. Keep the upstream implementation and exercise its intended runtime rather than weakening error-path tests. Java can start after the old test delay, so the edit must wait until it has read the first spec. Generated model evidence does not establish real-product correctness or authorize shared writes."
+		},
 		{
 			"id": "amp-0.15.29-adapter",
 			"from": "Upstream changes sharpen from executing a task to returning a rewritten prompt, with four explicit checks for expertise, raw material, methods and outside evidence.",

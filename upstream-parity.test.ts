@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'a66a8931c2dd71f1ed6abf6a52b1898a9f389ae4'
-const PINNED_VERSION = '0.15.29'
+const PINNED_COMMIT = '7698375f92a729f8bb89d113c633dce9ff9dc6db'
+const PINNED_VERSION = '0.15.30'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.29 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.30 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -224,7 +224,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(55)
+		expect(routed).toHaveLength(56)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -535,6 +535,20 @@ describe('0.15.17 catch-up contract', () => {
 		expect(ketchup).toContain("Give each item's risk even when it is low")
 		expect(ketchup).toContain('No screenshot yet.')
 		expect(ketchup).toContain('A Markdown table is not a visual')
+	})
+})
+
+describe('0.15.30 statechart contract', () => {
+	test('requires real-code reproduction and safe tool execution before handing off model claims', async () => {
+		const statechart = await repoFile('skills/statechart/SKILL.md')
+		expect(statechart).toContain('bash <loaded-skill-base>/scripts/statechart.sh --help')
+		expect(statechart).toContain('Inspect mapping `.mjs` files before running them')
+		expect(statechart).toContain('regeneration replaces the tool-owned output folder')
+		expect(statechart).toContain('Replay each bug\'s story against the real code')
+		expect(statechart).toContain('If a bug does not reproduce, assume the model is wrong')
+		expect(statechart).toContain('Do not report that a rule holds while the command lists conditions with no file and line.')
+		expect(statechart).toContain('Take every count you quote from `summary.json`.')
+		expect(statechart).toContain('unless the user explicitly requests Mermaid syntax')
 	})
 })
 

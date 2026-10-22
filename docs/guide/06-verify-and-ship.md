@@ -66,6 +66,20 @@ It writes a project-local skill under `.agents/skills/verify-<area>/` that tells
 
 The skill also records which code each check covers and the commit where the check last matched it. Merges and refactors that skip the skill can leave the check passing on a description of code that's gone. After them, run [`pstack:maintain-formal-verification-skill`](../../skills/maintain-formal-verification-skill/SKILL.md). It updates the verification from the code, reruns it, shows that each updated check can still fail, and tells you whether each failure is drift in the verification or a bug in the code.
 
+## Show the behavior as a statechart
+
+A counterexample in model terms may not help the PM or designer who owns the behavior. To show what the user sees, run:
+
+```text
+Use pstack:statechart. Show what the user sees when they edit a note offline.
+```
+
+[`pstack:statechart`](../../skills/statechart/SKILL.md) generates charts from a TLA+ model. The reader's rules, such as "you never see Synced while offline", become invariants. Each bug TLC finds is a numbered path in the reader's words, and states are marked working, still wrong, or fixed by an open PR. Before handing off, the agent reproduces each bug path against real code. A model result alone is not proof of product behavior.
+
+The reverse direction turns an agreed chart into a TLA+ skeleton. TLC checks the chart's rules before code exists; adding code guards exposes differences for the reader to decide. When a spec already exists, the skill compares a model of the code against the unchanged spec and shows paths where either breaks a rule.
+
+The tools use Mermaid source files and can render PNGs. Java 11+, `TLA2TOOLS`, and Node.js are required; PNG rendering uses Mermaid CLI through `npx`. Work on disposable input copies and dedicated output directories, because regeneration replaces tool-owned output. Share inspected PNGs and source attachments; use Mermaid syntax inline only when explicitly requested.
+
 ## Open the PR, then babysit only when asked
 
 Before an approved PR action, use isolated worktrees, small ordered commits, cleaned prose, and evidence. Babysit resolves conflicts, review threads, then CI in one push wave. It stops at merge-ready; merging still requires explicit authorization.

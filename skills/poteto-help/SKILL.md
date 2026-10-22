@@ -72,6 +72,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [`pstack:create-formal-verification-skill`](../create-formal-verification-skill/SKILL.md) |
 | Bring formal verification back in line after covered code changes, and distinguish drift from bugs | [`pstack:maintain-formal-verification-skill`](../maintain-formal-verification-skill/SKILL.md) |
+| Show user-visible behavior and bug paths from a checked model, turn an agreed chart into a TLA+ skeleton, or audit code against a spec | [`pstack:statechart`](../statechart/SKILL.md) |
 | Vet a performance number | [`pstack:benchmark-checklist`](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change | [`pstack:figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep and audit a decision log | [`pstack:show-me-your-work`](../show-me-your-work/SKILL.md) |
