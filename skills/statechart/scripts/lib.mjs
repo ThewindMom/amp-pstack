@@ -429,7 +429,7 @@ export function parseTraces(text) {
 // action property, a bare state predicate, which TLC checks only in the initial states, as a
 // property of the initial state, and any other formula as a temporal property.
 export const BROKEN_PROPERTY =
-  /^Error: (Invariant \S+ is violated|Action property \S+ is violated\.|Property \S+ is violated by the initial state:|Temporal properties were violated\.)/m;
+  /^Error: (Invariant \S+ is violated|Action property \S+ is violated\.|Property \S+ is violated by the initial state:|Temporal (properties were|property \S+ was) violated\.)/m;
 
 // With -continue, TLC prints "Model checking completed" even after broken invariants, and not
 // when it stopped early. TLC can also throw a Java exception of its own while it reports a state
@@ -451,7 +451,7 @@ export function checkTlcOutput(text, file) {
     thrown.every((t) => t.startsWith("java."));
   const reported = crashed
     ? /^Error: (Invariant \S+ is violated|The behavior up to this point is|Evaluating invariant \S+ failed\.|TLC threw an unexpected exception\.|The error occurred when TLC was evaluating the nested)/
-    : /^Error: (Invariant \S+ is violated|Action property \S+ is violated\.|Property \S+ is violated by the initial state:|The behavior up to this point is|Temporal properties were violated\.|The following behavior constitutes a counter-example:)/;
+    : /^Error: (Invariant \S+ is violated|Action property \S+ is violated\.|Property \S+ is violated by the initial state:|The behavior up to this point is|Temporal (properties were|property \S+ was) violated\.|The following behavior constitutes a counter-example:)/;
   const other = lines.find((l) => l.startsWith("Error: ") && !reported.test(l));
   if (other)
     throw new Error(
@@ -464,7 +464,7 @@ export function checkTlcOutput(text, file) {
   // TLC stops at the first broken temporal property, and at an initial state that breaks a
   // PROPERTY, and then does not print that it completed.
   if (
-    !/^(Model checking completed\.|Error: (Temporal properties were violated\.|Property \S+ is violated by the initial state:))/m.test(
+    !/^(Model checking completed\.|Error: (Temporal (properties were|property \S+ was) violated\.|Property \S+ is violated by the initial state:))/m.test(
       text,
     )
   )

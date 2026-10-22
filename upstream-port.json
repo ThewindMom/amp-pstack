@@ -10,8 +10,8 @@
 		{
 			"id": "amp-0.15.30-adapter",
 			"from": "Upstream adds statechart, its Node.js chart/TLA+ tools, fixtures, output-folder model, and tests.",
-			"to": "Amp registers the qualified skill with permission, disposable-output, executable-mapping and native-diagram guidance. A Bash entrypoint preserves Node semantics. Upstream tests are named statechart.node.mjs to avoid Bun discovery and run under node --test via test:statechart; their concurrent-edit test waits for TLC's initial-state output instead of a fixed 500 ms delay. Setup installs Java and checksum-pinned TLC 1.7.4 for integration coverage.",
-			"why": "Bun differs from Node in NODE_OPTIONS and exception formatting. Keep the upstream implementation and exercise its intended runtime rather than weakening error-path tests. Java can start after the old test delay, so the edit must wait until it has read the first spec. Generated model evidence does not establish real-product correctness or authorize shared writes."
+			"to": "Amp registers the qualified skill with permission, disposable-output, executable-mapping and native-diagram guidance. A Bash entrypoint preserves Node semantics. Upstream tests are named statechart.node.mjs to avoid Bun discovery and run under node --test via test:statechart; their concurrent-edit test waits for TLC's initial-state output instead of a fixed 500 ms delay. Setup installs Java and checksum-pinned TLC 1.7.4 for integration coverage. The TLC parser and tests accept both the old plural and TLC 1.8 named temporal-property violation messages.",
+			"why": "Bun differs from Node in NODE_OPTIONS and exception formatting. Preserve Node execution rather than weakening error-path tests. Java can start after the old test delay, so the edit must wait until it has read the first spec. TLC 1.8's valid counterexamples must not be mistaken for tool failures. Generated model evidence does not establish real-product correctness or authorize shared writes."
 		},
 		{
 			"id": "amp-0.15.29-adapter",

@@ -290,6 +290,12 @@ ${done}`;
 });
 
 test("TLC output from a run that failed or stopped early is refused", () => {
+  for (const message of [
+    "Temporal properties were violated.",
+    "Temporal property EventuallyPaying was violated.",
+  ]) {
+    assert.doesNotThrow(() => checkTlcOutput(`Error: ${message}\n`, "temporal.out"));
+  }
   assert.doesNotThrow(() =>
     checkTlcOutput(
       `Error: Invariant Small is violated.\nError: The behavior up to this point is:\nState 1: <Initial predicate>\nx = 0\n\n${done}`,
@@ -1340,7 +1346,7 @@ test(
     const tlcDir = join(dir, "Pay-statechart", "tlc");
     assert.match(
       readFileSync(join(tlcDir, "Pay-EventuallyPaying.out"), "utf8"),
-      /^Error: Temporal properties were violated\./m,
+      /^Error: Temporal (properties were|property EventuallyPaying was) violated\./m,
     );
     assert.deepEqual(
       readdirSync(tlcDir)
