@@ -12,6 +12,19 @@ if ! command -v java >/dev/null; then
 	sudo apt-get install -y openjdk-17-jre-headless
 fi
 
+# Statechart's PNG tests require Node's crc32 (20.15+ or 22.2+) and real fonts.
+node --input-type=module -e 'import { crc32 } from "node:zlib"; if (typeof crc32 !== "function") process.exit(1)'
+fonts=()
+for package in fontconfig fonts-dejavu-core fonts-liberation fonts-urw-base35; do
+	if [ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != "install ok installed" ]; then
+		fonts+=("$package")
+	fi
+done
+if [ "${#fonts[@]}" -gt 0 ]; then
+	sudo apt-get update -qq
+	sudo apt-get install -y "${fonts[@]}"
+fi
+
 tlc="$HOME/.cache/amp-pstack/tla2tools-1.7.4.jar"
 mkdir -p "$(dirname "$tlc")"
 if [ ! -f "$tlc" ]; then
@@ -21,3 +34,4 @@ fi
 echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $tlc" | sha256sum -c -
 
 bun install --frozen-lockfile
+node --input-type=module -e 'await (await import("./skills/statechart/scripts/render.mjs")).loadRenderer()'

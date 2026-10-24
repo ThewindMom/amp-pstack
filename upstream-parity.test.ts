@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '8b3326d99fd4b993cb33a24dad8af03175c642c5'
-const PINNED_VERSION = '0.15.30'
+const PINNED_COMMIT = '9580c23696ac8d7abed0c166f2f9918800afb819'
+const PINNED_VERSION = '0.15.32'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.30 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.32 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -224,7 +224,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(56)
+		expect(routed).toHaveLength(57)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -498,6 +498,7 @@ describe('0.15.13 help contracts', () => {
 			'skills/poteto-help/references/prompting.md',
 			'skills/poteto-help/references/recipes.md',
 			'skills/ketchup/SKILL.md',
+			'skills/ketchup-video/SKILL.md',
 		]
 		for (const path of paths) {
 			const text = await repoFile(path)
@@ -538,17 +539,40 @@ describe('0.15.17 catch-up contract', () => {
 	})
 })
 
-describe('0.15.30 statechart contract', () => {
+describe('0.15.32 statechart and catch-up contracts', () => {
 	test('requires real-code reproduction and safe tool execution before handing off model claims', async () => {
 		const statechart = await repoFile('skills/statechart/SKILL.md')
 		expect(statechart).toContain('bash <loaded-skill-base>/scripts/statechart.sh --help')
 		expect(statechart).toContain('Inspect mapping `.mjs` files before running them')
 		expect(statechart).toContain('regeneration replaces the tool-owned output folder')
-		expect(statechart).toContain('Replay each bug\'s story against the real code')
+		expect(statechart).toContain('When the model describes code, replay each bug\'s story against the real code')
 		expect(statechart).toContain('If a bug does not reproduce, assume the model is wrong')
-		expect(statechart).toContain('Do not report that a rule holds while the command lists conditions with no file and line.')
+		expect(statechart).toContain('When the model describes code, do not report that a rule holds while the command lists conditions with no file and line.')
+		expect(statechart).toContain('For a design with no code yet, the TLC trace is the evidence')
+		expect(statechart).toContain('A broken PROPERTY has no path on the chart')
 		expect(statechart).toContain('Take every count you quote from `summary.json`.')
 		expect(statechart).toContain('unless the user explicitly requests Mermaid syntax')
+	})
+
+	test('video catch-up only writes evidence-based reply artifacts', async () => {
+		const video = await repoFile('skills/ketchup-video/SKILL.md')
+		expect(video).toContain('Only use when named.')
+		expect(video).toContain('Scheduled wake-ups, notifications, and child reports are not their messages.')
+		expect(video).toContain('Writing and rendering the reply video is the one exception to its read-only rule.')
+		expect(video).toContain('Do not change product code, configure models, create schedules, or publish.')
+		expect(video).toContain('Never invent a number, and never draw a screen you did not capture.')
+		expect(video).toContain('look at one frame from each slide in the rendered file')
+		expect(video).toContain('at least one second for each three words it adds')
+	})
+
+	test('reflection edits the approved source, and formal checks discover the current statechart skill', async () => {
+		const reflect = await repoFile('skills/reflect/SKILL.md')
+		expect(reflect).toContain('Never edit a loaded plugin or skill cache.')
+		expect(reflect).toContain('show the writable source repository and path before approval')
+		expect(reflect).toContain('Reflection approval alone does not authorize opening a PR or pushing')
+		const formal = await repoFile('skills/create-formal-verification-skill/SKILL.md')
+		expect(formal).toContain('Refer to `pstack:statechart` by name.')
+		expect(formal).toContain('copy none of them into the generated skill or its scripts')
 	})
 })
 

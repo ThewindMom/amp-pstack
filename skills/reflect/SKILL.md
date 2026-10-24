@@ -46,6 +46,8 @@ Present the synthesizer's full Accepted / Rejected / Backlog output and wait for
 
 Do not file Backlog items automatically. Offer them and wait for authorization before writing to a shared tracker.
 
+Never edit a loaded plugin or skill cache. Load `building-skills` before preparing edits, and show the writable source repository and path before approval. If a project-local copy under `.agents/skills/` is intended instead, show that destination and scope explicitly. After approval, edit only that source or approved copy, preserving its bundled resources. Reflection approval alone does not authorize opening a PR or pushing; those require separate explicit authorization.
+
 Follow each approved row's Routing exactly:
 
 - Trivial existing-skill edit (a one-line bullet, a tightened sentence, a stale fact corrected): the parent does it directly.

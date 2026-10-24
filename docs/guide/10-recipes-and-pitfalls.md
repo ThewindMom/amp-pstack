@@ -90,6 +90,8 @@ Load pstack:ketchup
 
 [`pstack:ketchup`](../../skills/ketchup/SKILL.md) explains what changed since your last message, then lists each decision waiting on you with its recommendation, evidence, and risk. It changes nothing while it reports.
 
+To watch the catch-up instead, invoke [`pstack:ketchup-video`](../../skills/ketchup-video/SKILL.md). It shows what happened in a short silent video of slides, and lists the decisions waiting on you as text under it.
+
 ## Pitfalls
 
 - Naming a playbook is optional. A goal plus a check is enough.

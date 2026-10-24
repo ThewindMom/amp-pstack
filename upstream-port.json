@@ -2,11 +2,23 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "8b3326d99fd4b993cb33a24dad8af03175c642c5",
-		"version": "0.15.30",
-		"tree": "https://github.com/cursor/plugins/tree/8b3326d99fd4b993cb33a24dad8af03175c642c5/pstack"
+		"commit": "9580c23696ac8d7abed0c166f2f9918800afb819",
+		"version": "0.15.32",
+		"tree": "https://github.com/cursor/plugins/tree/9580c23696ac8d7abed0c166f2f9918800afb819/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.32-statechart-runtime",
+			"from": "Upstream splits statechart into modules, adds temporal-loop reporting and real PNG tests, and snapshots input files before TLC runs.",
+			"to": "Amp retains the Node wrapper and renamed Node suite, extends TLC 1.8 temporal-heading compatibility to property-loop.mjs, resolves Java to an absolute path in tests and gives fake mise installations a tla2tools.jar symlink for versioned jars. Upstream's snapshot and fingerprint barriers replace the earlier custom concurrent-edit wait. Setup checks Node crc32 support, installs renderer test fonts, and prewarms pinned Pele/resvg so missing dependencies fail setup instead of skipping rendering coverage.",
+			"why": "Preserve TLC compatibility and reproducible tests without retaining superseded concurrency scaffolding. Real rendering and font checks must run in fresh orbs and CI."
+		},
+		{
+			"id": "amp-0.15.32-adapter",
+			"from": "Upstream adds ketchup-video, broadens statechart to any system with a Pele renderer, routes model-check results through statechart, fixes PR discovery and polling, and moves reflect edits out of plugin caches.",
+			"to": "Amp keeps qualified skill routing, Node execution and TLC compatibility. Ketchup-video inherits Amp's authored-message window and read-only scope except for reply media, uses the available video workflow, and stores final media in .amp/in/artifacts. Reflect names the writable source or approved project-local copy before edits; publication needs separate authorization. Formal verification refers to pstack:statechart by name. Existing Amp thread-search worktree auditing already avoids stat/date transcript parsing, so the upstream GNU stat fix does not apply. Claude Code marketplace auto-update instructions remain outside this Amp port.",
+			"why": "Preserve Amp's source-of-truth repositories, permissions, transcript APIs, and artifact conventions while adopting upstream behavior. Renderer and toolchain downloads are disclosed, and model evidence is not proof of product correctness."
+		},
 		{
 			"id": "amp-0.15.30-adapter",
 			"from": "Upstream adds statechart, its Node.js chart/TLA+ tools, fixtures, output-folder model, and tests.",

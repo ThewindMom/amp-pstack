@@ -56,6 +56,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Understand a change or subsystem plainly | [`pstack:teach`](../teach/SKILL.md) |
 | Catch up on recent work | [`pstack:recall`](../recall/SKILL.md) |
 | Catch up on this thread in plain words and small visuals, with every pending item listed and decidable from the reply alone | [`pstack:ketchup`](../ketchup/SKILL.md) |
+| Watch the catch-up as a short silent video, with pending decisions as text under it | [`pstack:ketchup-video`](../ketchup-video/SKILL.md) |
 | Know what a small diff could break outside itself | [`pstack:blast-radius`](../blast-radius/SKILL.md) |
 | Settle types and module shape before code | [`pstack:architect`](../architect/SKILL.md) |
 | Compare attempts at one brief and merge the best parts | [`pstack:arena`](../arena/SKILL.md) |
@@ -72,7 +73,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [`pstack:create-formal-verification-skill`](../create-formal-verification-skill/SKILL.md) |
 | Bring formal verification back in line after covered code changes, and distinguish drift from bugs | [`pstack:maintain-formal-verification-skill`](../maintain-formal-verification-skill/SKILL.md) |
-| Show user-visible behavior and bug paths from a checked model, turn an agreed chart into a TLA+ skeleton, or audit code against a spec | [`pstack:statechart`](../statechart/SKILL.md) |
+| Chart product, protocol, or service behavior and bug paths from a checked model, turn an agreed chart into a TLA+ skeleton, or audit code against a spec | [`pstack:statechart`](../statechart/SKILL.md) |
 | Vet a performance number | [`pstack:benchmark-checklist`](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change | [`pstack:figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep and audit a decision log | [`pstack:show-me-your-work`](../show-me-your-work/SKILL.md) |
