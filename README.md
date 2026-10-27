@@ -20,10 +20,13 @@ pstack is a directory plugin. Amp's URL installer (`amp plugins add`) only accep
 
 ```bash
 amp clone user-plugins
-rsync -a --delete --exclude .git ./ /path/to/user-plugins/pstack/
+mkdir -p /path/to/user-plugins/pstack
+git archive HEAD | tar -x -C /path/to/user-plugins/pstack
 bun run build:selector
 cp .amp/tmp/poteto-mode.ts /path/to/user-plugins/poteto-mode.ts
 ```
+
+Publish from a verified commit. `.gitattributes` excludes the development-only statechart test suite and corpus from the archive: including them caused Amp to omit the whole directory plugin from discovery. Keep the full suite in the GitHub checkout and run development checks there, not in the published copy. When updating an existing installation, reconcile deleted source files and remove any previously published `skills/statechart/scripts/test/` tree, while preserving personal customizations. Do not copy dependencies, caches, or scratch files.
 
 Then reload plugins. Open Settings → Mode Dial → Build Dial and drag **poteto** into a bay. A system clone at `~/.config/amp/plugins/pstack` beats a personal copy, so do not keep both.
 

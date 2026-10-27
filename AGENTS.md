@@ -11,3 +11,5 @@ Run `.agents/setup`, then `bun run test`, `bun run typecheck:plugin`, and `bun r
 | A parent never redoes or replaces a live child. It reads the returned `threadID` and stops a child only once it is terminal. | `pstack_start_agent` and `pstack_stop_agent` in `index.ts`, covered by `index.test.ts` |
 | Ported text matches the pinned upstream unless `upstream-port.json` lists the departure. | `upstream-parity.test.ts` pins named contracts only. Unpinned drift is a judgment call for the port reviewer. |
 | After editing plugin code or model maps, reload plugins before judging behavior from a live thread. | Nothing. Judgment call. |
+
+Publish the tracked archive, respecting `.gitattributes`: the statechart test suite and corpus stay in this source repository, not the Amp directory plugin. Delta-based publication must apply the same exclusion. Including that subtree caused Amp to omit the whole plugin from discovery. Run development checks here, then verify the published catalog and a bundled CLI after reloading.
