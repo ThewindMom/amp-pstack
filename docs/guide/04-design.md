@@ -28,6 +28,8 @@ Load pstack:arena. Take my prompt to the arena verbatim. I want to compare their
 
 [`pstack:arena`](../../skills/arena/SKILL.md) is the general tool underneath. `pstack_run_panel` uses the caller's candidate panel, defaulting to `arena-runners`, to attempt the same design or code brief in parallel. One background `arena-cross-judge` is required after the candidate panel. It scores every candidate against a rubric while the coordinator reads each candidate end to end. The coordinator picks a base, grafts in the best ideas from the losers, and verifies the result.
 
+When the parent's model family is known, the judge must use a known different family. If the configured pool has none, the spawn fails without clearing the judge gate; changing the pool still needs the user's request. An unknown parent uses the first seat without a family guarantee.
+
 ## Cover slices with `pstack:swarm`
 
 Arena accepts a custom candidate `count` from 1 to 20 when the decision warrants more attempts. Swarm can partition independent slices or race identical briefs; for a race, declare `first pass`, `rank all`, or `best-of` before spawning.
@@ -44,9 +46,9 @@ Load pstack:swarm. Check every package under packages/ against its check.sh. One
 Load pstack:interrogate. Review this branch against its stated intent. Don't change anything yet.
 ```
 
-[`pstack:interrogate`](../../skills/interrogate/SKILL.md) runs panel `interrogate-reviewers`. The parent synthesizes. Agreement across model families is high-signal. One loud nit is not.
+[`pstack:interrogate`](../../skills/interrogate/SKILL.md) runs panel `interrogate-reviewers`. Read-only reviewers propose concrete repros; the parent runs them in a disposable copy of the exact reviewed state. Only failures that break the intent survive as findings, each with its command and output.
 
-The lead classifies findings as Act on, Consider, Noted, or Dismissed with reasons. It applies nothing automatically.
+The report lists verified findings, dropped proposals with reasons, and blocked repros as unverified. It applies no fixes. Agreement between models is not a substitute for a failing run.
 
 ## Prototype, then plan
 
@@ -54,7 +56,7 @@ The lead classifies findings as Act on, Consider, Noted, or Dismissed with reaso
 Use pstack:poteto-mode. Prototype a few dropdown options behind one switcher. Capture screenshots or video for comparison.
 ```
 
-Prototypes provide executable evidence for UI, behavior, or algorithms. Pair them with `pstack:architect` when boundaries matter, and keep a review gate. Do not spend `pstack:interrogate` on an abstract plan; review the resulting diff.
+Prototypes provide executable evidence for UI, behavior, or algorithms. Pair them with `pstack:architect` when boundaries matter, and keep a review gate. For a design or plan, `pstack:interrogate` needs a bounded prototype or probe of the current tree, not hypothetical risks.
 
 For shared code, write its user tutorial first so the caller's view becomes the target. Once the design settles, ask for small PRs, each with proof:
 

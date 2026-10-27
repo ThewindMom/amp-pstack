@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -euo pipefail
-exec node "$(dirname "$0")/statechart.mjs" "$@"
+exec sh "$(dirname "$0")/statechart" "$@"

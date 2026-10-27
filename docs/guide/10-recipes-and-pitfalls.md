@@ -62,6 +62,8 @@ Each worker owns one package. The parent waits for every slice and returns one `
 Load pstack:interrogate on the whole branch, but skeptically. Don't change anything yet. No nitpicks unless it's an actual bug or regression in behavior.
 ```
 
+Reviewers propose repros; the parent runs them on an isolated copy. The report keeps only executed failures, names blocked checks, and applies no fixes.
+
 ## Fix a bug through a failing test
 
 ```text
@@ -90,7 +92,7 @@ Load pstack:ketchup
 
 [`pstack:ketchup`](../../skills/ketchup/SKILL.md) explains what changed since your last message, then lists each decision waiting on you with its recommendation, evidence, and risk. It changes nothing while it reports.
 
-To watch the catch-up instead, invoke [`pstack:ketchup-video`](../../skills/ketchup-video/SKILL.md). It shows what happened in a short silent video of slides, and lists the decisions waiting on you as text under it.
+To watch the catch-up instead, invoke [`pstack:ketchup-video`](../../skills/ketchup-video/SKILL.md). It shows what happened in a short silent video of slides with readable subtitles below the pictures, and lists the decisions waiting on you as text under it. Each slide's fully visible hold includes time to read its subtitle and new labels.
 
 ## Pitfalls
 

@@ -74,11 +74,11 @@ A counterexample in model terms may not help the PM or designer who owns the beh
 Use pstack:statechart. Show what the user sees when they edit a note offline.
 ```
 
-[`pstack:statechart`](../../skills/statechart/SKILL.md) generates charts from a TLA+ model. The reader's rules, such as "you never see Synced while offline", become invariants. Each bug TLC finds is a numbered path in the reader's words, and states are marked working, still wrong, or fixed by an open PR. Before handing off, the agent reproduces each bug path against real code. A model result alone is not proof of product behavior.
+[`pstack:statechart`](../../skills/statechart/SKILL.md) generates charts from a TLA+ model. The reader's rules, such as "you never see Synced while offline", become invariants. Each broken rule gets its shortest path in the reader's words. Chart states distinguish definite failures from labels that include both failing and passing model states. Before handing off, the agent reproduces each bug path against real code. A model result alone is not proof of product behavior.
 
-The reverse direction turns an agreed chart into a TLA+ skeleton. TLC checks the chart's rules before code exists; adding code guards exposes differences for the reader to decide. When a spec already exists, the skill compares a model of the code against the unchanged spec and shows paths where either breaks a rule.
+Run the Bash entrypoint with `SPEC.tla [--config FILE] [--view FILE] [--out DIR]`. The old `from-chart`, `from-spec`, `--fixed`, `--against`, and `--png` interface is removed. Write the model directly and use separate runs for comparisons. The view module supplies labels, groups, and parallel regions; inspect it first because it executes code.
 
-The tools use Mermaid source files and can render PNGs. Java 11+, `TLA2TOOLS`, and Node.js are required; PNG rendering uses Mermaid CLI through `npx`. Work on disposable input copies and dedicated output directories, because regeneration replaces tool-owned output. Share inspected PNGs and source attachments; use Mermaid syntax inline only when explicitly requested.
+The compiler writes Mermaid source and a report; Pele 1.9 renders the source separately using the skill's rendering reference. Use a supported TypeScript runtime and a trusted `TLA2TOOLS` jar, or review the launcher's mise toolchain installs. Output directories must be new or empty, so existing results are never replaced. Above 500 model states the chart shows only broken-rule paths, or no chart when no rule breaks. Share inspected images and source attachments; use Mermaid syntax inline only when explicitly requested.
 
 ## Open the PR, then babysit only when asked
 

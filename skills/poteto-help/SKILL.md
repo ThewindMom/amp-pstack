@@ -56,12 +56,12 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Understand a change or subsystem plainly | [`pstack:teach`](../teach/SKILL.md) |
 | Catch up on recent work | [`pstack:recall`](../recall/SKILL.md) |
 | Catch up on this thread in plain words and small visuals, with every pending item listed and decidable from the reply alone | [`pstack:ketchup`](../ketchup/SKILL.md) |
-| Watch the catch-up as a short silent video, with pending decisions as text under it | [`pstack:ketchup-video`](../ketchup-video/SKILL.md) |
+| Watch the catch-up as a short silent, subtitled video, with pending decisions as text under it | [`pstack:ketchup-video`](../ketchup-video/SKILL.md) |
 | Know what a small diff could break outside itself | [`pstack:blast-radius`](../blast-radius/SKILL.md) |
 | Settle types and module shape before code | [`pstack:architect`](../architect/SKILL.md) |
 | Compare attempts at one brief and merge the best parts | [`pstack:arena`](../arena/SKILL.md) |
 | Run parallel checks over slices or race workers | [`pstack:swarm`](../swarm/SKILL.md) |
-| Have several models review and try to break a diff | [`pstack:interrogate`](../interrogate/SKILL.md) |
+| Have several models challenge a change or design, keeping run-proven findings | [`pstack:interrogate`](../interrogate/SKILL.md) |
 | Fix a bug test-first with a cheap local test | [`pstack:tdd`](../tdd/SKILL.md) |
 | Apply TypeScript rules | [`pstack:typescript-best-practices`](../typescript-best-practices/SKILL.md) |
 | Audit comments with an independent reviewer | [`pstack:no-comments`](../no-comments/SKILL.md) |
@@ -73,7 +73,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [`pstack:create-formal-verification-skill`](../create-formal-verification-skill/SKILL.md) |
 | Bring formal verification back in line after covered code changes, and distinguish drift from bugs | [`pstack:maintain-formal-verification-skill`](../maintain-formal-verification-skill/SKILL.md) |
-| Chart product, protocol, or service behavior and bug paths from a checked model, turn an agreed chart into a TLA+ skeleton, or audit code against a spec | [`pstack:statechart`](../statechart/SKILL.md) |
+| Check a TLA+ model of product, protocol, or service behavior and draw shortest paths to broken rules | [`pstack:statechart`](../statechart/SKILL.md) |
 | Vet a performance number | [`pstack:benchmark-checklist`](../benchmark-checklist/SKILL.md) |
 | Run a large or cross-cutting change | [`pstack:figure-it-out`](../figure-it-out/SKILL.md) |
 | Keep and audit a decision log | [`pstack:show-me-your-work`](../show-me-your-work/SKILL.md) |
@@ -91,7 +91,7 @@ Close calls:
 - `how` explains mechanics; `why` explains reasons; `teach` runs one or both and explains plainly.
 - `arena` gives every worker the same brief; `swarm` splits slices or races and returns one report.
 - `architect` implements after design; add "with checkpoint" to review before code.
-- `interrogate` reviews the diff; `blast-radius` proves the safety fact outside it.
+- `interrogate` keeps only failures proven by a run, with no automatic fixes; `blast-radius` proves the safety fact outside the diff.
 - `recall` spans recent threads; `ketchup` catches up within this thread; Session pickup resumes one specific branch or thread.
 - `figure-it-out` designs one rigorous run; Orchestrate spans days and PRs; Autonomous run drives one task to its finish condition.
 
@@ -105,7 +105,7 @@ Playbooks are step lists inside poteto-mode, not separately invokable skills. Th
 - "land the stack": Shipping.
 - "take over this branch": Session pickup.
 - "pause safely": Pause safely.
-- "full autopilot on this queue": Autopilot-full; "stack them, don't ship": Autopilot-stack.
+- "full autopilot on this queue": Autopilot-full; "autopilot, don't merge": Autopilot-stack.
 - "run the eval playbook": Eval.
 
 Without poteto-mode, another workflow may handle the same words. Read its [Playbooks section](../poteto-mode/SKILL.md) for the full map and [guide page 6](../../docs/guide/06-verify-and-ship.md) for PR workflows.

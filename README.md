@@ -1,10 +1,10 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.32. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.35. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Porting contract
 
-The workflow source is [Cursor pstack 0.15.32 at the pinned revision](https://github.com/cursor/plugins/tree/9580c23696ac8d7abed0c166f2f9918800afb819/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
+The workflow source is [Cursor pstack 0.15.35 at the pinned revision](https://github.com/cursor/plugins/tree/ab1f702ce8e8b6557edb56b09f52cde8bfb83f17/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
 
 The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
 
@@ -89,7 +89,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | How-explorer | `openai/gpt-5.6-luna` at low with the premium `fast` serving feature |
 | Judgment, reflect-judgment, reflect-synthesizer | `anthropic/claude-opus-5-5` at high |
 | How-explainer, why-synthesizer, reflect-divergent, comment-reviewer | `anthropic/claude-opus-5-5` at medium |
-| Panels and arena cross-judge pool | Opus 5.5 high, GPT-6.1 Sol high, Grok 4.7 xhigh; arena runners use Opus 5.5 medium; one cross-judge runs, preferring a known family different from the parent |
+| Panels and arena cross-judge pool | Opus 5.5 high, GPT-6.1 Sol high, Grok 4.7 xhigh; arena runners use Opus 5.5 medium; one cross-judge runs, requiring a known different family when the parent family is known |
 
 The `hardest` role is the strongest code-writing seat. It is separate from `judgment`, which reviews without owning an implementation diff.
 
@@ -150,7 +150,7 @@ Direct skills include:
 - Execution quality: [`tdd`](./skills/tdd/SKILL.md), [`no-comments`](./skills/no-comments/SKILL.md), [`unslop`](./skills/unslop/SKILL.md), [`technical-writing`](./skills/technical-writing/SKILL.md), [`benchmark-checklist`](./skills/benchmark-checklist/SKILL.md).
 - Memory and customization: [`reflect`](./skills/reflect/SKILL.md), [`automate-me`](./skills/automate-me/SKILL.md), [`show-me-your-work`](./skills/show-me-your-work/SKILL.md), [`correct`](./skills/correct/SKILL.md).
 - Verification: [`create-verification-skill`](./skills/create-verification-skill/SKILL.md), [`maintain-verification-skill`](./skills/maintain-verification-skill/SKILL.md), [`create-formal-verification-skill`](./skills/create-formal-verification-skill/SKILL.md) for a bounded proof of a race or invariant that tests rarely reach, and [`maintain-formal-verification-skill`](./skills/maintain-formal-verification-skill/SKILL.md) to keep that verification in sync with the code.
-- Behavior charts: [`statechart`](./skills/statechart/SKILL.md) generates product, protocol, and service charts and numbered bug paths from a TLA+ model, turns agreed charts into model skeletons, and audits code against an existing spec. Model findings must be reproduced against the real code before being reported as product bugs.
+- Behavior charts: [`statechart`](./skills/statechart/SKILL.md) checks a TLA+ model of product, protocol, or service behavior and draws its chart with the shortest path to each broken rule. Model findings must be reproduced against the real code before being reported as product bugs. The new CLI takes `SPEC.tla [--config FILE] [--view FILE] [--out DIR]`; the old `from-chart`, `from-spec`, comparison, and PNG flags are removed. Rendering is a separate Pele step, and output directories must be new or empty.
 
 See the [Amp guide](./docs/guide/README.md) for the ten-chapter tutorial: setup, poteto-mode, understanding, design, build, verify, overnight work, principles, making it yours, and recipes.
 
@@ -166,7 +166,7 @@ amp plugins exec . session.start --data '{"thread":{"id":"T-00000000-0000-0000-0
 
 `bun install` also installs the legacy orchestration and PR-watcher tools under `skills/poteto-mode/scripts`. Bare `bun test`, `bun run test:tools`, and `bun run typecheck:tools` install that package if it is missing, so a fresh clone does not depend on a hidden `node_modules`. Tool typecheck uses that package's `typescript` and `bun-types`, not a global `tsc`.
 
-`bun run test` also runs the upstream statechart suite under Node.js with `zlib.crc32` support (20.15+ or 22.2+); bare `bun test` runs only the Bun suite. `.agents/setup` installs Java, checksum-pinned TLC 1.7.4 in `~/.cache/amp-pstack/`, renderer test fonts, and prewarms the PNG renderer. `bun run test:statechart` uses that jar unless `TLA2TOOLS` selects another. Direct CLI use without `TLA2TOOLS` resolves and installs TLC and Java through mise. PNG generation installs `pele@1.8.0` and `@resvg/resvg-js@2.6.2` with npm into the user's cache on first use, with install scripts disabled; it needs no browser. Review the statechart help before running in an offline or restricted environment.
+`bun run test` also runs the upstream statechart compiler suite under Node 22.18–22.x or 23.6+ with native TypeScript support; bare `bun test` runs only the Bun suite. Run `.agents/setup` first: it installs a Java JDK for the config oracle, checksum-pinned TLC 1.7.4 in `~/.cache/amp-pstack/`, fonts, and locked statechart test/typecheck dependencies. `bun run test:statechart` uses that jar unless `TLA2TOOLS` selects another. Direct CLI use without `TLA2TOOLS` resolves and installs TLC and Java through mise. Rendering is separate and uses `pele@1.9.0` for SVG output. The renderer tests install pinned Pele, Mermaid, and jsdom into the user's cache with npm and lifecycle scripts disabled; they need no browser. Review the statechart skill and rendering reference before running in an offline or restricted environment.
 
 `amp plugins list` shows the `setup-models` command, the five pstack tools (`start_agent`, `run_panel`, `stop_agent`, `read_current_thread`, and `configure_models`), the generated `pstack-*` orb adapter modes, and the `poteto` mode. It does not print `export const description`. That string is in `index.ts` and in `package.json`. Thread setup uses `pstack_configure_models` with `action: "profile"` or `pstack:setup-pstack`. The palette command is optional.
 

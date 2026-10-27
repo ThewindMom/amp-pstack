@@ -110,16 +110,16 @@ describe('amp-pstack plugin', () => {
 				'shipping.md',
 			].map((name) => Bun.file(`skills/poteto-mode/playbooks/${name}`).text()),
 		)
-		for (const body of files) {
+		for (const body of [files[0], ...files.slice(2)]) {
 			expect(body).toMatch(/GitHub CLI \(`gh`\) is the default|Default to `gh`/)
 			expect(body).toContain('Origin')
 		}
 		expect(files.join('\n')).not.toContain('Graphite registration')
 		expect(files.join('\n')).not.toContain('lets Graphite drain')
 		expect(files[0]).toContain('Within about 15 minutes')
-		expect(files[1]).toContain('within about 15 minutes')
+		expect(files[1]).toContain('Run the Autopilot-full playbook, but do not merge.')
 		expect(files[0]).toContain('Run the same load-bearing scenario on current trunk')
-		expect(files[1]).toContain('base-branch stack')
+		expect(files[1]).toContain('Stack a PR only when it builds on another PR.')
 		expect(files[3]).toContain('requires explicit user authorization')
 		expect(files[4]).toContain('Every merge or auto-merge arm requires')
 	})
@@ -318,7 +318,7 @@ describe('model configuration', () => {
 		])
 	})
 
-	test('cross-judge pools prefer a known different family and otherwise preserve order', () => {
+	test('cross-judge pools require a different known family when the parent family is known', () => {
 		expect(modelFamily('anthropic/claude-opus-5')).toBe('claude')
 		expect(modelFamily('openai/gpt-5.6-sol')).toBe('gpt')
 		expect(modelFamily('xai/grok-4.7')).toBe('grok')
@@ -329,10 +329,9 @@ describe('model configuration', () => {
 				'xai/grok-4.5',
 			),
 		).toEqual({ model: 'openai/gpt-5.6-sol', effort: 'high', seat: 3 })
-		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toEqual({
-			model: 'builtin:high',
-			seat: 1,
-		})
+		expect(() => selectPoolModel(['builtin:high', 'xai/grok-4.7'], 'xai/grok-4.5')).toThrow(
+			'no known model family different from the parent',
+		)
 		expect(selectPoolModel(['builtin:high', 'xai/grok-4.7'])).toEqual({ model: 'builtin:high', seat: 1 })
 		expect(() => selectPoolModel([])).toThrow('cannot be empty')
 	})
@@ -3396,6 +3395,27 @@ describe('runtime tool behavior', () => {
 
 	const parentOn = (id: string, model: string) => ({
 		thread: { id, agent: async () => ({ definition: { kind: 'agent-definition', model, instructions: '' } }) },
+	})
+
+	test('a same-family judge rejection keeps the gate open and permits a corrected pool', async () => {
+		const amp = await loadPlugin({ initialConfig: { [CONFIG_KEY]: {
+			'architect-runners': ['builtin:high'],
+			'arena-cross-judge': ['builtin:high', 'xai/grok-4.7'],
+		} } })
+		const candidateThreadIDs = await settledDesignCandidates(amp, 'T-parent')
+		const startJudge = () => tool(amp, 'pstack_start_agent').execute(
+			{ role: 'arena-cross-judge', prompt: 'judge it', candidateThreadIDs },
+			parentOn('T-parent', 'xai/grok-4.5'),
+		)
+		await expect(startJudge()).rejects.toThrow('no known model family different from the parent')
+		expect(amp.started).toHaveLength(1)
+		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toMatchObject({ action: 'continue' })
+		await amp.configuration.update({ [CONFIG_KEY]: {
+			'architect-runners': ['builtin:high'],
+			'arena-cross-judge': ['openai/gpt-5.6-sol'],
+		} }, 'user')
+		expect(JSON.parse(await startJudge()).threadID).toBe('T-child-2')
+		expect(await amp.emit('agent.end', { thread: { id: 'T-parent' } })).toBeUndefined()
 	})
 
 	test('static @amp-agent-mode comments declare exactly the stable native mode table', async () => {

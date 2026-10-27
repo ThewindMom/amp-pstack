@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "9580c23696ac8d7abed0c166f2f9918800afb819",
-		"version": "0.15.32",
-		"tree": "https://github.com/cursor/plugins/tree/9580c23696ac8d7abed0c166f2f9918800afb819/pstack"
+		"commit": "ab1f702ce8e8b6557edb56b09f52cde8bfb83f17",
+		"version": "0.15.35",
+		"tree": "https://github.com/cursor/plugins/tree/ab1f702ce8e8b6557edb56b09f52cde8bfb83f17/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.35-adapter",
+			"from": "Upstream rewrites statechart as a TypeScript compiler, requires run-proven interrogate findings, uses a different-family arena judge, simplifies autopilot-stack, and adds catch-up subtitles and premeasurement decisions.",
+			"to": "Amp adopts the new CLI and documents removed commands; keeps its Bash entrypoint and Node-only test discovery, locked test dependencies, JDK setup and strict compiler typecheck. A return-type annotation and two test callback return fixes satisfy strict checking. Renderer-test installs disable lifecycle scripts. Numeric TLC messages supersede runtime heading patches; both headings have regression coverage, and the plain-TLC test oracle retains TLC 1.8 named-heading compatibility. Earlier statechart runtime departures are superseded where the new compiler replaces them. Interrogate reviewers keep strict read-only tools: they propose repros and the parent runs them on disposable exact-state copies, reporting blocked repros as unverified. Arena keeps its mandatory judge gate and fails when a known parent has no known different-family seat; it never guesses a fallback or rewrites configuration. Autopilot-stack inherits full without merging, with dependent-only stacks and owner-only rebases. Amp schedules, explicit shared-write permissions, qualified skills, native visuals, and silent catch-up video remain intact.",
+			"why": "Adopt the new behavior without weakening Amp role capabilities, permission boundaries, test coverage, or user model customizations. Models prove only their stated bounds; executable view modules and toolchain installs must be explicit."
+		},
 		{
 			"id": "amp-0.15.32-statechart-runtime",
 			"from": "Upstream splits statechart into modules, adds temporal-loop reporting and real PNG tests, and snapshots input files before TLC runs.",

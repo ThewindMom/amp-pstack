@@ -7,13 +7,13 @@ if ! bun -e 'process.exit(Bun.semver.satisfies(Bun.version, ">=1.4.2") ? 0 : 1)'
 	bun upgrade
 fi
 
-if ! command -v java >/dev/null; then
+if ! command -v java >/dev/null || ! command -v javac >/dev/null; then
 	sudo apt-get update -qq
-	sudo apt-get install -y openjdk-17-jre-headless
+	sudo apt-get install -y openjdk-17-jdk-headless
 fi
 
-# Statechart's PNG tests require Node's crc32 (20.15+ or 22.2+) and real fonts.
-node --input-type=module -e 'import { crc32 } from "node:zlib"; if (typeof crc32 !== "function") process.exit(1)'
+# Statechart's Node suite executes TypeScript without a transpiler.
+node -e 'const [major, minor] = process.versions.node.split(".").map(Number); if (!(major === 22 && minor >= 18 || major === 23 && minor >= 6 || major >= 24)) throw new Error("Statechart tests need Node 22.18–22.x or 23.6+")'
 fonts=()
 for package in fontconfig fonts-dejavu-core fonts-liberation fonts-urw-base35; do
 	if [ "$(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true)" != "install ok installed" ]; then
@@ -34,4 +34,4 @@ fi
 echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  $tlc" | sha256sum -c -
 
 bun install --frozen-lockfile
-node --input-type=module -e 'await (await import("./skills/statechart/scripts/render.mjs")).loadRenderer()'
+npm ci --prefix skills/statechart/scripts --ignore-scripts --no-audit --no-fund

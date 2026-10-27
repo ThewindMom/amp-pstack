@@ -24,6 +24,8 @@ Depth stays at coordinator, track, worker. Author the track decomposition per pr
 
 Create `orchestrate/<project-slug>/` in the current agent's store (path in the system prompt). Every file has exactly one writer; owners publish facts, readers aggregate at read time. Use `bun <loaded-skill-base>/scripts/orch/orch.ts` for bookkeeping, written below as `orch`, while its canonical plain TSV and JSON stay readable without the CLI. Resolve `<loaded-skill-base>` from the loaded poteto-mode skill, not the user's current working directory; synced installs may not preserve executable bits.
 
+Remote store reads are slow. Copy each needed store file to local disk once for the current read pass, never search the whole store, and refresh the relevant snapshot at the next drain point rather than trusting it after an owner reports new facts.
+
 - `preferences.md` is the standing-orders register: numbered lines, one constraint each (model policy, stack shape and count, verification bar, forbidden paths, escalation policy). Paste it verbatim into every spawn and every resume; directives decay across resumes, and each dropped one costs a human turn. When you catch yourself restating an instruction, append the line before you act (principle-encode-lessons-in-structure).
 - `overview.md` is the durable PR and issue DB. Append; never rewrite wholesale per event.
 - `units.tsv` has one row per unit: id, track, state, branch, PR, head SHA, brief path. Update rows in place.

@@ -1,74 +1,35 @@
 ---
 name: interrogate
-description: "Only use when named or routed by poteto-mode. Runs independent multi-model reviewers for adversarial review, stress testing, challenges, or blind-spot searches."
+description: "Only use when named or routed by poteto-mode. Challenges a change or design with multiple models and keeps only findings proven by a run. Use for adversarial review, stress testing, or finding blind spots."
 builtin-tools:
   - pstack_run_panel
 ---
 
 # Interrogate
 
-Spawn one reviewer per configured model to adversarially review code changes. The adversarial signal comes from model diversity, not assigned personas. The deliverable is a synthesized verdict. Do NOT auto-apply changes.
+Adversaries try to break a change or a design. A finding survives only when a run proves it. Report the findings. Do not apply fixes.
 
-## Step 1, Scope
+## Frame
 
-Identify what to review from context:
+The scope is what the user names. Otherwise it is the branch diff from its merge base with the base branch, through the working tree. State the intent with **pstack:in-your-own-words**, from the user's message, the commits, and the PR description. Ask the user when the intent is unclear.
 
-- If the user points at specific files or a diff, use that.
-- If on a feature branch, run `git diff main...HEAD` (or the appropriate base branch) for the full changeset.
-- If the user's message references recent work, gather the relevant files.
+## Fan out
 
-Package the diff or file contents with any surrounding context files the reviewers need to understand the code.
+Call `pstack_run_panel` once with panel `interrogate-reviewers`. Follow `../poteto-mode/references/amp-adapter.md` to supply the exact scope, including uncommitted changes, rather than assuming a fresh orb has them. Keep the configured model diversity. If Amp rejects one configured entry, that seat is a terminal dropout. Do not stop the panel. Change model configuration only when the user asks; never retry guessed models.
 
-## Step 2, Intent
+Amp reviewers remain strict read-only and cannot run shell commands or load skills. The parent owns execution in a disposable worktree of the exact reviewed state; this does not grant reviewers write tools or authorize product fixes. Inline the scope, intent, available run receipts, and this brief in every reviewer prompt:
 
-Before spawning reviewers, state the intent in one clear paragraph from the user's message, commit messages, the PR description if one exists, and the code. If you're unsure about the intent, ask the user before proceeding.
+> Try to break this change. You are strict read-only: do not load skills, run commands, or edit files. Return a concrete repro proposal for each suspected failure, including the exact command or script, the output the intent requires, and why the actual code may differ. Label an unrun proposal as unverified, never as a finding or observed output. Omit style, naming, structure, and risks that need a future change to matter. For a design or plan, propose a bounded prototype or probe of the current tree. No proposals is a valid result.
 
-## Step 3, Spawn Reviewers
+## Verify
 
-Call `pstack_run_panel` once with panel `interrogate-reviewers` and the completed reviewer prompt. Follow `../poteto-mode/references/amp-adapter.md`. Reviewers are strict read-only. The plugin runs one reviewer per configured model and labels each result. If the panel is missing, use the table defaults.
+Inspect each proposed command before execution. Run repros against the real code in the disposable worktree, with local test data and within the user's authorization. Do not run a proposal that writes to a shared service without approval. Rerun supplied receipts instead of trusting them. Keep a finding when the output shows the failure and the failure breaks the intent. Drop the rest. Merge findings that share a root cause. Never apply a fix as part of this review.
 
-| Reviewer | Default model |
-|----------|---------------|
-| Reviewer A | `anthropic/claude-opus-5-5` |
-| Reviewer B | `openai/gpt-6-sol` |
-| Reviewer C | `xai/grok-4.7` |
+Skip arena Phases C, D, and E. Adversaries find different failures, so the verdict keeps every verified finding, not one adversary's list.
 
-If Amp rejects one configured entry, that seat is a terminal dropout. Complete the remaining reviewers and note the dropout. Do not stop the panel. Do not retry that seat with another model on that call. A replacement is a persistent config write. Do it only when the user asks, through `pstack_configure_models` or **setup-pstack**, using an ID from `amp plugins show-agent-options --json`. Reload plugins before the next orb spawn. Cursor `inherit-parent` and `auto` are not Amp values.
+## Output
 
-Read `references/reviewer-prompt.md` and fill in the same template for every reviewer with the stated intent, the diff or file contents, the rubric from `references/rubric.md`, and the code-quality lens from `references/code-quality-review.md`. Inline that complete filled template in every reviewer prompt without summarizing it, so every model applies the code-quality lens. Explicitly tell these strict read-only reviewers not to load skills.
-
-## Step 4, Synthesize
-
-As results come back, build a unified picture. Parse every reviewer's findings. Merge findings that describe the same issue differently, and note which models raised each one. Findings two or more models raised independently are the highest signal. Read a lone model's finding, but weight it accordingly. Note disagreements. If one model flags something and another explicitly says the opposite, that is context for the verdict.
-
-## Step 5, Lead Judgment
-
-You are the lead reviewer, a pragmatic senior engineer, not a neutral aggregator. Read `references/lead-judgment.md` for the full framework. Put every finding in one of four buckets, with the model(s) that raised it and a one-line rationale.
-
-- **Act on**. Real issues affecting correctness, security, or maintainability given the actual goals. They would block a real PR.
-- **Consider**. Legitimate, but you're not sure they outweigh the cost of addressing them now. Worth the user's attention.
-- **Noted**. Technically valid but not actionable. Context-dependent, premature optimization, or low-impact at this stage.
-- **Dismissed**. Wrong, nitpicky, or missing context, with a brief reason.
-
-## Output Format
-
-### Intent
-> [The stated intent paragraph from Step 2]
-
-### Reviewers
-- Reviewer [label]: [model name], [N findings] (one bullet per reviewer)
-
-### Act On
-[Each: description, which models raised it, why it matters.]
-
-### Consider
-[Each: description, which models raised it, the tradeoff.]
-
-### Noted
-[Brief list.]
-
-### Dismissed
-[Each with a brief rationale.]
-
-### Agreement Map
-[Where models agreed and diverged, and what that pattern tells us.]
+- **Intent**: the restatement.
+- **Findings**: for each verified finding, the command, its output, how it breaks the intent, and the adversaries that found it. Say "no verified findings" when none survive.
+- **Dropped**: for each adversary, the count of dropped findings and why.
+- **Unverified**: blocked repros and the missing environment or permission. Do not count them as verified findings or imply that an incomplete review is clean.

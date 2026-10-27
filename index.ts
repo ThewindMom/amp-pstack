@@ -458,6 +458,7 @@ export function selectPoolModel(
 			return family !== undefined && family !== parentFamily
 		})
 		if (differentFamily >= 0) return { ...seats[differentFamily]!, seat: differentFamily + 1 }
+		throw new Error('The arena cross-judge pool has no known model family different from the parent. Configure another family before retrying; the judge gate remains open.')
 	}
 	return { ...seats[0]!, seat: 1 }
 }

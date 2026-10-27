@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '9580c23696ac8d7abed0c166f2f9918800afb819'
-const PINNED_VERSION = '0.15.32'
+const PINNED_COMMIT = 'ab1f702ce8e8b6557edb56b09f52cde8bfb83f17'
+const PINNED_VERSION = '0.15.35'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.32 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.35 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -84,13 +84,14 @@ describe('pinned upstream decision contracts', () => {
 		expect(full).toContain('A verification round is keyed by the exact head SHA.')
 		expect(full).toContain('A full swarm runs once, at the code-ready head.')
 		expect(full).toContain('Another full swarm runs only for new behavior, a redesign, or a large new diff.')
-		expect(full).toContain('A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head.')
+		expect(full).toContain('A rebase, a merge-conflict resolution, or a minor fix gets a single verifier at the new head, and a wording-only change gets none.')
 		expect(full).toContain('every new head needs its own green CI')
 		expect(full).toContain('third rebase past merge prep')
 		expect(full).toContain('frozen install passes on the merge result')
 		expect(full).not.toContain('short private base-branch stack')
 		expect(full).toContain('two or more review lanes')
-		expect(full).toContain('A defect that a lane filed as a note is a finding.')
+		expect(full).toContain('Only a bug a user would hit, a failed gate, or a wrong shipped doc blocks')
+		expect(full).toContain('does not block unless the PR copies it or newly reaches it')
 		expect(full).toContain('CI must pass on that head before the merge')
 		expect(full).toContain('A stall never proves or drops the work.')
 		expect(full).toContain('Record each stuck child as stuck whether or not the stop works.')
@@ -106,6 +107,9 @@ describe('pinned upstream decision contracts', () => {
 		expect(stack).toContain('children.tsv')
 		expect(stack).toContain('Verify each round')
 		expect(stack).toContain('keyed by that exact head SHA')
+		expect(stack).toContain('Stack a PR only when it builds on another PR.')
+		expect(stack).toContain('Each owner is the sole writer of its own branch, including its rebases.')
+		expect(stack).toContain('After the handoff, nobody pushes without the operator\'s go.')
 		expect(stack).not.toContain('Verify at STACK-READY')
 	})
 
@@ -236,10 +240,10 @@ describe('0.15.5 decision contracts', () => {
 	test('autopilot owners may lease-push only their own branch', async () => {
 		const babysit = await repoFile('skills/poteto-mode/playbooks/babysit.md')
 		const opening = await repoFile('skills/poteto-mode/playbooks/opening-a-pr.md')
-		expect(babysit).toContain('An Autopilot-full owner babysitting its own PR is that owner.')
-		expect(babysit).toContain('In Autopilot-stack, the root is that owner.')
+		expect(babysit).toContain('An Autopilot-full or Autopilot-stack owner babysitting its own PR is that owner.')
+		expect(babysit).not.toContain('In Autopilot-stack, the root is that owner.')
 		expect(opening).toContain('unless it is an Autopilot-full or Autopilot-stack owner')
-		expect(opening).toContain('reports merge-ready or STACK-READY')
+		expect(opening).toContain('reports merge-ready.')
 		expect(opening).toContain('Creating, editing, or merging a PR still needs the operator\'s explicit authorization.')
 	})
 
@@ -539,19 +543,20 @@ describe('0.15.17 catch-up contract', () => {
 	})
 })
 
-describe('0.15.32 statechart and catch-up contracts', () => {
+describe('0.15.35 statechart and catch-up contracts', () => {
 	test('requires real-code reproduction and safe tool execution before handing off model claims', async () => {
 		const statechart = await repoFile('skills/statechart/SKILL.md')
-		expect(statechart).toContain('bash <loaded-skill-base>/scripts/statechart.sh --help')
-		expect(statechart).toContain('Inspect mapping `.mjs` files before running them')
-		expect(statechart).toContain('regeneration replaces the tool-owned output folder')
-		expect(statechart).toContain('When the model describes code, replay each bug\'s story against the real code')
+		expect(statechart).toContain('bash <loaded-skill-base>/scripts/statechart.sh SPEC.tla')
+		expect(statechart).toContain('Inspect view modules before running them; they execute code.')
+		expect(statechart).toContain('output directory must be new or empty')
+		expect(statechart).toContain('When the model describes code, replay each bug path against the real code')
 		expect(statechart).toContain('If a bug does not reproduce, assume the model is wrong')
-		expect(statechart).toContain('When the model describes code, do not report that a rule holds while the command lists conditions with no file and line.')
+		expect(statechart).toContain('Tie each variable, action, and guard to the code it models, with file and line references.')
 		expect(statechart).toContain('For a design with no code yet, the TLC trace is the evidence')
-		expect(statechart).toContain('A broken PROPERTY has no path on the chart')
-		expect(statechart).toContain('Take every count you quote from `summary.json`.')
+		expect(statechart).toContain('A rule that is not checked can hold or break.')
+		expect(statechart).toContain('budget of 500 states')
 		expect(statechart).toContain('unless the user explicitly requests Mermaid syntax')
+		expect(statechart).toContain('`--png` commands are no longer supported')
 	})
 
 	test('video catch-up only writes evidence-based reply artifacts', async () => {
@@ -561,8 +566,19 @@ describe('0.15.32 statechart and catch-up contracts', () => {
 		expect(video).toContain('Writing and rendering the reply video is the one exception to its read-only rule.')
 		expect(video).toContain('Do not change product code, configure models, create schedules, or publish.')
 		expect(video).toContain('Never invent a number, and never draw a screen you did not capture.')
-		expect(video).toContain('look at one frame from each slide in the rendered file')
-		expect(video).toContain('at least one second for each three words it adds')
+		expect(video).toContain('Look at one frame from each slide at chat size')
+		expect(video).toContain('at least one second for each three words')
+		expect(video).toContain('A slide adds its subtitle')
+		expect(video).toContain('not counting the motion into or out of it')
+		expect(video).toContain('check that its subtitle is readable and covers nothing')
+	})
+
+	test('interrogate retains only executed failures without widening reviewer permissions', async () => {
+		const interrogate = await repoFile('skills/interrogate/SKILL.md')
+		expect(interrogate).toContain('reviewers remain strict read-only and cannot run shell commands or load skills')
+		expect(interrogate).toContain('Rerun supplied receipts instead of trusting them.')
+		expect(interrogate).toContain('Never apply a fix as part of this review.')
+		expect(interrogate).toContain('Do not count them as verified findings or imply that an incomplete review is clean.')
 	})
 
 	test('reflection edits the approved source, and formal checks discover the current statechart skill', async () => {
