@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'ab1f702ce8e8b6557edb56b09f52cde8bfb83f17'
-const PINNED_VERSION = '0.15.35'
+const PINNED_COMMIT = '0f77cd5dab1e006de02d6ad221d5620de026473a'
+const PINNED_VERSION = '0.15.36'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.35 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.36 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -43,6 +43,24 @@ describe('coordinator wrapper', () => {
 })
 
 describe('pinned upstream decision contracts', () => {
+	test('orchestrate keeps native coordination, one PR owner, and current-head independent verification', async () => {
+		const orchestrate = await repoFile('skills/poteto-mode/playbooks/orchestrate.md')
+		expect(orchestrate).toContain('Only the owner pushes, rebases, or retargets it.')
+		expect(orchestrate).toContain('You never author or edit code.')
+		expect(orchestrate).toContain('Each PR gets a verifier that isn\'t its author,')
+		expect(orchestrate).toContain('on a different model family')
+		expect(orchestrate).toContain('A verdict covers one head SHA, so a new push needs a new verdict.')
+		expect(orchestrate).toContain('PR and CI event subscriptions')
+		expect(orchestrate).toContain('Call no orchestration scripts, run no polling loops')
+		expect(orchestrate).toContain('`pstack_start_agent`')
+		expect(orchestrate).toContain('only after Amp observes a terminal state and its ownership claim is reconciled')
+		expect(orchestrate).toContain('explicit file transfer')
+		expect(orchestrate).toContain('with explicit merge authorization')
+		expect(orchestrate).toContain('stop the pilot at verified handoff')
+		expect(orchestrate).not.toContain('scripts/orch/')
+		expect(orchestrate).not.toContain('Mechanically landing a verified unit')
+	})
+
 	test('feature still mandates delegation with the nested-spawn ownership exception', async () => {
 		const feature = await repoFile('skills/poteto-mode/playbooks/feature.md')
 		expect(feature).toContain(

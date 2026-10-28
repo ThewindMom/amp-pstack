@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "ab1f702ce8e8b6557edb56b09f52cde8bfb83f17",
-		"version": "0.15.35",
-		"tree": "https://github.com/cursor/plugins/tree/ab1f702ce8e8b6557edb56b09f52cde8bfb83f17/pstack"
+		"commit": "0f77cd5dab1e006de02d6ad221d5620de026473a",
+		"version": "0.15.36",
+		"tree": "https://github.com/cursor/plugins/tree/0f77cd5dab1e006de02d6ad221d5620de026473a/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.36-orchestrate",
+			"from": "Upstream replaces the orchestration ledger CLI with native workers, project notes, PR/CI subscriptions, owner-only branch writes, and a different-family verifier for every PR. It removes all orch scripts and tests, and assumes Task cloud workers and built-state forks.",
+			"to": "Amp removes the obsolete CLI and test targets, adopts the shorter owner-per-PR playbook, and keeps pstack_start_agent, native result delivery and scoped follow-ups, read-only liveness checks, and explicit file transfer rather than assuming a fork copies runtime state. Project notes use the agreed store or workspace-local files. Replacements require terminal ownership reconciliation; the pilot and every shared write remain within explicit authorization. Earlier ledger and stacker-specific departures are superseded by this owner-per-PR workflow. The plugin's separate runtime ownership journal is unchanged.",
+			"why": "Adopt upstream's simpler coordination without inventing Amp APIs, losing a live child's ownership, or treating a verifier's approval as permission to publish or merge."
+		},
 		{
 			"id": "amp-0.15.35-adapter",
 			"from": "Upstream rewrites statechart as a TypeScript compiler, requires run-proven interrogate findings, uses a different-family arena judge, simplifies autopilot-stack, and adds catch-up subtitles and premeasurement decisions.",

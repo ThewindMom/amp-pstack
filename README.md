@@ -1,10 +1,10 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.35. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.36. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Porting contract
 
-The workflow source is [Cursor pstack 0.15.35 at the pinned revision](https://github.com/cursor/plugins/tree/ab1f702ce8e8b6557edb56b09f52cde8bfb83f17/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
+The workflow source is [Cursor pstack 0.15.36 at the pinned revision](https://github.com/cursor/plugins/tree/0f77cd5dab1e006de02d6ad221d5620de026473a/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
 
 The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
 
@@ -73,7 +73,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 - **Thread-native memory.** Reflection reads the current transcript directly. `pstack_read_current_thread` returns `offset`, `total`, and `truncated`; callers page forward until `offset + messages.length` reaches `total`. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and native capability webhooks instead of editor polling commands.
 - **External wakeups.** Task-specific plugins use Amp's native `amp.createWebhook` API. They register stable keys from the plugin entry point, keep capability URLs secret, and make at-least-once effects durably idempotent.
-- **Existing tools.** The legacy orchestration ledger and GitHub PR watcher remain Bun tools. The playbooks invoke the watcher through Bun because synced plugin caches do not preserve executable bits. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
+- **Existing tools.** The GitHub PR watcher remains a Bun tool; playbooks invoke it through Bun because synced plugin caches do not preserve executable bits. Orchestrate uses native threads, project notes, and PR/CI subscriptions; its legacy ledger CLI was removed in 0.15.36. Existing ledger files are not deleted. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
 
 ## Agent and panel defaults
 
