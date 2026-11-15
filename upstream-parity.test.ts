@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '0f77cd5dab1e006de02d6ad221d5620de026473a'
-const PINNED_VERSION = '0.15.36'
+const PINNED_COMMIT = 'bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7'
+const PINNED_VERSION = '0.15.42'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +16,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.36 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.42 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -162,12 +162,17 @@ describe('pinned upstream decision contracts', () => {
 		expect(swarm).toContain('A gap does not count as a pass.')
 	})
 
-	test('why still launches one background source reader per evidence category', async () => {
+	test('why answers from the commit and PR record without spawning, and recall owns its source investigators', async () => {
 		const why = await repoFile('skills/why/SKILL.md')
-		expect(why).toContain('Spawn one investigator per category that has a matching MCP, all launched concurrently with `pstack_start_agent`, each owning exactly one tool or MCP')
-		expect(why).toContain('Always spawn, the only guaranteed source.')
-		expect(why).toContain('role `why-investigator`')
-		expect(why).toContain('pstack_start_agent')
+		const how = await repoFile('skills/how/SKILL.md')
+		const recall = await repoFile('skills/recall/SKILL.md')
+		expect(why).toContain('Answer from the record, not the code')
+		expect(why).toContain('mark your own inferences as inferences')
+		expect(why).not.toContain('pstack_start_agent')
+		expect(how).toContain('Launch one strict read-only `pstack_start_agent` child with role `how-explainer`')
+		expect(how).not.toContain('references/explainer-prompt.md')
+		expect(recall).toContain('Launch one `pstack_start_agent` investigator per source with role `why-investigator`')
+		expect(recall).not.toContain('**why** skill\'s source investigators')
 	})
 
 	test('adapter owns exclusive child ownership and background spawn policy', async () => {
@@ -610,7 +615,7 @@ describe('0.15.35 statechart and catch-up contracts', () => {
 	})
 })
 
-describe('0.15.29 sharpen contract', () => {
+describe('0.15.42 sharpen contract', () => {
 	test('rewrites the prompt without executing the task or deciding user choices', async () => {
 		const sharpen = await repoFile('skills/sharpen/SKILL.md')
 		expect(sharpen).toContain('Only use when named.')
@@ -620,7 +625,8 @@ describe('0.15.29 sharpen contract', () => {
 		expect(sharpen).toContain('Name the specific methods and tools')
 		expect(sharpen).toContain('other than you or me, would show the result is right')
 		expect(sharpen).toContain('Then rewrite my prompt to ask for exactly that.')
-		expect(sharpen).toContain('Leave choices that are mine to make open')
+		expect(sharpen).toContain('prototype any choice an experiment can settle')
+		expect(sharpen).toContain('Leave product or preference choices that no experiment can settle for me to make.')
 		expect(sharpen).toContain('do not execute the task')
 		expect(sharpen).toContain('Explicit user constraints and Amp permission boundaries still apply.')
 		expect(sharpen).not.toContain('then do the work')

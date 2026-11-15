@@ -141,11 +141,9 @@ Native `send_thread_message`, thread search/read/status, file transfers, schedul
 | Refactoring edits | `pstack_start_agent` | `refactoring` |
 | Perf implementation | `pstack_start_agent` | `perf-issue` |
 | Hillclimb attempt | `pstack_start_agent` | `hillclimb` |
-| How explorers | `pstack_start_agent` | `how-explorer` |
-| How explainer / synthesis | `pstack_start_agent` | `how-explainer` |
+| How explainer (one per question) | `pstack_start_agent` | `how-explainer` |
 | Maintain-verification source wave | `pstack_start_agent` | `how-explorer` (one per feature file) |
-| Why investigators | `pstack_start_agent` | `why-investigator` |
-| Why synthesizer | `pstack_start_agent` | `why-synthesizer` |
+| Recall shared-record investigators (one per source) | `pstack_start_agent` | `why-investigator` |
 | Swarm workers | `pstack_start_agent` | `swarm-worker` |
 | Recall / automate-me miners | `pstack_start_agent` | `how-explorer` |
 | Reflect reviewers / synthesizer | `pstack_start_agent` | `reflect-*` |
@@ -156,4 +154,4 @@ Native `send_thread_message`, thread search/read/status, file transfers, schedul
 | Arena cross-judge | `pstack_start_agent` with the non-empty unique `candidateThreadIDs` from the candidate-ready notification or `agent.end` continuation. These authoritative lists include tracked failed children even when the panel result omits them. Ignore stale requests with another ID set; a failed-judge notification repeats the same set for retry | `arena-cross-judge` |
 | Architect sketches | **arena** with `architect-runners` | then `arena-cross-judge` |
 
-`how` is a workflow, not a role. Never pass role `how`. Never use Amp builtin `Task` for these waves.
+`how` and `why` are workflows, not roles. Never pass role `how` or `why`. `why` spawns no children; `why-synthesizer` stays registered for existing model configurations but no workflow spawns it. Never use Amp builtin `Task` for these waves.

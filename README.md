@@ -1,10 +1,10 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.36. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.42. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Porting contract
 
-The workflow source is [Cursor pstack 0.15.36 at the pinned revision](https://github.com/cursor/plugins/tree/0f77cd5dab1e006de02d6ad221d5620de026473a/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
+The workflow source is [Cursor pstack 0.15.42 at the pinned revision](https://github.com/cursor/plugins/tree/bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
 
 The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
 

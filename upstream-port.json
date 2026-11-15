@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "0f77cd5dab1e006de02d6ad221d5620de026473a",
-		"version": "0.15.36",
-		"tree": "https://github.com/cursor/plugins/tree/0f77cd5dab1e006de02d6ad221d5620de026473a/pstack"
+		"commit": "bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7",
+		"version": "0.15.42",
+		"tree": "https://github.com/cursor/plugins/tree/bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.42-adapter",
+			"from": "Upstream 0.15.42 cuts how to one read-only explainer subagent, cuts why to one short file with no investigators, synthesizer, or references, replaces how routing in playbooks with direct tracing, has recall start its own per-source investigators, changes default models to Fable 5.2, Opus 5.5 and Gemini 4 Carbon slugs with a setup defaults marker, rewrites sharpen to ask for prototypes, and fixes statechart SANY errors and parent-state arrows.",
+			"to": "Amp adopts the shorter how, why, playbook, architect, no-comments, recall, teach, blast-radius, sharpen, and reflect text. How launches one strict read-only how-explainer child through pstack_start_agent. Recall launches one why-investigator child per source, which keeps MCP access. The how-explorer, how-explainer, why-investigator, and why-synthesizer roles stay registered for existing model configurations, maintain-verification, and recall and automate-me miners. Amp keeps its tuned role map and pstack_configure_models setup, so the Cursor default slugs and defaults marker are not adopted. Statechart fixes apply with the Node-only test names.",
+			"why": "Adopt upstream simplification without inventing Cursor model slugs in Amp, breaking saved role configurations, or weakening strict read-only and research capabilities."
+		},
 		{
 			"id": "amp-0.15.36-orchestrate",
 			"from": "Upstream replaces the orchestration ledger CLI with native workers, project notes, PR/CI subscriptions, owner-only branch writes, and a different-family verifier for every PR. It removes all orch scripts and tests, and assumes Task cloud workers and built-state forks.",
@@ -225,8 +231,8 @@
 		},
 		{
 			"id": "how-amp-diagrams",
-			"from": "The how explorer and explainer prompts name a Read tool and ask for mermaid diagrams.",
-			"to": "They read files with whatever read tool the role has and draw plain-text diagram blocks, using Mermaid only on request.",
+			"from": "The how explainer brief asks for an architectural explanation without naming a diagram format.",
+			"to": "The Amp brief adds that diagrams are plain-text blocks, using Mermaid only on request.",
 			"why": "Amp renders diagram blocks as monospaced text and its read-only roles do not expose a tool named Read."
 		}
 	]

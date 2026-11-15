@@ -20,7 +20,7 @@ That routes to Investigation. Start the fix as a new task once the evidence poin
 Load pstack:how. How do we dedupe notifications? Is there an n+1 when we look up subscribers?
 ```
 
-Ask the question you actually have. [`pstack:how`](../../skills/how/SKILL.md) reads the code and answers at the level of a senior engineer onboarding you onto the subsystem, with the runtime flow, the key types, and the non-obvious parts. For a big subsystem it fans out two to four read-only explorers with `pstack_start_agent` role `how-explorer`. For a narrow question it starts one `how-explainer`. Join on the reports.
+Ask the question you actually have. [`pstack:how`](../../skills/how/SKILL.md) reads the code and answers at the level of a senior engineer onboarding you onto the subsystem, with the runtime flow, the key types, and the non-obvious parts. It starts one read-only `how-explainer` child that explores the code and writes the explanation.
 
 ## Dig up history with `pstack:why`
 
@@ -28,7 +28,7 @@ Ask the question you actually have. [`pstack:how`](../../skills/how/SKILL.md) re
 Load pstack:why. Why was the retry limit set to five? Does the reason still hold?
 ```
 
-[`pstack:why`](../../skills/why/SKILL.md) starts from source control, then queries whatever evidence categories your tools expose, such as the issue tracker, long-form docs, team chat, observability, error tracking, and analytics, all in parallel through role `why-investigator`. The report cites everything, separates direct evidence from inference, and says "appears to" when the record is thin. A null result gets reported too, because "nobody wrote down why" is itself an answer.
+[`pstack:why`](../../skills/why/SKILL.md) answers from the record, not the code. It reads the commits and PR discussions that introduced the code and each later change, and looks at other sources when that trail is thin. The answer cites what the authors wrote, marks the agent's own inferences as inferences, and says what the record does not answer, because "nobody wrote down why" is itself an answer.
 
 The two compose naturally. "Do why first then how" is a good prompt when you suspect the history explains the mess.
 
