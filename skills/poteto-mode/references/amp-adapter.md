@@ -146,7 +146,6 @@ Native `send_thread_message`, thread search/read/status, file transfers, schedul
 | Recall shared-record investigators (one per source) | `pstack_start_agent` | `why-investigator` |
 | Swarm workers | `pstack_start_agent` | `swarm-worker` |
 | Recall / automate-me miners | `pstack_start_agent` | `how-explorer` |
-| Reflect reviewers / synthesizer | `pstack_start_agent` | `reflect-*` |
 | Shipping per-PR verdict | `pstack_start_agent` | `judgment` (whole-PR `PASS` / `PASS+NOTES` / `FAIL`, not comments-only) |
 | Comment review | Parent prepares a patch for a diff review, or uses caller-named files for an explicit whole-file review. Start with `pstack_start_agent`; hold and upload the patch and current scoped files when needed. Once inputs are ready, use native `wait_for_threads`, then `read_thread`, because the parent needs the audit. Never combine the wait with a requested reply. Report a gap if a requested diff cannot be transferred; never replace it with refs or a whole-file review | `comment-reviewer` |
 | Interrogate | `pstack_run_panel` | `interrogate-reviewers` |
@@ -154,4 +153,4 @@ Native `send_thread_message`, thread search/read/status, file transfers, schedul
 | Arena cross-judge | `pstack_start_agent` with the non-empty unique `candidateThreadIDs` from the candidate-ready notification or `agent.end` continuation. These authoritative lists include tracked failed children even when the panel result omits them. Ignore stale requests with another ID set; a failed-judge notification repeats the same set for retry | `arena-cross-judge` |
 | Architect sketches | **arena** with `architect-runners` | then `arena-cross-judge` |
 
-`how` and `why` are workflows, not roles. Never pass role `how` or `why`. `why` spawns no children; `why-synthesizer` stays registered for existing model configurations but no workflow spawns it. Never use Amp builtin `Task` for these waves.
+`how` and `why` are workflows, not roles. Never pass role `how` or `why`. `why` and `reflect` spawn no children; `why-synthesizer` and the `reflect-*` roles stay registered for existing model configurations but no workflow spawns it. Never use Amp builtin `Task` for these waves.

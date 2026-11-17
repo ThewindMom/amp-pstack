@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7",
-		"version": "0.15.42",
-		"tree": "https://github.com/cursor/plugins/tree/bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7/pstack"
+		"commit": "2f87c854fe3e2fcda44ca86b46ede35aad3c46b7",
+		"version": "0.15.43",
+		"tree": "https://github.com/cursor/plugins/tree/2f87c854fe3e2fcda44ca86b46ede35aad3c46b7/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.43-adapter",
+			"from": "Upstream 0.15.43 shortens principle, unslop, technical-writing, Opening a PR, Babysit and multi-phase plan text, deletes check-plan, Orchestrate, and the architect and reflect references, makes reflect and architect one short file with no subagents, adds worker.md as an absolute-path pointer on every kickoff, retires hardest tasks, architect runners and reflect roles, routes code to Opus 5.5 xhigh-fast, caps every role at xhigh, makes Fable an exception, drops Fable from the cross-judge pool, and writes a defaults: 3 setup marker.",
+			"to": "Amp adopts the shorter texts and deletions. Reflect reads the thread with pstack_read_current_thread and spawns nothing; architect sketches alone and uses arena with the architect-runners panel for large designs. worker.md rules are inlined verbatim at the top of every child brief, because orb and runner children cannot read the parent skill path, and its stop list keeps Amp's explicit-authorization boundary for pushes, merges, PRs and shared writes. hardest stays a registered role but follows the Fable exception rule. Amp keeps its tuned DEFAULT_MODELS, panels, budget ladder and pstack_configure_models setup, and keeps registered reflect-*, architect-runners and hardest roles so saved configurations still load; Cursor slugs, the xhigh cap and the defaults marker are not adopted. Babysit and Opening a PR keep the Bun watcher invocation and explicit PR-write authorization.",
+			"why": "Take upstream simplification without inventing Cursor model slugs, breaking saved role configurations, or letting a worker rule widen what the operator authorized."
+		},
 		{
 			"id": "amp-0.15.42-adapter",
 			"from": "Upstream 0.15.42 cuts how to one read-only explainer subagent, cuts why to one short file with no investigators, synthesizer, or references, replaces how routing in playbooks with direct tracing, has recall start its own per-source investigators, changes default models to Fable 5.2, Opus 5.5 and Gemini 4 Carbon slugs with a setup defaults marker, rewrites sharpen to ask for prototypes, and fixes statechart SANY errors and parent-state arrows.",
@@ -164,12 +170,6 @@
 			"why": "0.15.5 removed that Cursor sentence. Amp still needs it so an owner does not treat nested spawn as impossible."
 		},
 		{
-			"id": "check-plan-nonblank-model",
-			"from": "Ten lanes on `[^`<>]+` at the PR head",
-			"to": "The Amp checker also rejects a whitespace-only model inside the backticks.",
-			"why": "Upstream 0.15.5 and later reject angle brackets and empty ticks. A blank model is not a filled model, so the Amp checker tightens that boundary."
-		},
-		{
 			"id": "no-cursor-model-aliases",
 			"from": "A role line of inherit-parent or auto omits Task model. A rejected slug falls back to the same family on that Task call.",
 			"to": "Amp roles resolve through the plugin. inherit-parent and auto stay invalid. A rejected single-role spawn stops. A rejected panel seat is one dropout. A replacement config write happens only when the user asks, then reload before the next orb spawn. There is no per-call model argument.",
@@ -222,12 +222,6 @@
 			"from": "Spawn a fresh `poteto-agent` for each new task, and resume one only in the strict cases that poteto-mode's Subagents section names.",
 			"to": "agents/poteto-agent.md stays a prompt resource. The fresh-children rule lives in poteto-mode Agents and threads and the adapter.",
 			"why": "Amp never routes requests to a poteto-agent subagent, so a routing description there has no reader."
-		},
-		{
-			"id": "check-plan-cursor-cadence",
-			"from": "check-plan only requires the program markers \"git show origin/main:\", \"/loop 1h\", and \"status message\".",
-			"to": "The Amp checker requires \"loaded skill\", \"hourly Amp schedule\", and \"status message\", and also rejects a program checklist that still mentions /loop, /goal, or a 30-minute cadence.",
-			"why": "An acceptance run showed a plan with both the hourly Amp schedule and leftover Cursor cadence passed. Two cadences in one plan let an agent arm the wrong one."
 		},
 		{
 			"id": "how-amp-diagrams",

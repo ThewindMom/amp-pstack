@@ -1,5 +1,3 @@
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
@@ -7,8 +5,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7'
-const PINNED_VERSION = '0.15.42'
+const PINNED_COMMIT = '2f87c854fe3e2fcda44ca86b46ede35aad3c46b7'
+const PINNED_VERSION = '0.15.43'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -16,7 +14,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.42 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.43 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -43,24 +41,16 @@ describe('coordinator wrapper', () => {
 })
 
 describe('pinned upstream decision contracts', () => {
-	test('orchestrate keeps native coordination, one PR owner, and current-head independent verification', async () => {
-		const orchestrate = await repoFile('skills/poteto-mode/playbooks/orchestrate.md')
-		expect(orchestrate).toContain('Only the owner pushes, rebases, or retargets it.')
-		expect(orchestrate).toContain('You never author or edit code.')
-		expect(orchestrate).toContain('Each PR gets a verifier that isn\'t its author,')
-		expect(orchestrate).toContain('on a different model family')
-		expect(orchestrate).toContain('A verdict covers one head SHA, so a new push needs a new verdict.')
-		expect(orchestrate).toContain('PR and CI event subscriptions')
-		expect(orchestrate).toContain('Call no orchestration scripts, run no polling loops')
-		expect(orchestrate).toContain('`pstack_start_agent`')
-		expect(orchestrate).toContain('only after Amp observes a terminal state and its ownership claim is reconciled')
-		expect(orchestrate).toContain('explicit file transfer')
-		expect(orchestrate).toContain('with explicit merge authorization')
-		expect(orchestrate).toContain('stop the pilot at verified handoff')
-		expect(orchestrate).not.toContain('scripts/orch/')
-		expect(orchestrate).not.toContain('Mechanically landing a verified unit')
+	test('orchestrate is gone and every child brief opens with the inlined worker rules', async () => {
+		const skill = await repoFile('skills/poteto-mode/SKILL.md')
+		const worker = await repoFile('skills/poteto-mode/worker.md')
+		expect(await Bun.file(new URL('skills/poteto-mode/playbooks/orchestrate.md', import.meta.url)).exists()).toBe(false)
+		expect(skill).not.toContain('Orchestrate')
+		expect(skill).toContain('open its brief with the rules in `worker.md` from this skill\'s base directory, inlined verbatim')
+		expect(worker).toContain('The bar in your brief is the whole bar.')
+		expect(worker).toContain('unless your brief names that exact action as authorized by the operator')
+		expect(worker).toContain('When a PR is authorized, open it ready for review, never as a draft.')
 	})
-
 	test('feature still mandates delegation with the nested-spawn ownership exception', async () => {
 		const feature = await repoFile('skills/poteto-mode/playbooks/feature.md')
 		expect(feature).toContain(
@@ -129,18 +119,6 @@ describe('pinned upstream decision contracts', () => {
 		expect(stack).toContain('Each owner is the sole writer of its own branch, including its rebases.')
 		expect(stack).toContain('After the handoff, nobody pushes without the operator\'s go.')
 		expect(stack).not.toContain('Verify at STACK-READY')
-	})
-
-	test('audit ticks report only new tracked changes and still log a row', async () => {
-		const plan = await repoFile('skills/poteto-mode/playbooks/multi-phase-plan.md')
-		const prompt = plan.slice(plan.indexOf('Use this tick prompt verbatim.'))
-		expect(prompt).toContain('only when the audit found a tracked change that no earlier status message reported')
-		expect(prompt).toContain('Do not repeat a table, the merged list, or an unchanged blocker.')
-		expect(prompt).toContain('If the audit found none, end the turn with no reply text.')
-		expect(prompt).toContain("log this tick's row in your decision trail")
-		expect(prompt).toContain('Record the lane as stuck whether or not the stop works.')
-		expect(prompt).toContain('Replace it only after the prior owner has stopped or reached a terminal state')
-		expect(prompt).not.toContain('whether or not anything changed, with the queue table')
 	})
 
 	test('persisted model overrides stay until the user changes them', async () => {
@@ -224,7 +202,6 @@ describe('intentional Amp departures', () => {
 		expect(ids).toContain('durable-threads')
 		expect(ids).toContain('runtime-mode-advisory')
 		expect(ids).toContain('feature-nested-spawn-sentence')
-		expect(ids).toContain('check-plan-nonblank-model')
 		expect(ids).toContain('no-cursor-model-aliases')
 		expect(port.intentionalDepartures.find((entry) => entry.id === 'amp-host-autonomy')?.from).toContain('**Just do it.**')
 		expect(port.intentionalDepartures.find((entry) => entry.id === 'durable-threads')?.from).toContain(
@@ -308,124 +285,10 @@ describe('0.15.5 decision contracts', () => {
 		expect(adapter).toContain('A rejected panel seat is one terminal dropout.')
 		expect(adapter).toContain('Do it only when the user asks')
 		const reflect = await repoFile('skills/reflect/SKILL.md')
-		expect(reflect).toContain('openai/gpt-6-sol')
-		for (const name of ['divergent-reviewer.md', 'judgment-reviewer.md', 'tooling-reviewer.md']) {
-			const reviewer = await repoFile(`skills/reflect/references/${name}`)
-			expect(reviewer).toContain('List each durable learning.')
-			expect(reviewer).not.toContain('Surface 3-5 durable learnings.')
-		}
+		expect(reflect).toContain('wait for approval before editing any skill')
+		expect(reflect).not.toContain('pstack_start_agent')
 	})
 
-	test('check-plan accepts a filled swarm model and rejects a placeholder', async () => {
-		const script = new URL('skills/poteto-mode/scripts/check-plan.mjs', import.meta.url).pathname
-		const dir = await mkdtemp(join(tmpdir(), 'check-plan-'))
-		try {
-		const lanes = Array.from({ length: 10 }, (_, i) => {
-			return `- [ ] Lane ${i + 1}. Scenario. Save \`lane-${i + 1}.png\`. Pass when the lane shows the result.`
-		}).join('\n')
-		const plan = (live: string, arm = '') => `# Port plan
-
-Short intro.
-
-## How to read this
-
-One box is one unit of work. Each box names the evidence. Check a box only when its evidence exists. Open playbooks/ for the steps. Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
-
-## Program checklist
-
-### Arm the program
-
-Read the playbook from the loaded skill. Arm an hourly Amp schedule. A status message reports only a new tracked change.${arm}
-
-### Spawn owners
-
-One owner.
-
-### PR mechanics
-
-Ready, never draft.
-
-### Verdict and merge
-
-Clean verdict before merge.
-
-### Boot recipe
-
-Boot the lanes.
-
-## PR 1. The change
-
-**Depends on.** None.
-
-**Files.**
-
-- [ ] \`skills/example.md\`
-
-**Build.**
-
-- [ ] Run \`bun test\`.
-
-**You see.**
-
-- [ ] The live lane names a model.
-
-**Verify, unit.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
-
-- [ ] \`example.test.ts\` gains the filled-model case. Run \`bun test\`.
-
-**Verify, live.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked. ${live}
-
-${lanes}
-
-**Verify, perf.** Tests alone are not sufficient verification. A PR is verified only when its unit, live, and perf boxes are all checked.
-
-- [ ] Metric. named metric
-- [ ] Probe. interleaved probe
-- [ ] Baseline. trunk first
-- [ ] Rule. fail above 1
-
-**Review gate.** None. PR 1 is not review-gated.
-
-**Merge.**
-
-- [ ] Squash after the verdict.
-
-## Close the program
-
-Stop.
-
-## Appendix A. Prototype evidence
-
-None.
-`
-		const { spawnSync } = await import('node:child_process')
-		const run = async (name: string, live: string, arm = '') => {
-			const path = `${dir}/${name}.md`
-			await Bun.write(path, plan(live, arm))
-			return spawnSync('bun', [script, path], { encoding: 'utf8' })
-		}
-		const filled = await run('filled', 'Ten lanes on `xai/grok-4.7` at the PR head, per the boot recipe.')
-		const placeholder = await run('placeholder', 'Ten lanes on `<swarm-worker model>` at the PR head, per the boot recipe.')
-		const empty = await run('empty', 'Ten lanes on `` at the PR head, per the boot recipe.')
-		const blank = await run('blank', 'Ten lanes on `   ` at the PR head, per the boot recipe.')
-		const cursorCadence = await run('cursor-cadence', 'Ten lanes on `xai/grok-4.7` at the PR head, per the boot recipe.', ' Also arm `/loop 1h` every 30 minutes.')
-		expect(cursorCadence.status).toBe(1)
-		expect(cursorCadence.stderr).toContain('keeps Cursor cadence "/loop"')
-		expect(cursorCadence.stderr).toContain('keeps Cursor cadence "30 minute"')
-		const malformed = await run('malformed', 'Ten lanes on `<model` at the PR head, per the boot recipe.')
-		expect(malformed.status).toBe(1)
-		expect(malformed.stderr).toContain('with the model filled in')
-		if (filled.status !== 0) throw new Error(filled.stderr || filled.stdout)
-		expect(placeholder.status).not.toBe(0)
-		expect(placeholder.stderr).toContain('with the model filled in')
-		expect(empty.status).not.toBe(0)
-		expect(empty.stderr).toContain('with the model filled in')
-		expect(blank.status).not.toBe(0)
-		expect(blank.stderr).toContain('with the model filled in')
-		} finally {
-			await rm(dir, { recursive: true, force: true })
-		}
-	})
 })
 
 describe('0.15.9 decision contracts', () => {
@@ -447,7 +310,7 @@ describe('0.15.9 decision contracts', () => {
 
 	test('autopilot and plan ticks run hourly on an Amp schedule without a durable objective', async () => {
 		const files = await Promise.all(
-			['autopilot-full.md', 'autopilot-stack.md', 'multi-phase-plan.md'].map((name) =>
+			['autopilot-full.md', 'autopilot-stack.md'].map((name) =>
 				repoFile(`skills/poteto-mode/playbooks/${name}`),
 			),
 		)
@@ -477,9 +340,8 @@ describe('0.15.9 decision contracts', () => {
 
 	test('PR bodies use headed sections and Amp keeps forge-only PR writes', async () => {
 		const opening = await repoFile('skills/poteto-mode/playbooks/opening-a-pr.md')
-		expect(opening).toContain('Use `##` headings, not bold lead-ins')
 		expect(opening).toContain('`## What changed`')
-		expect(opening).toContain('**Size and stacks.**')
+		expect(opening).toContain('Stack follow-ups by base branch')
 		expect(opening).not.toContain('built-in PR tool')
 	})
 

@@ -26,7 +26,7 @@ Right after a task that taught you something, run:
 Load pstack:reflect. That took way too long. Capture what we learned so the next run doesn't repeat it.
 ```
 
-[`pstack:reflect`](../../skills/reflect/SKILL.md) reads this thread with `pstack_read_current_thread`, including tool results. Three reviewers and a synthesizer sort proposals into Accepted, Rejected, and Backlog. Skill changes wait for your approval. Tracker writes wait too.
+[`pstack:reflect`](../../skills/reflect/SKILL.md) reads this thread with `pstack_read_current_thread`, including tool results. It keeps only lessons that would change a future agent's work and sorts them into Accepted, Rejected, and Backlog. Skill changes wait for your approval. Tracker writes wait too.
 
 ## Make a repeated mistake impossible with `pstack:correct`
 

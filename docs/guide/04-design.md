@@ -12,13 +12,7 @@ Avoid polishing the first design or reviewing a plan no code has tested. Prototy
 Load pstack:architect. Design the import pipeline before writing any code. I care most about how callers use it.
 ```
 
-[`pstack:architect`](../../skills/architect/SKILL.md) grounds itself first, tracing the code the design touches and running why when it moves ownership or layers. Then it runs arena through panel `architect-runners` to produce competing design sketches, with the caller's usage written first in each, followed by types, signatures, and a module map.
-
-By default it proceeds straight from the synthesized design into implementation. If you want to see the design first, say so:
-
-```text
-Load pstack:architect with checkpoint. Stop and show me before implementing.
-```
+[`pstack:architect`](../../skills/architect/SKILL.md) traces every system the change touches, sketches two different shapes (types, signatures, module boundaries), and picks the one where each piece of state has one owner, each task has one way to do it, and callers need to know least. It redesigns instead of patching when workarounds repeat. A large or contested design runs arena through panel `architect-runners` instead. To see the design before code, ask it to stop and show you.
 
 ## Fan out attempts with `pstack:arena`
 

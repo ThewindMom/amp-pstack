@@ -82,7 +82,7 @@ The compiler writes Mermaid source and a report; Pele 1.9 renders the source sep
 
 ## Open the PR, then babysit only when asked
 
-Before an approved PR action, use isolated worktrees, small ordered commits, cleaned prose, and evidence. Babysit resolves conflicts, review threads, then CI in one push wave. It stops at merge-ready; merging still requires explicit authorization.
+Before an approved PR action, use isolated worktrees, small ordered commits, cleaned prose, and evidence. Babysit takes conflicts, review threads, then CI. It never rebases or force-pushes; a conflict or stale base comes back to you with the branch that needs the rebase. It stops at merge-ready; merging still requires explicit authorization.
 
 Opening a PR does not start a babysit. Post the URL and keep building. Finish the phase or stack first. Run [Babysit](../../skills/poteto-mode/playbooks/babysit.md) only when you ask for merge-ready after the whole stack exists. An Autopilot-full or Autopilot-stack owner is the exception. Its brief already assigned the babysit loop, so it starts that loop after the code-ready report. [Shipping](../../skills/poteto-mode/playbooks/shipping.md) is a separate request. Green is not safe, and nothing merges without explicit authorization.
 

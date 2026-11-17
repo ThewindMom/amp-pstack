@@ -1,10 +1,10 @@
 # amp-pstack
 
-An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.42. It keeps pstack's 58 skills, 23 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
+An Amp-native port of [Lauren Tan's pstack](https://github.com/cursor/plugins/tree/main/pstack), synchronized with upstream pstack 0.15.43. It keeps pstack's 58 skills, 22 engineering playbooks, principles, and PR tooling while replacing editor-specific orchestration with Amp agents, threads, orbs, schedules, and webhooks.
 
 ## Porting contract
 
-The workflow source is [Cursor pstack 0.15.42 at the pinned revision](https://github.com/cursor/plugins/tree/bf0c7cd80abdbf7fe47b634978a7d1b4071f71a7/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
+The workflow source is [Cursor pstack 0.15.43 at the pinned revision](https://github.com/cursor/plugins/tree/2f87c854fe3e2fcda44ca86b46ede35aad3c46b7/pstack). Preserve its decision rules, mandatory steps, and exceptions. Translate platform mechanics without weakening the workflow. Amp retains its deliberately tuned model defaults and three-family panels rather than adopting upstream's Opus/Grok-only defaults; this departure is recorded in `upstream-port.json`.
 
 The [Amp adapter](skills/poteto-mode/references/amp-adapter.md) owns execution details such as role-based child threads, executor selection, file transfer, ownership, and authorized schedules. Playbooks retain the instructions for what work to delegate and what evidence to require. Implementation and follow-up fixes belong to the implementation owner; comment review does not replace an independent whole-PR shipping verdict.
 
@@ -73,7 +73,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 - **Thread-native memory.** Reflection reads the current transcript directly. `pstack_read_current_thread` returns `offset`, `total`, and `truncated`; callers page forward until `offset + messages.length` reaches `total`. Recall and personal-mode mining use Amp's thread search and full thread reader.
 - **Long-running work.** Playbooks use Amp child threads, schedules, and native capability webhooks instead of editor polling commands.
 - **External wakeups.** Task-specific plugins use Amp's native `amp.createWebhook` API. They register stable keys from the plugin entry point, keep capability URLs secret, and make at-least-once effects durably idempotent.
-- **Existing tools.** The GitHub PR watcher remains a Bun tool; playbooks invoke it through Bun because synced plugin caches do not preserve executable bits. Orchestrate uses native threads, project notes, and PR/CI subscriptions; its legacy ledger CLI was removed in 0.15.36. Existing ledger files are not deleted. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
+- **Existing tools.** The GitHub PR watcher remains a Bun tool; playbooks invoke it through Bun because synced plugin caches do not preserve executable bits. The Orchestrate playbook and its legacy ledger CLI are removed; program-scale work routes to figure-it-out. Existing ledger files are not deleted. Current PR playbooks use forge-neutral base-branch stacks and do not require Graphite.
 
 ## Agent and panel defaults
 
@@ -94,7 +94,7 @@ Configure model roles with the `pstack:setup-pstack` skill, the `pstack_configur
 | How-explainer, why-synthesizer, reflect-divergent, comment-reviewer | `anthropic/claude-opus-5-5` at medium |
 | Panels and arena cross-judge pool | Opus 5.5 high, GPT-6.1 Sol high, Grok 4.7 xhigh; arena runners use Opus 5.5 medium; one cross-judge runs, requiring a known different family when the parent family is known |
 
-The `hardest` role is the strongest code-writing seat. It is separate from `judgment`, which reviews without owning an implementation diff.
+The `hardest` role is the strongest code-writing seat. Following upstream 0.15.43, it runs only when the user names it for a task or after two ordinary-role runs of the same brief fail their check. It is separate from `judgment`, which reviews without owning an implementation diff.
 
 Any role can use a concrete `provider/model` or `builtin:low`, `builtin:medium`, `builtin:high`, or `builtin:ultra`. A seat may remain a model string or use `{ "model": "provider/model", "effort": "..." }`; panel arrays preserve each seat's model, effort, and order. Configuration layers replace a whole role value rather than merging effort into an earlier string. A model ID picks the weights only. A builtin mode picks Amp's prompt, tools, default model, and thinking. Amp owns all inference routing. Model access and billing follow the user's Amp connections; pstack does not bridge subscriptions or change provider settings. See [Modes & Models](https://ampcode.com/modes) for current models and reasoning efforts. Cursor thinking slugs such as `grok-4.7-fast-xhigh` and `gpt-6.1-sol-max` do not exist in Amp. Bare shipped-model seats use the fallback efforts in `MODEL_REASONING_EFFORT`; the balanced profile uses explicit effort per role. The standalone `grok47-xhigh` mode remains xhigh. Cursor `inherit-parent` and `auto` are not Amp aliases.
 

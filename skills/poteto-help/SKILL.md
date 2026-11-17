@@ -37,7 +37,7 @@ This is the Amp-native port. It uses native Amp threads, orbs, runners, schedule
 
 ## Start a task with poteto-mode
 
-`pstack:poteto-mode` matches the task to a playbook, copies the steps into a checklist, and runs other skills as needed. Skipped steps stay visible as `skip: <reason>`. A good prompt states the goal and how to tell it is done, rather than prescribing a skill sequence. Read [`references/prompting.md`](references/prompting.md) before wording one. [Guide page 2](../../docs/guide/02-poteto-mode.md) has examples.
+`pstack:poteto-mode` matches the task to a playbook, copies the steps into a checklist, and runs other skills as needed. A good prompt states the goal and how to tell it is done, rather than prescribing a skill sequence. Read [`references/prompting.md`](references/prompting.md) before wording one. [Guide page 2](../../docs/guide/02-poteto-mode.md) has examples.
 
 Loading the skill attaches workflow guidance to the conversation; it does not select a mode. Selecting `poteto` in Amp's mode picker keeps coordinator instructions in context each turn. It stays out of casual turns. Without the mode, name `pstack:poteto-mode` at each new task. "New task" makes it match a fresh playbook.
 
@@ -90,12 +90,11 @@ Close calls:
 
 - `how` explains mechanics; `why` explains reasons; `teach` runs one or both and explains plainly.
 - `arena` gives every worker the same brief; `swarm` splits slices or races and returns one report.
-- `architect` implements after design; add "with checkpoint" to review before code.
 - `interrogate` keeps only failures proven by a run, with no automatic fixes; `blast-radius` proves the safety fact outside the diff.
 - `recall` spans recent threads; `ketchup` catches up within this thread; Session pickup resumes one specific branch or thread.
-- `figure-it-out` designs one rigorous run; Orchestrate spans days and PRs; Autonomous run drives one task to its finish condition.
+- `figure-it-out` designs one rigorous run; Autonomous run drives one task to its finish condition.
 
-Pstack has no `orchestrate` or planning skill. Orchestrate and Multi-phase plan are poteto-mode playbooks. Amp's `building-skills` and `building-schedules` are separate skills, not pstack workflows. Cursor's `deslop`, `control-cli`, and `control-ui` belong to `cursor-team-kit`, not this plugin.
+Pstack has no `orchestrate` or planning skill. Multi-phase plan is a poteto-mode playbook. Amp's `building-skills` and `building-schedules` are separate skills, not pstack workflows. Cursor's `deslop`, `control-cli`, and `control-ui` belong to `cursor-team-kit`, not this plugin.
 
 ## Playbooks and principles
 

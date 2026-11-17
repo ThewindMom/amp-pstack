@@ -25,7 +25,7 @@ Swap in real paths, skills, and done checks. Informal wording works.
 ## Design and plan
 
 - `Use pstack:poteto-mode. Prototype several options for <feature>. Show screenshots or videos to compare.`
-- `Use pstack:poteto-mode. We need <feature>. Use pstack:architect with checkpoint and answer open questions with prototypes. Let me review before proceeding.`
+- `Use pstack:poteto-mode. We need <feature>. Use pstack:architect, answer open questions with prototypes, and stop to show me the design before implementing.`
 - `Use pstack:poteto-mode. Write a tutorial for <new package> first, then use pstack:teach to explain why it beats the current one.`
 - `Use pstack:arena for a second opinion on this thread and approach.`
 - `Use pstack:poteto-mode. Turn this settled design into small verifiable PRs, each with its own checks. Don't implement yet.`
