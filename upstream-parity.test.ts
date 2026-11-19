@@ -5,8 +5,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '2f87c854fe3e2fcda44ca86b46ede35aad3c46b7'
-const PINNED_VERSION = '0.15.43'
+const PINNED_COMMIT = 'e58dd043600587dbaf58ba315e7f2b38373eeb43'
+const PINNED_VERSION = '0.15.44'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -14,7 +14,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.43 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.44 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)

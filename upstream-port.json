@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "2f87c854fe3e2fcda44ca86b46ede35aad3c46b7",
-		"version": "0.15.43",
-		"tree": "https://github.com/cursor/plugins/tree/2f87c854fe3e2fcda44ca86b46ede35aad3c46b7/pstack"
+		"commit": "e58dd043600587dbaf58ba315e7f2b38373eeb43",
+		"version": "0.15.44",
+		"tree": "https://github.com/cursor/plugins/tree/e58dd043600587dbaf58ba315e7f2b38373eeb43/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.44-gemini-seat",
+			"from": "Upstream 0.15.44 moves the Gemini panel seat in arena, poteto-mode and setup-pstack from gemini-4-carbon-high to gemini-4-neon-high, and has setup-pstack rewrite saved non-Neon gemini-4-* panel entries to gemini-4-neon-high at high effort.",
+			"to": "Amp records the new pin but changes no text: its arena, poteto-mode and setup-pstack carry no Cursor model slugs, and its panels come from the tuned DEFAULT_MODELS and pstack_configure_models, so there are no saved Cursor Gemini rules to migrate.",
+			"why": "Keep Amp's role map and configuration API instead of inventing Cursor model slugs in Amp."
+		},
 		{
 			"id": "amp-0.15.43-adapter",
 			"from": "Upstream 0.15.43 shortens principle, unslop, technical-writing, Opening a PR, Babysit and multi-phase plan text, deletes check-plan, Orchestrate, and the architect and reflect references, makes reflect and architect one short file with no subagents, adds worker.md as an absolute-path pointer on every kickoff, retires hardest tasks, architect runners and reflect roles, routes code to Opus 5.5 xhigh-fast, caps every role at xhigh, makes Fable an exception, drops Fable from the cross-judge pool, and writes a defaults: 3 setup marker.",
