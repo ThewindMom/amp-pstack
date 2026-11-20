@@ -15,7 +15,7 @@ Work in a scratch folder outside the repo. Write a TLA+ spec and its config. The
 bash <loaded-skill-base>/scripts/statechart.sh SPEC.tla [--config FILE] [--view FILE] [--out DIR]
 ```
 
-The launcher selects a supported TypeScript runtime: Node 22.18–22.x or 23.6+, Bun 1.1.5+, or Deno 2+. The output directory must be new or empty; existing results are never replaced. Use a new `--out` directory for each run. The old `from-spec`, `from-chart`, `--fixed`, `--against`, and `--png` commands are no longer supported. Model comparisons require separate runs; rendering is separate below.
+The launcher selects a supported TypeScript runtime: Node 22.18–22.x or 23.6+, Bun 1.1.5+, or Deno 2+. On native Windows, where the POSIX launcher cannot run, run `bun <loaded-skill-base>/scripts/statechart.ts` with Bun 1.1.5+, or `node --disable-warning=ExperimentalWarning <loaded-skill-base>/scripts/statechart.ts` with Node 22.18–22.x or 23.6+. The output directory must be new or empty; existing results are never replaced. Use a new `--out` directory for each run. The old `from-spec`, `from-chart`, `--fixed`, `--against`, and `--png` commands are no longer supported. Model comparisons require separate runs; rendering is separate below.
 
 Inspect view modules before running them; they execute code. Set `TLA2TOOLS` to a trusted TLC 1.7.4 jar and optionally `JAVA` to a Java binary. Otherwise the first run installs checksum-pinned TLC and Java through mise and needs the network. Review these local installs before running in a restricted environment. Shared writes, publication, and changes to product code require the user's authorization. Do not treat a model result as proof of the whole system.
 

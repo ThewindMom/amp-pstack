@@ -5,8 +5,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = 'e58dd043600587dbaf58ba315e7f2b38373eeb43'
-const PINNED_VERSION = '0.15.44'
+const PINNED_COMMIT = '0b46ec399d55f2829e88822998f53b84944837d3'
+const PINNED_VERSION = '0.15.46'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -14,7 +14,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.44 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.46 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -474,6 +474,16 @@ describe('0.15.35 statechart and catch-up contracts', () => {
 		const formal = await repoFile('skills/create-formal-verification-skill/SKILL.md')
 		expect(formal).toContain('Refer to `pstack:statechart` by name.')
 		expect(formal).toContain('copy none of them into the generated skill or its scripts')
+	})
+})
+
+describe('0.15.46 statechart Windows contract', () => {
+	test('names a native Windows command from the loaded skill base and ships the shell-free kill helpers', async () => {
+		const statechart = await repoFile('skills/statechart/SKILL.md')
+		expect(statechart).toContain('On native Windows, where the POSIX launcher cannot run, run `bun <loaded-skill-base>/scripts/statechart.ts`')
+		expect(statechart).toContain('`node --disable-warning=ExperimentalWarning <loaded-skill-base>/scripts/statechart.ts`')
+		expect(await Bun.file(new URL('skills/statechart/scripts/kill.ts', import.meta.url)).exists()).toBe(true)
+		expect(await Bun.file(new URL('skills/statechart/scripts/janitor.ts', import.meta.url)).exists()).toBe(true)
 	})
 })
 

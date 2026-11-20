@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "e58dd043600587dbaf58ba315e7f2b38373eeb43",
-		"version": "0.15.44",
-		"tree": "https://github.com/cursor/plugins/tree/e58dd043600587dbaf58ba315e7f2b38373eeb43/pstack"
+		"commit": "0b46ec399d55f2829e88822998f53b84944837d3",
+		"version": "0.15.46",
+		"tree": "https://github.com/cursor/plugins/tree/0b46ec399d55f2829e88822998f53b84944837d3/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.46-adapter",
+			"from": "Upstream 0.15.45 runs the Gemini panel seat at gemini-4-neon-xhigh and has setup-pstack migrate saved gemini-4-neon-high panel entries. Upstream 0.15.46 runs statechart on native Windows: TLC line readers accept CRLF, the group kill and janitor stop using /bin/sh, java and mise start hidden, and statechart SKILL.md names a node command for Windows.",
+			"to": "Amp takes the statechart scripts and tests as is, with tests renamed to *.node.ts and earlier typecheck and dual-heading departures kept. SKILL.md adds the Windows command with <loaded-skill-base> paths and a Bun alternative. The Gemini change is not ported, because Amp's arena, poteto-mode and setup-pstack carry no Cursor model slugs and its panels come from DEFAULT_MODELS and pstack_configure_models.",
+			"why": "Take upstream's Windows fix while keeping Amp's skill-path rule, role map and configuration API."
+		},
 		{
 			"id": "amp-0.15.44-gemini-seat",
 			"from": "Upstream 0.15.44 moves the Gemini panel seat in arena, poteto-mode and setup-pstack from gemini-4-carbon-high to gemini-4-neon-high, and has setup-pstack rewrite saved non-Neon gemini-4-* panel entries to gemini-4-neon-high at high effort.",
