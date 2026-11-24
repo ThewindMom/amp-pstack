@@ -61,6 +61,14 @@ Use pstack:sharpen. Write a migration guide for the v2 config format.
 
 The agent names what a top professional would add, the raw material they would start from, their methods and tools, and an outside check of the result. It returns a rewritten prompt that asks for those things without expanding the task or deciding your choices. It preserves explicit constraints and permissions and does not do the task. Read the rewrite, then send it, for example with `pstack:poteto-mode`.
 
+When you can't name what you're after, run [`pstack:reframe`](../../skills/reframe/SKILL.md) on your own description and files first:
+
+```text
+Use pstack:reframe. The settings page saves some fields right away and others only on submit, and people lose edits.
+```
+
+If your description could name more than one problem, the agent first lists the two or three it could be, with the sign that tells each apart, and picks the likeliest. Then it gives 8 to 12 expert terms, ranked by how much each would change what you build. Each comes with the part of your description it names, a real project that uses it, with the link checked, and what it lets you ask an agent for. It also borrows terms from 2 or 3 neighboring fields that solved the same problem under other names, and says where each analogy breaks. Then it rewrites your description with the new words. Send the rewrite, or run `pstack:sharpen` on it.
+
 When the conversation already carries the context, the prompt shrinks to almost nothing. All of these are enough:
 
 ```text

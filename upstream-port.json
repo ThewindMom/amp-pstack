@@ -2,11 +2,17 @@
 	"upstream": {
 		"repository": "https://github.com/cursor/plugins",
 		"path": "pstack",
-		"commit": "0b46ec399d55f2829e88822998f53b84944837d3",
-		"version": "0.15.46",
-		"tree": "https://github.com/cursor/plugins/tree/0b46ec399d55f2829e88822998f53b84944837d3/pstack"
+		"commit": "9e278fe4d4ecd8bfe98b1b79bf4be662efb338cc",
+		"version": "0.15.48",
+		"tree": "https://github.com/cursor/plugins/tree/9e278fe4d4ecd8bfe98b1b79bf4be662efb338cc/pstack"
 	},
 	"intentionalDepartures": [
+		{
+			"id": "amp-0.15.48-reframe",
+			"from": "Upstream 0.15.47 and 0.15.48 add the /reframe skill, which teaches ranked expert terms with checked links, borrows terms from neighboring fields, lists the problems a vague description could be, and rewrites the description; README, poteto-help and the poteto-mode guide list it.",
+			"to": "Amp registers reframe as the 59th skill with the upstream body, invoked as pstack:reframe. Like sharpen, its frontmatter says Only use when named instead of disable-model-invocation, and it ends by returning the rewrite without executing the task under explicit user constraints and Amp permission boundaries.",
+			"why": "Adopt the new skill with Amp's named-invocation convention and the same no-execution boundary as sharpen."
+		},
 		{
 			"id": "amp-0.15.46-adapter",
 			"from": "Upstream 0.15.45 runs the Gemini panel seat at gemini-4-neon-xhigh and has setup-pstack migrate saved gemini-4-neon-high panel entries. Upstream 0.15.46 runs statechart on native Windows: TLC line readers accept CRLF, the group kill and janitor stop using /bin/sh, java and mise start hidden, and statechart SKILL.md names a node command for Windows.",

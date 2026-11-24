@@ -69,6 +69,7 @@ The default is `pstack:poteto-mode`, which runs most others when needed. Name a 
 | Write docs, RFCs, READMEs, PR descriptions, or commits | [`pstack:technical-writing`](../technical-writing/SKILL.md) |
 | Hear the last reply in plain words | [`pstack:bro`](../bro/SKILL.md) |
 | Get a prompt rewritten with an expert approach, raw material, methods, and an outside check, without expanding or executing the task | [`pstack:sharpen`](../sharpen/SKILL.md) |
+| Learn the expert words for what they're building, including words borrowed from neighboring fields, with every cited source checked, and get their description rewritten with them | [`pstack:reframe`](../reframe/SKILL.md) |
 | Give agents a scripted way to drive the app | [`pstack:create-verification-skill`](../create-verification-skill/SKILL.md) |
 | Bring a verification skill back in line with the app | [`pstack:maintain-verification-skill`](../maintain-verification-skill/SKILL.md) |
 | Formally verify a race, invariant, or other property that tests rarely reach | [`pstack:create-formal-verification-skill`](../create-formal-verification-skill/SKILL.md) |

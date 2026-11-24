@@ -5,8 +5,8 @@ import { describe, expect, test } from 'bun:test'
 import { COORDINATOR_INSTRUCTIONS } from './poteto-mode'
 import port from './upstream-port.json'
 
-const PINNED_COMMIT = '0b46ec399d55f2829e88822998f53b84944837d3'
-const PINNED_VERSION = '0.15.46'
+const PINNED_COMMIT = '9e278fe4d4ecd8bfe98b1b79bf4be662efb338cc'
+const PINNED_VERSION = '0.15.48'
 const PINNED_REPO = 'https://github.com/cursor/plugins'
 
 function repoFile(relative: string) {
@@ -14,7 +14,7 @@ function repoFile(relative: string) {
 }
 
 describe('upstream port provenance', () => {
-	test('records the pinned cursor/plugins pstack 0.15.46 commit', () => {
+	test('records the pinned cursor/plugins pstack 0.15.48 commit', () => {
 		expect(port.upstream.repository).toBe(PINNED_REPO)
 		expect(port.upstream.path).toBe('pstack')
 		expect(port.upstream.commit).toBe(PINNED_COMMIT)
@@ -228,7 +228,7 @@ describe('intentional Amp departures', () => {
 		const setup = frontmatters.find(({ file }) => file === 'skills/setup-pstack/SKILL.md')
 		const routed = frontmatters.filter(({ file }) => file !== 'skills/setup-pstack/SKILL.md')
 
-		expect(routed).toHaveLength(57)
+		expect(routed).toHaveLength(58)
 		for (const { frontmatter } of routed) {
 			expect(frontmatter).toMatch(/description:(?: ["']| >-\n\s+)Only use when named/)
 		}
@@ -484,6 +484,21 @@ describe('0.15.46 statechart Windows contract', () => {
 		expect(statechart).toContain('`node --disable-warning=ExperimentalWarning <loaded-skill-base>/scripts/statechart.ts`')
 		expect(await Bun.file(new URL('skills/statechart/scripts/kill.ts', import.meta.url)).exists()).toBe(true)
 		expect(await Bun.file(new URL('skills/statechart/scripts/janitor.ts', import.meta.url)).exists()).toBe(true)
+	})
+})
+
+describe('0.15.48 reframe contract', () => {
+	test('teaches checked expert terms for a named request and returns the rewrite without executing the task', async () => {
+		const reframe = await repoFile('skills/reframe/SKILL.md')
+		expect(reframe).toContain('Only use when named.')
+		expect(reframe).toContain('list the two or three problems it could be')
+		expect(reframe).toContain('Give 8 to 12 terms, ranked by how much each would change what gets built.')
+		expect(reframe).toContain('Pick 2 or 3 neighboring fields')
+		expect(reframe).toContain('Rewrite their description with the new words.')
+		expect(reframe).toContain('Open every link and confirm it uses the term that way.')
+		expect(reframe).toContain('do not execute the task')
+		expect(reframe).toContain('Explicit user constraints and Amp permission boundaries still apply.')
+		expect(reframe).not.toContain('disable-model-invocation')
 	})
 })
 
